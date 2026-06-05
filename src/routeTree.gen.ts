@@ -9,7 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as CompaniesRouteImport } from './routes/companies'
+import { Route as TannusRouteImport } from './routes/tannus'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
@@ -23,9 +23,9 @@ import { Route as AuthenticatedCompanySlugProductsRouteImport } from './routes/_
 import { Route as AuthenticatedCompanySlugImportRouteImport } from './routes/_authenticated/$companySlug/import'
 import { Route as AuthenticatedCompanySlugDashboardRouteImport } from './routes/_authenticated/$companySlug/dashboard'
 
-const CompaniesRoute = CompaniesRouteImport.update({
-  id: '/companies',
-  path: '/companies',
+const TannusRoute = TannusRouteImport.update({
+  id: '/tannus',
+  path: '/tannus',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -99,7 +99,7 @@ const AuthenticatedCompanySlugDashboardRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/companies': typeof CompaniesRoute
+  '/tannus': typeof TannusRoute
   '/$companySlug/dashboard': typeof AuthenticatedCompanySlugDashboardRoute
   '/$companySlug/import': typeof AuthenticatedCompanySlugImportRoute
   '/$companySlug/products': typeof AuthenticatedCompanySlugProductsRoute
@@ -113,7 +113,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/companies': typeof CompaniesRoute
+  '/tannus': typeof TannusRoute
   '/$companySlug/dashboard': typeof AuthenticatedCompanySlugDashboardRoute
   '/$companySlug/import': typeof AuthenticatedCompanySlugImportRoute
   '/$companySlug/products': typeof AuthenticatedCompanySlugProductsRoute
@@ -129,7 +129,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
-  '/companies': typeof CompaniesRoute
+  '/tannus': typeof TannusRoute
   '/_authenticated/$companySlug/dashboard': typeof AuthenticatedCompanySlugDashboardRoute
   '/_authenticated/$companySlug/import': typeof AuthenticatedCompanySlugImportRoute
   '/_authenticated/$companySlug/products': typeof AuthenticatedCompanySlugProductsRoute
@@ -145,7 +145,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
-    | '/companies'
+    | '/tannus'
     | '/$companySlug/dashboard'
     | '/$companySlug/import'
     | '/$companySlug/products'
@@ -159,7 +159,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
-    | '/companies'
+    | '/tannus'
     | '/$companySlug/dashboard'
     | '/$companySlug/import'
     | '/$companySlug/products'
@@ -174,7 +174,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
-    | '/companies'
+    | '/tannus'
     | '/_authenticated/$companySlug/dashboard'
     | '/_authenticated/$companySlug/import'
     | '/_authenticated/$companySlug/products'
@@ -190,17 +190,17 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
-  CompaniesRoute: typeof CompaniesRoute
+  TannusRoute: typeof TannusRoute
   ApiPublicCeletusWebhookRoute: typeof ApiPublicCeletusWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/companies': {
-      id: '/companies'
-      path: '/companies'
-      fullPath: '/companies'
-      preLoaderRoute: typeof CompaniesRouteImport
+    '/tannus': {
+      id: '/tannus'
+      path: '/tannus'
+      fullPath: '/tannus'
+      preLoaderRoute: typeof TannusRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -321,9 +321,19 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
-  CompaniesRoute: CompaniesRoute,
+  TannusRoute: TannusRoute,
   ApiPublicCeletusWebhookRoute: ApiPublicCeletusWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
