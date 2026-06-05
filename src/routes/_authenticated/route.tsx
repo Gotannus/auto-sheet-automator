@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet, Link } from "@tanstack/react-router";
-import { LayoutDashboard, Package, Settings as SettingsIcon, Upload, Webhook } from "lucide-react";
+import { LayoutDashboard, Package, Receipt, Settings as SettingsIcon, Upload, Webhook } from "lucide-react";
 import { companyPath, getCompanyFromPath } from "@/lib/celetus/workspaces";
 
 export const Route = createFileRoute("/_authenticated")({
@@ -26,6 +26,12 @@ function AuthedLayout() {
             icon={<LayoutDashboard className="h-4 w-4" />}
           >
             Dashboard
+          </NavItem>
+          <NavItem
+            to={companyPath(company.slug, "sales")}
+            icon={<Receipt className="h-4 w-4" />}
+          >
+            Vendas
           </NavItem>
           <NavItem
             to={companyPath(company.slug, "products")}
