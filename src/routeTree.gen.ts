@@ -20,6 +20,7 @@ import { Route as AuthenticatedCompanySlugIndexRouteImport } from './routes/_aut
 import { Route as ApiPublicCeletusWebhookRouteImport } from './routes/api/public/celetus-webhook'
 import { Route as AuthenticatedCompanySlugWebhookRouteImport } from './routes/_authenticated/$companySlug/webhook'
 import { Route as AuthenticatedCompanySlugSettingsRouteImport } from './routes/_authenticated/$companySlug/settings'
+import { Route as AuthenticatedCompanySlugSalesRouteImport } from './routes/_authenticated/$companySlug/sales'
 import { Route as AuthenticatedCompanySlugProductsRouteImport } from './routes/_authenticated/$companySlug/products'
 import { Route as AuthenticatedCompanySlugImportRouteImport } from './routes/_authenticated/$companySlug/import'
 import { Route as AuthenticatedCompanySlugDashboardRouteImport } from './routes/_authenticated/$companySlug/dashboard'
@@ -81,6 +82,12 @@ const AuthenticatedCompanySlugSettingsRoute =
     path: '/$companySlug/settings',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedCompanySlugSalesRoute =
+  AuthenticatedCompanySlugSalesRouteImport.update({
+    id: '/$companySlug/sales',
+    path: '/$companySlug/sales',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedCompanySlugProductsRoute =
   AuthenticatedCompanySlugProductsRouteImport.update({
     id: '/$companySlug/products',
@@ -110,6 +117,7 @@ export interface FileRoutesByFullPath {
   '/$companySlug/dashboard': typeof AuthenticatedCompanySlugDashboardRoute
   '/$companySlug/import': typeof AuthenticatedCompanySlugImportRoute
   '/$companySlug/products': typeof AuthenticatedCompanySlugProductsRoute
+  '/$companySlug/sales': typeof AuthenticatedCompanySlugSalesRoute
   '/$companySlug/settings': typeof AuthenticatedCompanySlugSettingsRoute
   '/$companySlug/webhook': typeof AuthenticatedCompanySlugWebhookRoute
   '/api/public/celetus-webhook': typeof ApiPublicCeletusWebhookRoute
@@ -125,6 +133,7 @@ export interface FileRoutesByTo {
   '/$companySlug/dashboard': typeof AuthenticatedCompanySlugDashboardRoute
   '/$companySlug/import': typeof AuthenticatedCompanySlugImportRoute
   '/$companySlug/products': typeof AuthenticatedCompanySlugProductsRoute
+  '/$companySlug/sales': typeof AuthenticatedCompanySlugSalesRoute
   '/$companySlug/settings': typeof AuthenticatedCompanySlugSettingsRoute
   '/$companySlug/webhook': typeof AuthenticatedCompanySlugWebhookRoute
   '/api/public/celetus-webhook': typeof ApiPublicCeletusWebhookRoute
@@ -142,6 +151,7 @@ export interface FileRoutesById {
   '/_authenticated/$companySlug/dashboard': typeof AuthenticatedCompanySlugDashboardRoute
   '/_authenticated/$companySlug/import': typeof AuthenticatedCompanySlugImportRoute
   '/_authenticated/$companySlug/products': typeof AuthenticatedCompanySlugProductsRoute
+  '/_authenticated/$companySlug/sales': typeof AuthenticatedCompanySlugSalesRoute
   '/_authenticated/$companySlug/settings': typeof AuthenticatedCompanySlugSettingsRoute
   '/_authenticated/$companySlug/webhook': typeof AuthenticatedCompanySlugWebhookRoute
   '/api/public/celetus-webhook': typeof ApiPublicCeletusWebhookRoute
@@ -159,6 +169,7 @@ export interface FileRouteTypes {
     | '/$companySlug/dashboard'
     | '/$companySlug/import'
     | '/$companySlug/products'
+    | '/$companySlug/sales'
     | '/$companySlug/settings'
     | '/$companySlug/webhook'
     | '/api/public/celetus-webhook'
@@ -174,6 +185,7 @@ export interface FileRouteTypes {
     | '/$companySlug/dashboard'
     | '/$companySlug/import'
     | '/$companySlug/products'
+    | '/$companySlug/sales'
     | '/$companySlug/settings'
     | '/$companySlug/webhook'
     | '/api/public/celetus-webhook'
@@ -190,6 +202,7 @@ export interface FileRouteTypes {
     | '/_authenticated/$companySlug/dashboard'
     | '/_authenticated/$companySlug/import'
     | '/_authenticated/$companySlug/products'
+    | '/_authenticated/$companySlug/sales'
     | '/_authenticated/$companySlug/settings'
     | '/_authenticated/$companySlug/webhook'
     | '/api/public/celetus-webhook'
@@ -282,6 +295,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCompanySlugSettingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/$companySlug/sales': {
+      id: '/_authenticated/$companySlug/sales'
+      path: '/$companySlug/sales'
+      fullPath: '/$companySlug/sales'
+      preLoaderRoute: typeof AuthenticatedCompanySlugSalesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/$companySlug/products': {
       id: '/_authenticated/$companySlug/products'
       path: '/$companySlug/products'
@@ -314,6 +334,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCompanySlugDashboardRoute: typeof AuthenticatedCompanySlugDashboardRoute
   AuthenticatedCompanySlugImportRoute: typeof AuthenticatedCompanySlugImportRoute
   AuthenticatedCompanySlugProductsRoute: typeof AuthenticatedCompanySlugProductsRoute
+  AuthenticatedCompanySlugSalesRoute: typeof AuthenticatedCompanySlugSalesRoute
   AuthenticatedCompanySlugSettingsRoute: typeof AuthenticatedCompanySlugSettingsRoute
   AuthenticatedCompanySlugWebhookRoute: typeof AuthenticatedCompanySlugWebhookRoute
   AuthenticatedCompanySlugIndexRoute: typeof AuthenticatedCompanySlugIndexRoute
@@ -328,6 +349,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
     AuthenticatedCompanySlugDashboardRoute,
   AuthenticatedCompanySlugImportRoute: AuthenticatedCompanySlugImportRoute,
   AuthenticatedCompanySlugProductsRoute: AuthenticatedCompanySlugProductsRoute,
+  AuthenticatedCompanySlugSalesRoute: AuthenticatedCompanySlugSalesRoute,
   AuthenticatedCompanySlugSettingsRoute: AuthenticatedCompanySlugSettingsRoute,
   AuthenticatedCompanySlugWebhookRoute: AuthenticatedCompanySlugWebhookRoute,
   AuthenticatedCompanySlugIndexRoute: AuthenticatedCompanySlugIndexRoute,
@@ -345,3 +367,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
