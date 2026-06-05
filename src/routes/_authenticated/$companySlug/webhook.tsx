@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Copy, RefreshCw, Save } from "lucide-react";
-import { companyPath, isCompanySlug, resolveCompany } from "@/lib/celetus/workspaces";
+import { companyPath, isValidSlug, resolveCompany } from "@/lib/celetus/workspaces";
 
 const webhookQO = (companySlug: string) =>
   queryOptions({
@@ -24,8 +24,8 @@ const webhookQO = (companySlug: string) =>
 export const Route = createFileRoute("/_authenticated/$companySlug/webhook")({
   head: () => ({ meta: [{ title: "Webhook â€” Painel Celetus" }] }),
   beforeLoad: ({ params }) => {
-    if (!isCompanySlug(params.companySlug)) {
-      throw redirect({ to: companyPath("tannus-labs", "webhook"), replace: true });
+    if (!isValidSlug(params.companySlug)) {
+      throw redirect({ to: "/companies", replace: true });
     }
   },
   loader: ({ context, params }) =>
@@ -36,7 +36,7 @@ export const Route = createFileRoute("/_authenticated/$companySlug/webhook")({
 
 function WebhookPage() {
   const { companySlug } = Route.useParams();
-  const company = resolveCompany(companySlug);
+  const company = { slug: companySlug };
   const { data } = useSuspenseQuery(webhookQO(company.slug));
   const qc = useQueryClient();
   const rot = useServerFn(rotateWebhookSecret);

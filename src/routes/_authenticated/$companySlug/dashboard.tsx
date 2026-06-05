@@ -10,7 +10,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { listProducts, type Product } from "@/lib/celetus/products.functions";
 import { getDashboard, upsertDailyInput } from "@/lib/celetus/dashboard.functions";
-import { companyPath, isCompanySlug, resolveCompany } from "@/lib/celetus/workspaces";
+import { companyPath, isValidSlug, resolveCompany } from "@/lib/celetus/workspaces";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Select,
@@ -35,8 +35,8 @@ import { Button } from "@/components/ui/button";
 export const Route = createFileRoute("/_authenticated/$companySlug/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard - Painel Celetus" }] }),
   beforeLoad: ({ params }) => {
-    if (!isCompanySlug(params.companySlug)) {
-      throw redirect({ to: companyPath("tannus-labs", "dashboard"), replace: true });
+    if (!isValidSlug(params.companySlug)) {
+      throw redirect({ to: "/companies", replace: true });
     }
   },
   loader: ({ context, params }) =>
@@ -72,7 +72,7 @@ type DayData = DashboardData["days"][number];
 
 function DashboardPage() {
   const { companySlug } = Route.useParams();
-  const company = resolveCompany(companySlug);
+  const company = { slug: companySlug };
   const { data: products } = useSuspenseQuery(productsQO(company.slug));
   const now = new Date();
   const [productId, setProductId] = useState<string>(TOTAL_PRODUCT_ID);

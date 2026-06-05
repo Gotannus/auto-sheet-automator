@@ -9,7 +9,7 @@ import {
   reprocessWebhookEvent,
   type WebhookEventRow,
 } from "@/lib/celetus/webhook-events.functions";
-import { companyPath, isCompanySlug } from "@/lib/celetus/workspaces";
+import { companyPath, isValidSlug } from "@/lib/celetus/workspaces";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -38,9 +38,9 @@ import {
 export const Route = createFileRoute("/_authenticated/$companySlug/webhook-logs")({
   head: () => ({ meta: [{ title: "Webhook Logs — Painel Celetus" }] }),
   beforeLoad: ({ params }) => {
-    if (!isCompanySlug(params.companySlug)) {
+    if (!isValidSlug(params.companySlug)) {
       throw redirect({
-        to: companyPath("tannus-labs", "webhook-logs"),
+        to: "/companies",
         replace: true,
       });
     }
