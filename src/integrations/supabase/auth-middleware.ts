@@ -18,7 +18,7 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" }).server
           supabase: supabaseAdmin,
           userId: TEMPORARY_PUBLIC_USER_ID,
           claims: { sub: TEMPORARY_PUBLIC_USER_ID },
-        },
+        } as any,
       });
     }
 
@@ -83,7 +83,7 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" }).server
         supabase,
         userId: data.claims.sub,
         claims: data.claims,
-      },
+      } as any,
     });
   },
 );
