@@ -40,7 +40,7 @@ export const Route = createFileRoute("/_authenticated/$companySlug/webhook-logs"
   beforeLoad: ({ params }) => {
     if (!isValidSlug(params.companySlug)) {
       throw redirect({
-        to: "/companies",
+        to: "/tannus",
         replace: true,
       });
     }

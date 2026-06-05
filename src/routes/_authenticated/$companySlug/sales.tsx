@@ -31,7 +31,7 @@ export const Route = createFileRoute("/_authenticated/$companySlug/sales")({
   head: () => ({ meta: [{ title: "Vendas — Painel Celetus" }] }),
   beforeLoad: ({ params }) => {
     if (!isValidSlug(params.companySlug)) {
-      throw redirect({ to: "/companies", replace: true });
+      throw redirect({ to: "/tannus", replace: true });
     }
   },
   component: SalesPage,

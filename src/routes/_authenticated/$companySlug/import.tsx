@@ -11,7 +11,7 @@ export const Route = createFileRoute("/_authenticated/$companySlug/import")({
   head: () => ({ meta: [{ title: "Importar planilha — Painel Celetus" }] }),
   beforeLoad: ({ params }) => {
     if (!isValidSlug(params.companySlug)) {
-      throw redirect({ to: "/companies", replace: true });
+      throw redirect({ to: "/tannus", replace: true });
     }
   },
   component: ImportPage,

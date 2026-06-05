@@ -4,7 +4,7 @@ import { companyPath, isValidSlug } from "@/lib/celetus/workspaces";
 export const Route = createFileRoute("/_authenticated/$companySlug/")({
   beforeLoad: ({ params }) => {
     if (!isValidSlug(params.companySlug)) {
-      throw redirect({ to: "/companies", replace: true });
+      throw redirect({ to: "/tannus", replace: true });
     }
 
     throw redirect({ to: companyPath(params.companySlug, "dashboard"), replace: true });

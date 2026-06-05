@@ -27,7 +27,7 @@ const companiesQO = queryOptions({
   queryFn: () => listMyCompanies(),
 });
 
-export const Route = createFileRoute("/companies")({
+export const Route = createFileRoute("/tannus")({
   loader: ({ context }) => context.queryClient.ensureQueryData(companiesQO),
   component: CompaniesPage,
   errorComponent: ({ error }) => (

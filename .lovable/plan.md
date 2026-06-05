@@ -1,85 +1,57 @@
+## Objetivo
 
-## Auditoria do gap 324 vs 425,41
+Transformar o modelo atual (1 dono → várias empresas) em um modelo onde cada sócio tem login próprio, fixo em 1 empresa, e só você (dono) tem acesso ao seletor de empresas — escondido na URL `/tannus`. Sócios não veem nada que sugira que existem outras empresas.
 
-Cruzei a planilha (`report_2026-06-05T19_48_01_730Z.xlsx`) com o banco e isolei **dois problemas independentes** que somados produzem o gap.
+## Mudanças no banco
 
-### Diagnóstico
+1. **Nova tabela `company_members`** (`company_id`, `user_id`, `role`, `created_at`)
+   - Liga sócios a empresas. O dono (`companies.owner_user_id`) tem acesso implícito.
+   - RLS: dono da empresa gerencia membros; membros leem a própria linha.
 
-**Totais na planilha (05/06, Status=Pago):**
+2. **Função `has_company_access(user_id, company_id) → boolean`** (SECURITY DEFINER)
+   - Retorna `true` se o usuário é dono OU está em `company_members`.
 
-| Tipo | Qtde | Soma `Value` |
-|---|---:|---:|
-| Principal | 38 | 325,40 |
-| Orderbump | 28 | 100,01 |
-| **Total** | **66** | **425,41** ✅ (igual ao "faturado" da Celetus) |
+3. **RLS atualizada** em `companies`, `celetus_sales`, `products`, `daily_manual_inputs`, `monthly_settings`, `monthly_tax_settings`, `webhook_config`, `webhook_events`
+   - Trocar `auth.uid() = user_id` por `has_company_access(auth.uid(), user_id)`.
+   - Sócios passam a ver/editar os mesmos dados operacionais da empresa.
 
-**Totais no banco (mesmo intervalo):**
+## Mudanças no app
 
-| Tipo | Qtde | Soma `commission_value` |
-|---|---:|---:|
-| Principal | 28 | 324,31 |
-| Orderbump | 16 | 98,99 |
-| **Total** | **44** | **423,30** |
+4. **`companies-resolve.ts`** — deixar de exigir `owner_user_id = auth.uid()`. Resolver por slug + verificar acesso via `has_company_access`.
 
-E o dashboard mostra **324** porque o agregador (`getDashboard`) só soma Principal — Orderbump entra em outra coluna (`ob_revenue`), nunca em `revenue`.
+5. **Rota `/companies` → `/tannus`** (renomear o arquivo `src/routes/companies.tsx`)
+   - Continua sendo a tela onde você cria/escolhe empresas.
+   - Sem link público pra ela. Só você sabe a URL.
 
-### Causa 1 — Conceitual (responsável por ~99% do gap)
+6. **Pós-login inteligente** (em `src/routes/auth.tsx` e `src/routes/index.tsx`)
+   - Buscar empresas acessíveis do usuário logado.
+   - Se **1 empresa** → redirect direto pra `/{slug}/dashboard`.
+   - Se **>1 empresa** → redirect pra `/tannus`.
+   - Sócio com 1 empresa nunca enxerga o seletor.
 
-`src/lib/celetus/dashboard.functions.ts` linhas 206–214: `a.revenue` só recebe `itemCommission` quando `kind === 'principal'`. Orderbump vai para `a.obRevenue`.
+7. **Sidebar (`_authenticated/route.tsx`)**
+   - Esconder o link "Trocar de empresa" quando o usuário tem acesso a apenas 1 empresa.
+   - Você (com acesso às duas) continua vendo; sócios não veem nada.
 
-A Celetus, ao mostrar "faturado no dia = 425,41", soma **todos os line items** do checkout (Principal + cada Orderbump como linha própria). Para a paridade que você validou no Mulher Forte/Peso, a métrica "Faturamento" precisa ser **Principal.commission_value + Orderbump.commission_value**, mesmo na visão geral sem filtro de produto.
+8. **Settings da empresa** — nova seção "Sócios" visível **só pro dono**
+   - Listar membros atuais.
+   - Adicionar sócio por e-mail (server fn com `supabaseAdmin` busca o `auth.users.id` pelo email e insere em `company_members`). Se o email não existe ainda, mostra mensagem pedindo que a pessoa crie a conta primeiro.
+   - Remover membro.
 
-Hoje, mesmo com o ajuste anterior (orderbump atribuído ao produto-pai via SRC), eu só puxo a linha pra dentro do filtro do produto, mas continuo somando ela em `ob_revenue` e não em `revenue`. Resultado: número total e por produto continuam menores que a Celetus.
+## Fluxo final
 
-### Causa 2 — Dados faltando (~2,10 do gap + 9 orderbumps "perdidos")
+```text
+você (dono de Tannus + Cecilia)
+  login → /tannus → escolhe → /tannus-labs/dashboard
 
-10 vendas Principal e ~12 Orderbumps relacionadas estão na planilha mas não no banco:
+sócio Marcos (member de Cecilia)
+  login → /cecilia-labs/dashboard (direto, sem seletor)
+  sidebar não mostra "Trocar de empresa"
+  Settings não mostra a seção "Sócios"
+```
 
-- `Sondagem Diagnóstica - Alfabetização` (4 vendas)
-- `Kit para Crianças Autistas` (3 vendas)
-- `Kit Estimulação Cognitiva` (3 vendas)
+## Fora do escopo
 
-Conferi `products` e `celetus_sales`: esses 3 produtos **nunca foram criados** no workspace. `webhook_events` está vazio (nenhum webhook caiu desde o deploy de logging), e não temos hoje nenhum log da rota `importCeletusReport`, então não dá pra dizer se o upload da planilha agora rodou e falhou no meio, ou se ele nem chegou ao handler.
-
-A função `importCeletusReport` (linhas 98–111) cria produtos novos sob demanda, então a explicação mais provável é que a importação **não foi executada com sucesso** (sem rastro). Precisamos de logging para essa rota.
-
----
-
-## Plano
-
-### Passo 1 — Faturamento = Principal + Orderbump no dashboard
-
-Em `src/lib/celetus/dashboard.functions.ts`, no loop de agregação (linha 206):
-- Manter `a.obQty` / `a.obRevenue` como hoje (para a coluna "OB" e cálculo do `ob_pct`).
-- Adicionar `a.revenue += itemCommission` **também** para `kind === 'orderbump'`.
-- Para `a.sales`, manter contando só Principal (1 venda = 1 checkout, mantém ticket médio fiel).
-
-Validação esperada (05/06, sem filtro): `revenue = 423,30`, `sales = 28`, `ob_qty = 16`, `ob_revenue = 98,99`. Depois do Passo 2 (reimportar), `revenue` vai para **425,41**, batendo com a Celetus.
-
-Sem mudança no `Sales` (aba Vendas) — a lista por linha continua igual.
-
-### Passo 2 — Reprocessar a planilha e instrumentar a rota de importação
-
-a) **Logging da importação:** estender `webhook_events` (ou criar tabela própria `import_events`) com `kind = 'import'`, `received_at`, `rows_read`, `rows_upserted`, `rows_ignored`, `products_created`, `error_message`, `file_name`. Em `importCeletusReport`, gravar uma linha por upload (sucesso ou erro), e mostrar essas linhas no `/webhook-logs` filtradas por tipo.
-
-b) **Reimportar o arquivo agora:** depois do logging no ar, você reenvia o `report_2026-06-05T19_48_01_730Z.xlsx` pela tela **Importar**. O upsert via `(user_id, transaction_code, line_item_code)` ignora o que já existe e cria os 3 produtos novos + as ~22 linhas que faltam.
-
-### Validação final pós-Passos 1 + 2
-
-Dashboard de 05/jun, sem filtro de produto:
-- `Faturamento` = **425,41**
-- `Vendas (Principais)` = 38
-- `OB qtde` = 28 / `OB receita` = 100,01
-
-Dashboard com filtro "O Peso da Cama Feita" continua **173,29** (já validado).
-
-### Fora de escopo
-
-- Mudar o cálculo de `sales` para incluir orderbumps (quebraria ticket médio).
-- Reprocessar webhooks antigos: o `webhook_events` só captura daqui pra frente; o histórico continua dependendo da reimportação de planilha.
-- Tela de gestão dos `import_events` além de aparecer junto com webhooks em `/webhook-logs`.
-
-### Notas técnicas
-
-- Arquivos tocados: `src/lib/celetus/dashboard.functions.ts`, `src/lib/celetus/import.functions.ts`, `src/routes/_authenticated/$companySlug/webhook-logs.tsx`, `src/lib/celetus/webhook-events.functions.ts`.
-- Migração: nova coluna `kind text` (default `'webhook'`) em `webhook_events`, ou criar `import_events` com a mesma forma; prefiro a 1ª opção pra reaproveitar UI.
+- Múltiplos roles além de "member" (ex: viewer só leitura).
+- Convite por email com link mágico — por enquanto o sócio precisa já ter conta criada.
+- Auditoria de quem alterou o quê.

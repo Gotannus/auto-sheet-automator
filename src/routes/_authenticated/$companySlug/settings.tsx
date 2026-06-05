@@ -1,8 +1,15 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { queryOptions, useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { queryOptions, useMutation, useQueryClient, useSuspenseQuery, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState, useEffect } from "react";
+import { Trash2, UserPlus, Crown } from "lucide-react";
 import { getSettings, updateSettings } from "@/lib/celetus/settings.functions";
+import {
+  getCompanyBySlug,
+  listCompanyMembers,
+  addCompanyMember,
+  removeCompanyMember,
+} from "@/lib/celetus/companies.functions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +22,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { companyPath, isValidSlug } from "@/lib/celetus/workspaces";
+import { isValidSlug } from "@/lib/celetus/workspaces";
+
 
 const settingsQO = (companySlug: string, year?: number, month?: number) =>
   queryOptions({
@@ -42,7 +50,7 @@ export const Route = createFileRoute("/_authenticated/$companySlug/settings")({
   head: () => ({ meta: [{ title: "Configuracoes - Painel Celetus" }] }),
   beforeLoad: ({ params }) => {
     if (!isValidSlug(params.companySlug)) {
-      throw redirect({ to: "/companies", replace: true });
+      throw redirect({ to: "/tannus", replace: true });
     }
   },
   loader: ({ context, params }) =>
@@ -243,7 +251,112 @@ function SettingsPage() {
           </Button>
         </CardContent>
       </Card>
+      <MembersCard companySlug={company.slug} />
     </div>
+  );
+}
+
+function MembersCard({ companySlug }: { companySlug: string }) {
+  const qc = useQueryClient();
+  const add = useServerFn(addCompanyMember);
+  const remove = useServerFn(removeCompanyMember);
+  const [email, setEmail] = useState("");
+
+  // Probe ownership — only show this card when the current user is the owner.
+  const { data: company, isLoading: loadingCompany } = useQuery({
+    queryKey: ["company-current", companySlug],
+    queryFn: () => getCompanyBySlug({ data: { slug: companySlug } }),
+  });
+
+  const { data: members, isLoading } = useQuery({
+    queryKey: ["company-members", companySlug],
+    queryFn: () => listCompanyMembers({ data: { company_slug: companySlug } }),
+    enabled: !!company?.is_owner,
+  });
+
+  const addMut = useMutation({
+    mutationFn: (e: string) => add({ data: { company_slug: companySlug, email: e } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["company-members", companySlug] });
+      setEmail("");
+      toast.success("Sócio adicionado");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const rmMut = useMutation({
+    mutationFn: (memberId: string) =>
+      remove({ data: { company_slug: companySlug, member_id: memberId } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["company-members", companySlug] });
+      toast.success("Sócio removido");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  if (loadingCompany) return null;
+  if (!company?.is_owner) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Crown className="h-4 w-4 text-primary" /> Sócios desta empresa
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-xs text-muted-foreground">
+          Cada sócio precisa ter conta criada com o e-mail abaixo. Ao adicionar, ele
+          passa a ver os mesmos dados desta empresa, sem acesso às outras.
+        </p>
+        <div className="flex gap-2">
+          <Input
+            type="email"
+            placeholder="email@exemplo.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && email.trim()) addMut.mutate(email.trim());
+            }}
+          />
+          <Button
+            onClick={() => email.trim() && addMut.mutate(email.trim())}
+            disabled={!email.trim() || addMut.isPending}
+          >
+            <UserPlus className="h-4 w-4 mr-1" />
+            Adicionar
+          </Button>
+        </div>
+        {isLoading ? (
+          <div className="text-sm text-muted-foreground">Carregando sócios...</div>
+        ) : !members || members.length === 0 ? (
+          <div className="text-sm text-muted-foreground italic">
+            Nenhum sócio adicionado. Só você tem acesso a esta empresa.
+          </div>
+        ) : (
+          <ul className="divide-y rounded-md border">
+            {members.map((m) => (
+              <li key={m.id} className="flex items-center justify-between px-3 py-2">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium truncate">
+                    {m.email ?? "(e-mail desconhecido)"}
+                  </div>
+                  <div className="text-xs text-muted-foreground">{m.role}</div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => rmMut.mutate(m.id)}
+                  disabled={rmMut.isPending}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -256,3 +369,4 @@ function parsePtNumber(value: string) {
 
   return Number.isNaN(parsed) ? 0 : parsed;
 }
+
