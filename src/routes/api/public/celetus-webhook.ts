@@ -271,6 +271,19 @@ function buildSaleCandidates(payload: AnyRecord): SaleCandidate[] {
     ]);
     const itemCommission = getItemCommission(item, totalCommission, totalItemAmount, items.length);
     const quantity = Math.max(1, Math.trunc(num(item.quantity ?? payload.quantity, 1)));
+    const lineItemCode =
+      firstText(
+        item.productPriceCodeId,
+        item.product_price_code_id,
+        item.priceCodeId,
+        item.price_code_id,
+        item.product_code,
+        item.productCode,
+        item.product_id,
+        item.productId,
+        item.id,
+        item.code,
+      ) || `${storedSrc}:${itemKind}`;
 
     return {
       productCandidates,
