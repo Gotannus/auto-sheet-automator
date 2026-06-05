@@ -113,7 +113,7 @@ export const getDashboard = createServerFn({ method: "POST" })
     let salesQuery = supabase
       .from("celetus_sales")
       .select(
-        "kind, status, recipient, commission_value, net_value, sale_date, quantity, src, src_tag, utm_source, campaign_id, adset_id, ad_id, raw, product_id",
+        "transaction_code, kind, status, recipient, commission_value, net_value, sale_date, quantity, src, src_tag, utm_source, campaign_id, adset_id, ad_id, raw, product_id",
       )
       .eq("user_id", userId)
       .gte("sale_date", fromIso)
@@ -190,6 +190,9 @@ export const getDashboard = createServerFn({ method: "POST" })
       return a;
     };
 
+    const transactionsWithPrincipal = new Set<string>();
+    const pendingOrderbumpRevenue = new Map<string, { dateKey: string; amount: number }>();
+
     for (const s of salesRes.data ?? []) {
       if (isIgnoredIndicationSale(s)) continue;
 
@@ -201,31 +204,44 @@ export const getDashboard = createServerFn({ method: "POST" })
       const brt = new Date(dt.getTime() - 3 * 60 * 60 * 1000);
       const key = brt.toISOString().slice(0, 10);
       const a = getAgg(key);
+      const transactionCode = String(s.transaction_code ?? "");
       const itemCommission = Number(s.commission_value ?? 0);
       const qty = Number(s.quantity ?? 1);
       if (kind === "principal" || kind === "main") {
         if (qty === 1) {
           a.sales += 1;
-          a.revenue += itemCommission;
+          a.revenue += Number(s.net_value ?? itemCommission);
+          if (transactionCode) transactionsWithPrincipal.add(transactionCode);
         }
       } else if (kind === "orderbump" || kind === "order_bump" || kind === "bump") {
         a.obQty += 1;
         a.obRevenue += itemCommission;
-        // Match Celetus "faturado no dia" — sum every line item (Principal + Orderbump)
-        // into the headline revenue, not only Principal.
-        a.revenue += itemCommission;
+        // Add orderbump revenue only when the matching principal row is absent.
+        if (transactionCode) {
+          const pending = pendingOrderbumpRevenue.get(transactionCode);
+          pendingOrderbumpRevenue.set(transactionCode, {
+            dateKey: key,
+            amount: (pending?.amount ?? 0) + itemCommission,
+          });
+        } else {
+          a.revenue += itemCommission;
+        }
       }
+    }
+
+    for (const [transactionCode, pending] of pendingOrderbumpRevenue) {
+      if (transactionsWithPrincipal.has(transactionCode)) continue;
+      getAgg(pending.dateKey).revenue += pending.amount;
     }
 
     const days: DayRow[] = [];
     for (let d = 1; d <= dim; d++) {
       const key = fmtDate(data.year, data.month, d);
       const a = agg.get(key) ?? { sales: 0, revenue: 0, obQty: 0, obRevenue: 0 };
-      const dmi = dmiByDate.get(key);
       const investManual = dmi?.investManual != null ? Number(dmi.investManual) : null;
       const investFinal = investManual != null ? investManual * (1 + investmentTaxRate) : 0;
       const revenueTax = a.revenue * revenueTaxRate;
-      const profit = a.revenue - revenueTax - investFinal;
+      const profit = a.revenue - revenueTax -investFinal;
       const roi = investFinal > 0 ? profit / investFinal : 0;
       const cpa = a.sales > 0 ? investFinal / a.sales : 0;
       const ticket = a.sales > 0 ? a.revenue / a.sales : 0;

@@ -34,8 +34,8 @@ function ImportPage() {
     },
     onSuccess: (data) => {
       setResult(data);
-      qc.invalidateQueries({ queryKey: ["dashboard"] });
-      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["dash", companySlug] });
+      qc.invalidateQueries({ queryKey: ["products", companySlug] });
     },
   });
 
@@ -108,3 +108,4 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   }
   return btoa(binary);
 }
+
