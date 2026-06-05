@@ -99,12 +99,8 @@ export const reprocessWebhookEvent = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabase, userId: authUserId } = context;
+    const { supabase } = context;
     const userId = await resolveCompanyId(context.supabase, data.company_slug);
-
-    if (authUserId !== userId) {
-      throw new Error("Não autorizado para esta conta.");
-    }
 
     const { data: event, error } = await supabase
       .from("webhook_events")
@@ -124,6 +120,7 @@ export const reprocessWebhookEvent = createServerFn({ method: "POST" })
 
     await supabaseAdmin.from("webhook_events").insert({
       user_id: userId,
+      kind: "webhook",
       status: result.status,
       transaction_code: result.transactionCode,
       error_message: result.errorMessage
@@ -131,6 +128,8 @@ export const reprocessWebhookEvent = createServerFn({ method: "POST" })
         : `[reprocesso de ${data.event_id}]`,
       rows_upserted: result.rowsUpserted,
       rows_ignored: result.rowsIgnored,
+      rows_read: result.rowsReceived,
+      products_created: result.autoCreatedProducts,
       payload: event.payload,
     });
 
