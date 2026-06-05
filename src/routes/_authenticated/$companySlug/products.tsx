@@ -7,6 +7,7 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
+  type Product,
 } from "@/lib/celetus/products.functions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -126,7 +127,7 @@ function ProductsPage() {
                   </TableCell>
                 </TableRow>
               )}
-              {products.map((p) => (
+              {products.map((p: Product) => (
                 <TableRow key={p.id}>
                   <TableCell className="font-medium">{p.name}</TableCell>
                   <TableCell className="font-mono text-xs">{p.src}</TableCell>

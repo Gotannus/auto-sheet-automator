@@ -25,7 +25,7 @@ import { Route as AuthenticatedCompanySlugDashboardRouteImport } from './routes/
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
-  path: 'auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
@@ -39,22 +39,22 @@ const IndexRoute = IndexRouteImport.update({
 } as any)
 const AuthenticatedWebhookRoute = AuthenticatedWebhookRouteImport.update({
   id: '/webhook',
-  path: 'webhook',
+  path: '/webhook',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
-  path: 'settings',
+  path: '/settings',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedProductsRoute = AuthenticatedProductsRouteImport.update({
   id: '/products',
-  path: 'products',
+  path: '/products',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
-  path: 'dashboard',
+  path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedCompanySlugIndexRoute =
@@ -65,7 +65,7 @@ const AuthenticatedCompanySlugIndexRoute =
   } as any)
 const ApiPublicCeletusWebhookRoute = ApiPublicCeletusWebhookRouteImport.update({
   id: '/api/public/celetus-webhook',
-  path: 'api/public/celetus-webhook',
+  path: '/api/public/celetus-webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedCompanySlugWebhookRoute =
@@ -194,7 +194,7 @@ declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
     '/auth': {
       id: '/auth'
-      path: 'auth'
+      path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
@@ -323,13 +323,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

@@ -207,6 +207,57 @@ export type Database = {
         }
         Relationships: []
       }
+      monthly_tax_settings: {
+        Row: {
+          company_cash_rate: number
+          created_at: string
+          id: string
+          investment_tax_rate: number
+          month: number
+          monthly_expenses: number
+          partner_1_name: string
+          partner_1_rate: number
+          partner_2_name: string
+          partner_2_rate: number
+          revenue_tax_rate: number
+          updated_at: string
+          user_id: string
+          year: number
+        }
+        Insert: {
+          company_cash_rate?: number
+          created_at?: string
+          id?: string
+          investment_tax_rate?: number
+          month: number
+          monthly_expenses?: number
+          partner_1_name?: string
+          partner_1_rate?: number
+          partner_2_name?: string
+          partner_2_rate?: number
+          revenue_tax_rate?: number
+          updated_at?: string
+          user_id: string
+          year: number
+        }
+        Update: {
+          company_cash_rate?: number
+          created_at?: string
+          id?: string
+          investment_tax_rate?: number
+          month?: number
+          monthly_expenses?: number
+          partner_1_name?: string
+          partner_1_rate?: number
+          partner_2_name?: string
+          partner_2_rate?: number
+          revenue_tax_rate?: number
+          updated_at?: string
+          user_id?: string
+          year?: number
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           created_at: string

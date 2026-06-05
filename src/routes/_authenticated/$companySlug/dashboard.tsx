@@ -8,7 +8,7 @@ import {
 } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
-import { listProducts } from "@/lib/celetus/products.functions";
+import { listProducts, type Product } from "@/lib/celetus/products.functions";
 import { getDashboard, upsertDailyInput } from "@/lib/celetus/dashboard.functions";
 import { companyPath, isCompanySlug, resolveCompany } from "@/lib/celetus/workspaces";
 import { Card, CardContent } from "@/components/ui/card";
@@ -82,7 +82,7 @@ function DashboardPage() {
   const selectedProductId = isTotal ? undefined : productId;
   const selectedLabel = isTotal
     ? "Total de todos os produtos"
-    : products.find((product) => product.id === productId)?.name || "Produto";
+    : products.find((product: Product) => product.id === productId)?.name || "Produto";
 
   const fetchDash = useServerFn(getDashboard);
   const dashQuery = useQuery({
@@ -133,7 +133,7 @@ function DashboardPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={TOTAL_PRODUCT_ID}>Total</SelectItem>
-              {products.map((p) => (
+              {products.map((p: Product) => (
                 <SelectItem key={p.id} value={p.id}>
                   {p.name}
                 </SelectItem>
