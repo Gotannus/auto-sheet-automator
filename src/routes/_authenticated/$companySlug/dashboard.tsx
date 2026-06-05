@@ -36,7 +36,7 @@ export const Route = createFileRoute("/_authenticated/$companySlug/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard - Painel Celetus" }] }),
   beforeLoad: ({ params }) => {
     if (!isValidSlug(params.companySlug)) {
-      throw redirect({ to: "/companies", replace: true });
+      throw redirect({ to: "/tannus", replace: true });
     }
   },
   loader: ({ context, params }) =>
