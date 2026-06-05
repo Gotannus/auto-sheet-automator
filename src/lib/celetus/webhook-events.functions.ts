@@ -12,7 +12,7 @@ export type WebhookEventRow = {
   rows_upserted: number | null;
   rows_ignored: number | null;
   reprocessed_at: string | null;
-  payload: unknown;
+  payload: Record<string, unknown> | null;
 };
 
 export const listWebhookEvents = createServerFn({ method: "GET" })
