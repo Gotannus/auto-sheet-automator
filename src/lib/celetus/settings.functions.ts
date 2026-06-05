@@ -7,6 +7,7 @@ type SupabaseClient = (typeof import("@/integrations/supabase/client.server"))["
 
 const SETTINGS_SELECT =
   "year, month, investment_tax_rate, revenue_tax_rate, monthly_expenses, company_cash_rate, partner_1_name, partner_1_rate, partner_2_name, partner_2_rate";
+const EXPENSE_SELECT = "id, year, month, description, category, amount, expense_date, created_at";
 
 const CompanyInput = z.object({
   company_slug: z.string().optional(),
@@ -22,6 +23,19 @@ function currentYearMonth() {
 function fromUntyped(supabase: unknown, table: string) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (supabase as any).from(table);
+}
+
+function normalizeExpense(row: Record<string, unknown>) {
+  return {
+    id: String(row.id),
+    year: Number(row.year),
+    month: Number(row.month),
+    description: String(row.description ?? ""),
+    category: String(row.category ?? "Geral"),
+    amount: Number(row.amount ?? 0),
+    expense_date: row.expense_date ? String(row.expense_date) : null,
+    created_at: String(row.created_at ?? ""),
+  };
 }
 
 async function getLegacyInvestmentTaxRate(supabase: SupabaseClient, userId: string) {
@@ -160,6 +174,94 @@ export const updateSettings = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const listMonthlyExpenses = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    CompanyInput.required({ year: true, month: true }).parse(input ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const userId = await resolveCompanyId(context.supabase, data.company_slug);
+    const { data: rows, error } = await fromUntyped(supabase, "monthly_expenses")
+      .select(EXPENSE_SELECT)
+      .eq("user_id", userId)
+      .eq("year", data.year)
+      .eq("month", data.month)
+      .order("expense_date", { ascending: true, nullsFirst: true })
+      .order("created_at", { ascending: true });
+    if (error) throw new Error(error.message);
+    return ((rows ?? []) as Record<string, unknown>[]).map(normalizeExpense);
+  });
+
+export const addMonthlyExpense = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        company_slug: z.string().optional(),
+        year: z.number().int().min(2000).max(2100),
+        month: z.number().int().min(1).max(12),
+        description: z.string().trim().min(1).max(140),
+        category: z.string().trim().max(60).optional(),
+        amount: z.number().min(0.01),
+        expense_date: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .nullable()
+          .optional(),
+      })
+      .superRefine((value, ctx) => {
+        const prefix = `${value.year}-${String(value.month).padStart(2, "0")}-`;
+        if (value.expense_date && !value.expense_date.startsWith(prefix)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["expense_date"],
+            message: "A data da despesa precisa estar no mes selecionado.",
+          });
+        }
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const userId = await resolveCompanyId(context.supabase, data.company_slug);
+    const { data: row, error } = await fromUntyped(supabase, "monthly_expenses")
+      .insert({
+        user_id: userId,
+        year: data.year,
+        month: data.month,
+        description: data.description.trim(),
+        category: data.category?.trim() || "Geral",
+        amount: data.amount,
+        expense_date: data.expense_date ?? null,
+      })
+      .select(EXPENSE_SELECT)
+      .single();
+    if (error) throw new Error(error.message);
+    return normalizeExpense(row as Record<string, unknown>);
+  });
+
+export const deleteMonthlyExpense = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        company_slug: z.string().optional(),
+        id: z.string().uuid(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const userId = await resolveCompanyId(context.supabase, data.company_slug);
+    const { error } = await fromUntyped(supabase, "monthly_expenses")
+      .delete()
+      .eq("user_id", userId)
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 export const getWebhookConfig = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => CompanyInput.parse(input ?? {}))
@@ -215,4 +317,3 @@ export const rotateWebhookSecret = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { webhook_secret: secret };
   });
-
