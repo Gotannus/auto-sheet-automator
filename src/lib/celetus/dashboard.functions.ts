@@ -371,9 +371,9 @@ export const upsertDailyInput = createServerFn({ method: "POST" })
     if (data.notes !== undefined) payload.notes = data.notes;
     const { data: saved, error } = await supabase
       .from("daily_manual_inputs")
-      .select("product_id, date, invest_manual, clicks, checkouts, impressions, notes, updated_at")
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .upsert(payload as any, { onConflict: "user_id,product_id,date" })
+      .select("product_id, date, invest_manual, clicks, checkouts, impressions, notes, updated_at")
       .single();
     if (error) throw new Error(error.message);
     if (!saved) throw new Error("Investimento nao foi confirmado pelo banco de dados.");
