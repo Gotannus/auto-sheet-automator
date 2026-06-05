@@ -224,19 +224,29 @@ export const Route = createFileRoute("/api/public/celetus-webhook")({
         try {
           body = await request.json();
         } catch {
-          return json({ error: "invalid json" }, 400);
+          return ignoreWebhook("empty or invalid json");
         }
 
         const normalizedBody = unwrapPayload(body);
         const parsed = Payload.safeParse(normalizedBody);
         if (!parsed.success) {
-          return json({ error: "invalid payload", issues: parsed.error.issues }, 400);
+          return ignoreWebhook("invalid payload");
         }
         const payload = parsed.data;
 
-        const candidates = buildSaleCandidates(payload, normalizedBody);
+        let candidates: SaleCandidate[];
+        try {
+          candidates = buildSaleCandidates(payload, normalizedBody);
+        } catch (error) {
+          if (error instanceof Error && error.message === "missing transactionCode") {
+            return ignoreWebhook("missing transaction code");
+          }
+
+          throw error;
+        }
+
         if (candidates.length === 0) {
-          return json({ error: "missing sale items" }, 400);
+          return ignoreWebhook("missing sale items");
         }
 
         const { data: products, error: productsErr } = await supabaseAdmin
@@ -714,5 +724,13 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { "content-type": "application/json" },
+  });
+}
+
+function ignoreWebhook(reason: string) {
+  return json({
+    ok: true,
+    ignored: true,
+    reason,
   });
 }
