@@ -1,12 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { queryOptions, useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { getWebhookConfig, rotateWebhookSecret } from "@/lib/celetus/settings.functions";
+import { useEffect, useState } from "react";
+import {
+  getWebhookConfig,
+  rotateWebhookSecret,
+  updateWebhookSecret,
+} from "@/lib/celetus/settings.functions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Copy, RefreshCw } from "lucide-react";
+import { Copy, RefreshCw, Save } from "lucide-react";
 
 const webhookQO = () => queryOptions({ queryKey: ["webhook"], queryFn: () => getWebhookConfig() });
 
@@ -21,12 +27,29 @@ function WebhookPage() {
   const { data } = useSuspenseQuery(webhookQO());
   const qc = useQueryClient();
   const rot = useServerFn(rotateWebhookSecret);
+  const save = useServerFn(updateWebhookSecret);
+  const [token, setToken] = useState(data.webhook_secret);
+
+  useEffect(() => {
+    setToken(data.webhook_secret);
+  }, [data.webhook_secret]);
+
+  const saveMut = useMutation({
+    mutationFn: () => save({ data: { webhook_secret: token.trim() } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["webhook"] });
+      toast.success("Token salvo");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const rotMut = useMutation({
     mutationFn: () => rot(),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["webhook"] });
       toast.success("Novo token gerado");
     },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const url =
@@ -71,24 +94,36 @@ function WebhookPage() {
           <CardTitle>Token</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex gap-2">
-            <Input value={data.webhook_secret} readOnly className="font-mono text-xs" />
-            <Button variant="outline" size="icon" onClick={() => copy(data.webhook_secret)}>
-              <Copy className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                if (confirm("Gerar novo token? O anterior deixa de funcionar.")) rotMut.mutate();
-              }}
-            >
-              <RefreshCw className="h-4 w-4 mr-1" /> Rotacionar
-            </Button>
+          <div className="space-y-1.5">
+            <Label htmlFor="webhook-token">Token cadastrado na Celetus</Label>
+            <div className="flex gap-2">
+              <Input
+                id="webhook-token"
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+                className="font-mono text-xs"
+              />
+              <Button variant="outline" size="icon" onClick={() => copy(token)}>
+                <Copy className="h-4 w-4" />
+              </Button>
+              <Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending}>
+                <Save className="h-4 w-4 mr-1" /> Salvar
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (confirm("Gerar novo token? O anterior deixa de funcionar.")) rotMut.mutate();
+                }}
+                disabled={rotMut.isPending}
+              >
+                <RefreshCw className="h-4 w-4 mr-1" /> Rotacionar
+              </Button>
+            </div>
           </div>
           <div className="rounded-md bg-muted p-3 text-xs font-mono whitespace-pre-wrap break-all">
             {`curl -X POST "${url}" \\
   -H "Content-Type: application/json" \\
-  -H "Api-Token: ${data.webhook_secret}" \\
+  -H "Api-Token: ${token}" \\
   -d '{
     "event_type": "ApprovedPurchase",
     "payment_method": "pix",
