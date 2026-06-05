@@ -21,6 +21,7 @@ import { Route as ApiPublicCeletusWebhookRouteImport } from './routes/api/public
 import { Route as AuthenticatedCompanySlugWebhookRouteImport } from './routes/_authenticated/$companySlug/webhook'
 import { Route as AuthenticatedCompanySlugSettingsRouteImport } from './routes/_authenticated/$companySlug/settings'
 import { Route as AuthenticatedCompanySlugProductsRouteImport } from './routes/_authenticated/$companySlug/products'
+import { Route as AuthenticatedCompanySlugImportRouteImport } from './routes/_authenticated/$companySlug/import'
 import { Route as AuthenticatedCompanySlugDashboardRouteImport } from './routes/_authenticated/$companySlug/dashboard'
 
 const AuthRoute = AuthRouteImport.update({
@@ -86,6 +87,12 @@ const AuthenticatedCompanySlugProductsRoute =
     path: '/$companySlug/products',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedCompanySlugImportRoute =
+  AuthenticatedCompanySlugImportRouteImport.update({
+    id: '/$companySlug/import',
+    path: '/$companySlug/import',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedCompanySlugDashboardRoute =
   AuthenticatedCompanySlugDashboardRouteImport.update({
     id: '/$companySlug/dashboard',
@@ -101,6 +108,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthenticatedSettingsRoute
   '/webhook': typeof AuthenticatedWebhookRoute
   '/$companySlug/dashboard': typeof AuthenticatedCompanySlugDashboardRoute
+  '/$companySlug/import': typeof AuthenticatedCompanySlugImportRoute
   '/$companySlug/products': typeof AuthenticatedCompanySlugProductsRoute
   '/$companySlug/settings': typeof AuthenticatedCompanySlugSettingsRoute
   '/$companySlug/webhook': typeof AuthenticatedCompanySlugWebhookRoute
@@ -115,6 +123,7 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsRoute
   '/webhook': typeof AuthenticatedWebhookRoute
   '/$companySlug/dashboard': typeof AuthenticatedCompanySlugDashboardRoute
+  '/$companySlug/import': typeof AuthenticatedCompanySlugImportRoute
   '/$companySlug/products': typeof AuthenticatedCompanySlugProductsRoute
   '/$companySlug/settings': typeof AuthenticatedCompanySlugSettingsRoute
   '/$companySlug/webhook': typeof AuthenticatedCompanySlugWebhookRoute
@@ -131,6 +140,7 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/webhook': typeof AuthenticatedWebhookRoute
   '/_authenticated/$companySlug/dashboard': typeof AuthenticatedCompanySlugDashboardRoute
+  '/_authenticated/$companySlug/import': typeof AuthenticatedCompanySlugImportRoute
   '/_authenticated/$companySlug/products': typeof AuthenticatedCompanySlugProductsRoute
   '/_authenticated/$companySlug/settings': typeof AuthenticatedCompanySlugSettingsRoute
   '/_authenticated/$companySlug/webhook': typeof AuthenticatedCompanySlugWebhookRoute
@@ -147,6 +157,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/webhook'
     | '/$companySlug/dashboard'
+    | '/$companySlug/import'
     | '/$companySlug/products'
     | '/$companySlug/settings'
     | '/$companySlug/webhook'
@@ -161,6 +172,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/webhook'
     | '/$companySlug/dashboard'
+    | '/$companySlug/import'
     | '/$companySlug/products'
     | '/$companySlug/settings'
     | '/$companySlug/webhook'
@@ -176,6 +188,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/_authenticated/webhook'
     | '/_authenticated/$companySlug/dashboard'
+    | '/_authenticated/$companySlug/import'
     | '/_authenticated/$companySlug/products'
     | '/_authenticated/$companySlug/settings'
     | '/_authenticated/$companySlug/webhook'
@@ -276,6 +289,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCompanySlugProductsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/$companySlug/import': {
+      id: '/_authenticated/$companySlug/import'
+      path: '/$companySlug/import'
+      fullPath: '/$companySlug/import'
+      preLoaderRoute: typeof AuthenticatedCompanySlugImportRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/$companySlug/dashboard': {
       id: '/_authenticated/$companySlug/dashboard'
       path: '/$companySlug/dashboard'
@@ -292,6 +312,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedWebhookRoute: typeof AuthenticatedWebhookRoute
   AuthenticatedCompanySlugDashboardRoute: typeof AuthenticatedCompanySlugDashboardRoute
+  AuthenticatedCompanySlugImportRoute: typeof AuthenticatedCompanySlugImportRoute
   AuthenticatedCompanySlugProductsRoute: typeof AuthenticatedCompanySlugProductsRoute
   AuthenticatedCompanySlugSettingsRoute: typeof AuthenticatedCompanySlugSettingsRoute
   AuthenticatedCompanySlugWebhookRoute: typeof AuthenticatedCompanySlugWebhookRoute
@@ -305,6 +326,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedWebhookRoute: AuthenticatedWebhookRoute,
   AuthenticatedCompanySlugDashboardRoute:
     AuthenticatedCompanySlugDashboardRoute,
+  AuthenticatedCompanySlugImportRoute: AuthenticatedCompanySlugImportRoute,
   AuthenticatedCompanySlugProductsRoute: AuthenticatedCompanySlugProductsRoute,
   AuthenticatedCompanySlugSettingsRoute: AuthenticatedCompanySlugSettingsRoute,
   AuthenticatedCompanySlugWebhookRoute: AuthenticatedCompanySlugWebhookRoute,
@@ -323,3 +345,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
