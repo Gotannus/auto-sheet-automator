@@ -128,7 +128,16 @@ export const getDashboard = createServerFn({ method: "POST" })
       .lte("date", lastDay);
 
     if (data.product_id) {
-      salesQuery = salesQuery.eq("product_id", data.product_id);
+      // Match Celetus checkout-level grouping:
+      //   sales whose product_id is this product (Principal + own Orderbumps)
+      //   OR orderbumps purchased on this product's checkout (src = product.src)
+      if (productSrc) {
+        salesQuery = salesQuery.or(
+          `product_id.eq.${data.product_id},and(kind.eq.Orderbump,src.eq.${productSrc})`,
+        );
+      } else {
+        salesQuery = salesQuery.eq("product_id", data.product_id);
+      }
       dmiQuery = dmiQuery.eq("product_id", data.product_id);
     }
 
