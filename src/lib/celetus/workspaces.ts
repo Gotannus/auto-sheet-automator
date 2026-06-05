@@ -1,39 +1,32 @@
-export const COMPANIES = [
-  {
-    slug: "tannus-labs",
-    name: "Tannus Labs",
-    userId: "00000000-0000-4000-8000-000000000001",
-  },
-  {
-    slug: "cecilia-labs",
-    name: "Cecilia Labs",
-    userId: "00000000-0000-4000-8000-000000000002",
-  },
-] as const;
+// Helpers for company workspace URLs. Companies themselves live in the
+// `companies` table and are loaded dynamically per user.
 
-export type CompanySlug = (typeof COMPANIES)[number]["slug"];
+export const TEMPORARY_PUBLIC_USER_ID =
+  "00000000-0000-4000-8000-000000000001";
 
-export const DEFAULT_COMPANY_SLUG: CompanySlug = "tannus-labs";
-
-export function getCompany(slug: string | null | undefined) {
-  return COMPANIES.find((company) => company.slug === slug) ?? null;
+export function slugifyName(name: string): string {
+  return (
+    name
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60) || "empresa"
+  );
 }
 
-export function isCompanySlug(slug: string | null | undefined): slug is CompanySlug {
-  return Boolean(getCompany(slug));
-}
-
-export function resolveCompany(slug: string | null | undefined) {
-  return getCompany(slug) ?? COMPANIES[0];
-}
-
-export function getCompanyFromPath(pathname: string) {
-  const firstSegment = pathname.split("/").filter(Boolean)[0];
-  return resolveCompany(firstSegment);
-}
-
-export function companyPath(slug: string | null | undefined, page: string) {
-  const company = resolveCompany(slug);
+export function companyPath(slug: string, page: string): string {
   const cleanPage = page.replace(/^\/+/, "");
-  return `/${company.slug}/${cleanPage}`;
+  return `/${slug}/${cleanPage}`;
+}
+
+export function isValidSlug(slug: string | null | undefined): slug is string {
+  return typeof slug === "string" && /^[a-z0-9][a-z0-9-]{0,60}$/.test(slug);
+}
+
+export function getCompanySlugFromPath(pathname: string): string | null {
+  const seg = pathname.split("/").filter(Boolean)[0];
+  return isValidSlug(seg) ? seg : null;
 }
