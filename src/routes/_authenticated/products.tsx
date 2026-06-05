@@ -2,21 +2,39 @@ import { createFileRoute } from "@tanstack/react-router";
 import { queryOptions, useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { listProducts, createProduct, updateProduct, deleteProduct } from "@/lib/celetus/products.functions";
+import {
+  listProducts,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+} from "@/lib/celetus/products.functions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Plus, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
-const productsQO = () =>
-  queryOptions({ queryKey: ["products"], queryFn: () => listProducts() });
+const productsQO = () => queryOptions({ queryKey: ["products"], queryFn: () => listProducts() });
 
 export const Route = createFileRoute("/_authenticated/products")({
-  head: () => ({ meta: [{ title: "Produtos — Painel Celetus" }] }),
+  head: () => ({ meta: [{ title: "Produtos â€” Painel Celetus" }] }),
   loader: ({ context }) => context.queryClient.ensureQueryData(productsQO()),
   component: ProductsPage,
   errorComponent: ({ error }) => <div className="p-6">Erro: {error.message}</div>,
@@ -60,11 +78,16 @@ function ProductsPage() {
         <div>
           <h1 className="text-2xl font-bold">Produtos</h1>
           <p className="text-sm text-muted-foreground">
-            Cada produto é identificado pelo SRC (UUID) que vem no webhook da Celetus.
+            Cada produto Ã© identificado pelo SRC que vem no webhook da Celetus. Produtos sem SRC
+            podem ser corrigidos depois.
           </p>
         </div>
         <ProductDialog
-          trigger={<Button><Plus className="h-4 w-4 mr-1" /> Novo produto</Button>}
+          trigger={
+            <Button>
+              <Plus className="h-4 w-4 mr-1" /> Novo produto
+            </Button>
+          }
           title="Novo produto"
           onSubmit={(v) => createMut.mutateAsync(v)}
         />
@@ -77,7 +100,7 @@ function ProductsPage() {
               <TableRow>
                 <TableHead>Nome</TableHead>
                 <TableHead>SRC</TableHead>
-                <TableHead className="w-32 text-right">Ações</TableHead>
+                <TableHead className="w-32 text-right">AÃ§Ãµes</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -94,7 +117,11 @@ function ProductsPage() {
                   <TableCell className="font-mono text-xs">{p.src}</TableCell>
                   <TableCell className="text-right space-x-1">
                     <ProductDialog
-                      trigger={<Button size="icon" variant="ghost"><Pencil className="h-4 w-4" /></Button>}
+                      trigger={
+                        <Button size="icon" variant="ghost">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      }
                       title="Editar produto"
                       initial={{ name: p.name, src: p.src }}
                       onSubmit={(v) => updateMut.mutateAsync({ id: p.id, ...v })}
@@ -137,28 +164,50 @@ function ProductDialog({
   const [src, setSrc] = useState(initial?.src ?? "");
 
   return (
-    <Dialog open={open} onOpenChange={(o) => {
-      setOpen(o);
-      if (o) { setName(initial?.name ?? ""); setSrc(initial?.src ?? ""); }
-    }}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (o) {
+          setName(initial?.name ?? "");
+          setSrc(initial?.src ?? "");
+        }
+      }}
+    >
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent>
-        <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+        </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label htmlFor="pname">Nome</Label>
-            <Input id="pname" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: O Peso da Cama Feita" />
+            <Input
+              id="pname"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ex: O Peso da Cama Feita"
+            />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="psrc">SRC (UUID do produto na Celetus)</Label>
-            <Input id="psrc" value={src} onChange={(e) => setSrc(e.target.value)} placeholder="8578ff75-82f3-411a-95ec-060c062509ef" />
+            <Label htmlFor="psrc">SRC do produto na Celetus</Label>
+            <Input
+              id="psrc"
+              value={src}
+              onChange={(e) => setSrc(e.target.value)}
+              placeholder="palavras-tentacao"
+            />
             <p className="text-xs text-muted-foreground">
-              Campo <code>src</code> que vem em cada venda da Celetus.
+              Campo <code>trackingParameters.src</code> que vem em cada venda da Celetus. Se o
+              produto foi criado automaticamente, substitua o identificador temporÃ¡rio pelo SRC
+              correto.
             </p>
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            Cancelar
+          </Button>
           <Button
             onClick={async () => {
               if (!name.trim() || !src.trim()) return;
