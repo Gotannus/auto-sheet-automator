@@ -59,89 +59,215 @@ export const Route = createFileRoute("/api/public/celetus-webhook")({
         if (configError) return json({ error: configError.message }, 500);
         if (!config) return json({ error: "invalid secret" }, 401);
 
-        let body: unknown;
+        const userId = String(config.user_id);
+
+        let rawBody: unknown = null;
         try {
-          body = await request.json();
+          rawBody = await request.json();
         } catch {
+          await logWebhookEvent(supabaseAdmin, {
+            user_id: userId,
+            status: "ignored",
+            error_message: "empty or invalid json",
+            payload: null,
+          });
           return ignoreWebhook("empty or invalid json");
         }
 
-        const payload = asRecord(unwrapPayload(body));
-        if (!payload) return ignoreWebhook("invalid payload");
+        const result = await processWebhookPayload(supabaseAdmin, userId, rawBody);
 
-        let candidates: SaleCandidate[];
-        try {
-          candidates = buildSaleCandidates(payload);
-        } catch (error) {
-          if (error instanceof Error && error.message === "missing transaction code") {
-            return ignoreWebhook("missing transaction code");
-          }
-          throw error;
+        await logWebhookEvent(supabaseAdmin, {
+          user_id: userId,
+          status: result.status,
+          transaction_code: result.transactionCode,
+          error_message: result.errorMessage,
+          rows_upserted: result.rowsUpserted,
+          rows_ignored: result.rowsIgnored,
+          payload: rawBody,
+        });
+
+        if (result.status === "error") {
+          // Respond 200 so Celetus doesn't keep retrying; the log captures it.
+          return json({ ok: false, error: result.errorMessage });
         }
 
-        if (candidates.length === 0) return ignoreWebhook("missing sale items");
-
-        const sellableCandidates = candidates.filter(
-          (candidate) => !isIndicationCandidate(payload, candidate),
-        );
-
-        if (sellableCandidates.length === 0) {
-          return ignoreWebhook("indication sale");
+        if (result.status === "ignored") {
+          return ignoreWebhook(result.errorMessage ?? "ignored");
         }
-
-        const userId = String(config.user_id);
-        const { data: products, error: productsError } = await supabaseAdmin
-          .from("products")
-          .select("id, src, name")
-          .eq("user_id", userId);
-
-        if (productsError) return json({ error: productsError.message }, 500);
-
-        const productRows = (products ?? []) as ProductRow[];
-        let autoCreatedProducts = 0;
-        const rows: Array<{ candidate: SaleCandidate; row: AnyRecord | null }> = [];
-
-        for (const candidate of sellableCandidates) {
-          let product = findProduct(productRows, candidate);
-
-          if (!product) {
-            product = await createProductFromCandidate(supabaseAdmin, userId, candidate);
-            productRows.push(product);
-            autoCreatedProducts += 1;
-          }
-
-          rows.push({
-            candidate,
-            row: {
-              ...candidate.row,
-              user_id: userId,
-              product_id: product.id,
-            },
-          });
-        }
-
-        const rowsToUpsert = rows.map((row) => row.row as AnyRecord);
-        const { error: upsertError } = await supabaseAdmin
-          .from("celetus_sales")
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .upsert(rowsToUpsert as any, {
-            onConflict: "user_id,transaction_code,line_item_code",
-          });
-
-        if (upsertError) return json({ error: upsertError.message }, 500);
 
         return json({
           ok: true,
-          rows_received: candidates.length,
-          rows_upserted: rowsToUpsert.length,
-          rows_ignored: candidates.length - sellableCandidates.length,
-          auto_created_products: autoCreatedProducts,
+          rows_received: result.rowsReceived,
+          rows_upserted: result.rowsUpserted,
+          rows_ignored: result.rowsIgnored,
+          auto_created_products: result.autoCreatedProducts,
         });
       },
       GET: async () => json({ ok: true, info: "POST a Celetus payload here" }),
     },
   },
 });
+
+type WebhookResult = {
+  status: "ok" | "ignored" | "error";
+  transactionCode: string | null;
+  errorMessage: string | null;
+  rowsReceived: number;
+  rowsUpserted: number;
+  rowsIgnored: number;
+  autoCreatedProducts: number;
+};
+
+export async function processWebhookPayload(
+  supabaseAdmin: SupabaseAdminClient,
+  userId: string,
+  rawBody: unknown,
+): Promise<WebhookResult> {
+  const base: WebhookResult = {
+    status: "ignored",
+    transactionCode: null,
+    errorMessage: null,
+    rowsReceived: 0,
+    rowsUpserted: 0,
+    rowsIgnored: 0,
+    autoCreatedProducts: 0,
+  };
+
+  const payload = asRecord(unwrapPayload(rawBody));
+  if (!payload) return { ...base, errorMessage: "invalid payload" };
+
+  let candidates: SaleCandidate[];
+  try {
+    candidates = buildSaleCandidates(payload);
+  } catch (error) {
+    if (error instanceof Error && error.message === "missing transaction code") {
+      return { ...base, errorMessage: "missing transaction code" };
+    }
+    return {
+      ...base,
+      status: "error",
+      errorMessage: error instanceof Error ? error.message : String(error),
+    };
+  }
+
+  const transactionCode = candidates[0]?.transactionCode ?? null;
+  if (candidates.length === 0) {
+    return { ...base, transactionCode, errorMessage: "missing sale items" };
+  }
+
+  const sellableCandidates = candidates.filter(
+    (candidate) => !isIndicationCandidate(payload, candidate),
+  );
+
+  if (sellableCandidates.length === 0) {
+    return {
+      ...base,
+      transactionCode,
+      errorMessage: "indication sale",
+      rowsReceived: candidates.length,
+      rowsIgnored: candidates.length,
+    };
+  }
+
+  const { data: products, error: productsError } = await supabaseAdmin
+    .from("products")
+    .select("id, src, name")
+    .eq("user_id", userId);
+
+  if (productsError) {
+    return {
+      ...base,
+      status: "error",
+      transactionCode,
+      errorMessage: productsError.message,
+    };
+  }
+
+  const productRows = (products ?? []) as ProductRow[];
+  let autoCreatedProducts = 0;
+  const rows: AnyRecord[] = [];
+
+  for (const candidate of sellableCandidates) {
+    let product = findProduct(productRows, candidate);
+
+    if (!product) {
+      try {
+        product = await createProductFromCandidate(supabaseAdmin, userId, candidate);
+      } catch (error) {
+        return {
+          ...base,
+          status: "error",
+          transactionCode,
+          errorMessage: error instanceof Error ? error.message : String(error),
+        };
+      }
+      productRows.push(product);
+      autoCreatedProducts += 1;
+    }
+
+    rows.push({
+      ...candidate.row,
+      user_id: userId,
+      product_id: product.id,
+    });
+  }
+
+  const { error: upsertError } = await supabaseAdmin
+    .from("celetus_sales")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .upsert(rows as any, {
+      onConflict: "user_id,transaction_code,line_item_code",
+    });
+
+  if (upsertError) {
+    return {
+      ...base,
+      status: "error",
+      transactionCode,
+      errorMessage: upsertError.message,
+    };
+  }
+
+  return {
+    status: "ok",
+    transactionCode,
+    errorMessage: null,
+    rowsReceived: candidates.length,
+    rowsUpserted: rows.length,
+    rowsIgnored: candidates.length - sellableCandidates.length,
+    autoCreatedProducts,
+  };
+}
+
+async function logWebhookEvent(
+  supabaseAdmin: SupabaseAdminClient,
+  data: {
+    user_id: string;
+    status: "ok" | "ignored" | "error";
+    transaction_code?: string | null;
+    error_message?: string | null;
+    rows_upserted?: number | null;
+    rows_ignored?: number | null;
+    payload: unknown;
+  },
+) {
+  try {
+    await supabaseAdmin.from("webhook_events").insert({
+      user_id: data.user_id,
+      status: data.status,
+      transaction_code: data.transaction_code ?? null,
+      error_message: data.error_message ?? null,
+      rows_upserted: data.rows_upserted ?? null,
+      rows_ignored: data.rows_ignored ?? null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      payload: data.payload as any,
+    });
+  } catch (error) {
+    console.error("[celetus-webhook] failed to log event", error);
+  }
+}
+
+
 
 function buildSaleCandidates(payload: AnyRecord): SaleCandidate[] {
   const items = getItems(payload);
