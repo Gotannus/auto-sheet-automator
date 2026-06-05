@@ -36,6 +36,9 @@ function AuthedLayout() {
           <NavItem to={companyPath(company.slug, "webhook")} icon={<Webhook className="h-4 w-4" />}>
             Webhook
           </NavItem>
+          <NavItem to={companyPath(company.slug, "import")} icon={<Upload className="h-4 w-4" />}>
+            Importar planilha
+          </NavItem>
           <NavItem
             to={companyPath(company.slug, "settings")}
             icon={<SettingsIcon className="h-4 w-4" />}
