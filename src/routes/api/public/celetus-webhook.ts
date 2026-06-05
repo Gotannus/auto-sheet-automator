@@ -1,183 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { z } from "zod";
 import { parseCeletusDate, kindLabel, norm } from "@/lib/celetus/normalize";
 
-const Money = z.union([z.number(), z.string()]).optional();
-
-const Customer = z
-  .object({
-    name: z.string().optional(),
-    document: z.string().optional(),
-    email: z.string().optional(),
-    phone: z.string().optional(),
-  })
-  .passthrough();
-
-const Item = z
-  .object({
-    id: z.string().optional(),
-    code: z.string().optional(),
-    product_id: z.string().optional(),
-    productId: z.string().optional(),
-    name: z.string().optional(),
-    product_name: z.string().optional(),
-    productName: z.string().optional(),
-    offer_name: z.string().optional(),
-    offerName: z.string().optional(),
-    item_type: z.string().optional(),
-    itemType: z.string().optional(),
-    kind: z.string().optional(),
-    type: z.string().optional(),
-    item_type_sale: z.string().optional(),
-    quantity: z.union([z.number(), z.string()]).optional(),
-    amount: Money,
-    unitaryValue: Money,
-    unitary_value: Money,
-    price: Money,
-    value: Money,
-    commission: Money,
-    commissionValue: Money,
-    commission_value: Money,
-    userCommission: Money,
-    user_commission: Money,
-  })
-  .passthrough();
-
-const Charge = z
-  .object({
-    id: z.string().optional(),
-    code: z.string().optional(),
-    status: z.string().optional(),
-    amount: Money,
-    payment_method: z.string().optional(),
-    paymentMethod: z.string().optional(),
-    created_date: z.union([z.string(), z.number()]).optional(),
-    createdAt: z.union([z.string(), z.number()]).optional(),
-  })
-  .passthrough();
-
-const Tracking = z
-  .object({
-    sck: z.string().optional(),
-    src: z.string().optional(),
-    utm_campaign: z.string().optional(),
-    utm_content: z.string().optional(),
-    utm_medium: z.string().optional(),
-    utm_source: z.string().optional(),
-    utm_term: z.string().optional(),
-    campaign: z.string().optional(),
-    content: z.string().optional(),
-    medium: z.string().optional(),
-    source: z.string().optional(),
-    term: z.string().optional(),
-  })
-  .passthrough();
-
-const Commission = z
-  .object({
-    totalPrice: Money,
-    total_price: Money,
-    gatewayFee: Money,
-    gateway_fee: Money,
-    userCommission: Money,
-    user_commission: Money,
-    commissionValue: Money,
-    commission_value: Money,
-    currency: z.string().optional(),
-  })
-  .passthrough();
-
-const Payload = z
-  .object({
-    id: z.string().optional(),
-    event_name: z.string().optional(),
-    event_type: z.string().optional(),
-    eventType: z.string().optional(),
-    event_type_identifier: z.string().optional(),
-    transactionCode: z.string().optional(),
-    transaction_code: z.string().optional(),
-    order_code: z.string().optional(),
-    orderCode: z.string().optional(),
-    order_id: z.string().optional(),
-    orderId: z.string().optional(),
-    code: z.string().optional(),
-    src: z.string().optional(),
-    productSrc: z.string().optional(),
-    product_src: z.string().optional(),
-    productId: z.string().optional(),
-    product_id: z.string().optional(),
-    productName: z.string().optional(),
-    product_name: z.string().optional(),
-    offerName: z.string().optional(),
-    offer_name: z.string().optional(),
-    kind: z.string().optional(),
-    type: z.string().optional(),
-    itemType: z.string().optional(),
-    item_type: z.string().optional(),
-    status: z.string().optional(),
-    paymentStatus: z.string().optional(),
-    payment_status: z.string().optional(),
-    order_status: z.string().optional(),
-    orderStatus: z.string().optional(),
-    paymentMethod: z.string().optional(),
-    payment_method: z.string().optional(),
-    commissionValue: Money,
-    commission_value: Money,
-    grossValue: Money,
-    gross_value: Money,
-    netValue: Money,
-    net_value: Money,
-    fees: Money,
-    saleDate: z.union([z.string(), z.number()]).optional(),
-    sale_date: z.union([z.string(), z.number()]).optional(),
-    createdAt: z.union([z.string(), z.number()]).optional(),
-    created_at: z.union([z.string(), z.number()]).optional(),
-    created_date: z.union([z.string(), z.number()]).optional(),
-    approvedDate: z.union([z.string(), z.number()]).optional(),
-    approved_date: z.union([z.string(), z.number()]).optional(),
-    quantity: z.union([z.number(), z.string()]).optional(),
-    recipient: z.string().optional(),
-    recipientType: z.string().optional(),
-    recipient_type: z.string().optional(),
-    recipientCompany: z.string().optional(),
-    seller_name: z.string().optional(),
-    sellerName: z.string().optional(),
-    seller_type: z.string().optional(),
-    sellerType: z.string().optional(),
-    buyerName: z.string().optional(),
-    buyer_name: z.string().optional(),
-    buyerEmail: z.string().optional(),
-    buyer_email: z.string().optional(),
-    buyerPhone: z.string().optional(),
-    buyer_phone: z.string().optional(),
-    buyerDocument: z.string().optional(),
-    buyer_document: z.string().optional(),
-    srcTag: z.string().optional(),
-    src_tag: z.string().optional(),
-    utmSource: z.string().optional(),
-    utm_source: z.string().optional(),
-    utmStatus: z.string().optional(),
-    utm_status: z.string().optional(),
-    campaignId: z.string().optional(),
-    campaign_id: z.string().optional(),
-    adsetId: z.string().optional(),
-    adset_id: z.string().optional(),
-    adId: z.string().optional(),
-    ad_id: z.string().optional(),
-    customer: Customer.optional(),
-    items: z.array(Item).optional(),
-    products: z.array(Item).optional(),
-    charge: Charge.optional(),
-    trackingParameters: Tracking.optional(),
-    tracking_parameters: Tracking.optional(),
-    tracking: Tracking.optional(),
-    commission: Commission.optional(),
-    data: z.unknown().optional(),
-  })
-  .passthrough();
-
-type PayloadData = z.infer<typeof Payload>;
-type ItemData = z.infer<typeof Item>;
+type AnyRecord = Record<string, unknown>;
+type SupabaseAdminClient =
+  (typeof import("@/integrations/supabase/client.server"))["supabaseAdmin"];
 
 type ProductRow = {
   id: string;
@@ -190,7 +16,7 @@ type SaleCandidate = {
   storedSrc: string;
   transactionCode: string;
   productName: string | null;
-  row: Record<string, unknown>;
+  row: AnyRecord;
 };
 
 export const Route = createFileRoute("/api/public/celetus-webhook")({
@@ -205,20 +31,17 @@ export const Route = createFileRoute("/api/public/celetus-webhook")({
           url.searchParams.get("secret") ||
           "";
 
-        if (!secret) {
-          return json({ error: "missing secret" }, 401);
-        }
+        if (!secret) return json({ error: "missing secret" }, 401);
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
-        const { data: wc, error: wcErr } = await supabaseAdmin
+        const { data: config, error: configError } = await supabaseAdmin
           .from("webhook_config")
           .select("user_id")
           .eq("webhook_secret", secret)
           .maybeSingle();
-        if (wcErr) return json({ error: wcErr.message }, 500);
-        if (!wc) return json({ error: "invalid secret" }, 401);
-        const userId = wc.user_id;
+
+        if (configError) return json({ error: configError.message }, 500);
+        if (!config) return json({ error: "invalid secret" }, 401);
 
         let body: unknown;
         try {
@@ -227,86 +50,68 @@ export const Route = createFileRoute("/api/public/celetus-webhook")({
           return ignoreWebhook("empty or invalid json");
         }
 
-        const normalizedBody = unwrapPayload(body);
-        const parsed = Payload.safeParse(normalizedBody);
-        if (!parsed.success) {
-          return ignoreWebhook("invalid payload");
-        }
-        const payload = parsed.data;
+        const payload = asRecord(unwrapPayload(body));
+        if (!payload) return ignoreWebhook("invalid payload");
 
         let candidates: SaleCandidate[];
         try {
-          candidates = buildSaleCandidates(payload, normalizedBody);
+          candidates = buildSaleCandidates(payload);
         } catch (error) {
-          if (error instanceof Error && error.message === "missing transactionCode") {
+          if (error instanceof Error && error.message === "missing transaction code") {
             return ignoreWebhook("missing transaction code");
           }
-
           throw error;
         }
 
-        if (candidates.length === 0) {
-          return ignoreWebhook("missing sale items");
-        }
+        if (candidates.length === 0) return ignoreWebhook("missing sale items");
 
-        const { data: products, error: productsErr } = await supabaseAdmin
+        const userId = String(config.user_id);
+        const { data: products, error: productsError } = await supabaseAdmin
           .from("products")
           .select("id, src, name")
           .eq("user_id", userId);
-        if (productsErr) return json({ error: productsErr.message }, 500);
+
+        if (productsError) return json({ error: productsError.message }, 500);
 
         const productRows = (products ?? []) as ProductRow[];
-        const fallbackProduct = findPayloadProduct(productRows, candidates);
-        const rows = candidates.map((candidate) => {
-          const product = findProduct(productRows, candidate) ?? fallbackProduct;
+        let autoCreatedProducts = 0;
+        const rows: Array<{ candidate: SaleCandidate; row: AnyRecord | null }> = [];
+
+        for (const candidate of candidates) {
+          const fallbackProduct = findPayloadProduct(productRows, candidates);
+          let product = findProduct(productRows, candidate) ?? fallbackProduct;
+
           if (!product) {
-            return {
-              candidate,
-              row: null,
-            };
+            product = await createProductFromCandidate(supabaseAdmin, userId, candidate);
+            productRows.push(product);
+            autoCreatedProducts += 1;
           }
 
-          return {
+          rows.push({
             candidate,
             row: {
               ...candidate.row,
               user_id: userId,
               product_id: product.id,
             },
-          };
-        });
-
-        const missing = rows
-          .filter((r) => !r.row)
-          .map((r) => ({
-            transaction_code: r.candidate.transactionCode,
-            product_name: r.candidate.productName,
-            src_candidates: r.candidate.productCandidates,
-          }));
-
-        if (missing.length > 0) {
-          return json(
-            {
-              error: "product not registered for this payload",
-              missing,
-            },
-            404,
-          );
+          });
         }
 
-        const rowsToUpsert = rows.map((r) => r.row as Record<string, unknown>);
-        const { error: upErr } = await supabaseAdmin
+        const rowsToUpsert = rows.map((row) => row.row as AnyRecord);
+        const { error: upsertError } = await supabaseAdmin
           .from("celetus_sales")
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .upsert(rowsToUpsert as any, {
             onConflict: "user_id,transaction_code,src,kind",
           });
-        if (upErr) return json({ error: upErr.message }, 500);
+
+        if (upsertError) return json({ error: upsertError.message }, 500);
 
         return json({
           ok: true,
           rows_received: candidates.length,
           rows_upserted: rowsToUpsert.length,
+          auto_created_products: autoCreatedProducts,
         });
       },
       GET: async () => json({ ok: true, info: "POST a Celetus payload here" }),
@@ -314,7 +119,7 @@ export const Route = createFileRoute("/api/public/celetus-webhook")({
   },
 });
 
-function buildSaleCandidates(payload: PayloadData, raw: unknown): SaleCandidate[] {
+function buildSaleCandidates(payload: AnyRecord): SaleCandidate[] {
   const items = getItems(payload);
   const transactionCode = firstText(
     payload.transactionCode,
@@ -322,17 +127,18 @@ function buildSaleCandidates(payload: PayloadData, raw: unknown): SaleCandidate[
     payload.order_code,
     payload.orderCode,
     payload.code,
-    payload.charge?.code,
+    record(payload.charge)?.code,
     payload.order_id,
     payload.orderId,
     payload.id,
   );
 
-  if (!transactionCode) {
-    throw new Error("missing transactionCode");
-  }
+  if (!transactionCode) throw new Error("missing transaction code");
 
-  const tracking = payload.trackingParameters ?? payload.tracking_parameters ?? payload.tracking;
+  const tracking =
+    record(payload.trackingParameters) ??
+    record(payload.tracking_parameters) ??
+    record(payload.tracking);
   const totalGross = getTotalGross(payload, items);
   const totalCommission = getTotalCommission(payload, items, totalGross);
   const totalItemAmount = items.reduce((sum, item) => sum + getItemAmount(item), 0);
@@ -346,8 +152,8 @@ function buildSaleCandidates(payload: PayloadData, raw: unknown): SaleCandidate[
         payload.createdAt,
         payload.created_at,
         payload.created_date,
-        payload.charge?.createdAt,
-        payload.charge?.created_date,
+        record(payload.charge)?.createdAt,
+        record(payload.charge)?.created_date,
       ),
     ) ?? new Date();
   const status = statusLabel(
@@ -355,7 +161,7 @@ function buildSaleCandidates(payload: PayloadData, raw: unknown): SaleCandidate[
       payload.status,
       payload.paymentStatus,
       payload.payment_status,
-      payload.charge?.status,
+      record(payload.charge)?.status,
       payload.order_status,
       payload.orderStatus,
       payload.event_type,
@@ -365,8 +171,8 @@ function buildSaleCandidates(payload: PayloadData, raw: unknown): SaleCandidate[
   const paymentMethod = firstText(
     payload.paymentMethod,
     payload.payment_method,
-    payload.charge?.paymentMethod,
-    payload.charge?.payment_method,
+    record(payload.charge)?.paymentMethod,
+    record(payload.charge)?.payment_method,
   );
   const recipientType = firstText(
     payload.recipientType,
@@ -384,6 +190,13 @@ function buildSaleCandidates(payload: PayloadData, raw: unknown): SaleCandidate[
   );
 
   return items.map((item) => {
+    const productName = firstText(
+      item.name,
+      item.product_name,
+      item.productName,
+      payload.productName,
+      payload.product_name,
+    );
     const itemKind = kindLabel(
       firstText(
         item.item_type,
@@ -396,57 +209,67 @@ function buildSaleCandidates(payload: PayloadData, raw: unknown): SaleCandidate[
         payload.type,
       ),
     );
-    const productName = firstText(
-      item.name,
-      item.product_name,
-      item.productName,
-      payload.productName,
-      payload.product_name,
-    );
-    const itemSrc = firstText(
-      item.id,
-      item.code,
-      item.product_id,
-      item.productId,
-      payload.productId,
-      payload.product_id,
+    const actualSrc = firstText(
+      tracking?.src,
+      payload.src,
       payload.productSrc,
       payload.product_src,
-      payload.src,
-      tracking?.src,
+      payload.productId,
+      payload.product_id,
+      item.product_code,
+      item.productCode,
+      item.product_id,
+      item.productId,
+      item.id,
+      item.code,
     );
+    const storedSrc =
+      actualSrc ||
+      buildTemporarySrc(
+        productName,
+        transactionCode,
+        firstText(item.product_code, item.code, item.id),
+      );
     const productCandidates = uniqueTexts([
-      item.id,
-      item.code,
-      item.product_id,
-      item.productId,
-      payload.productId,
-      payload.product_id,
+      storedSrc,
+      tracking?.src,
+      payload.src,
       payload.productSrc,
       payload.product_src,
-      payload.src,
-      tracking?.src,
+      payload.productId,
+      payload.product_id,
+      item.product_code,
+      item.productCode,
+      item.product_id,
+      item.productId,
+      item.id,
+      item.code,
     ]);
     const itemCommission = getItemCommission(item, totalCommission, totalItemAmount, items.length);
     const quantity = Math.max(1, Math.trunc(num(item.quantity ?? payload.quantity, 1)));
 
     return {
       productCandidates,
-      storedSrc: itemSrc,
+      storedSrc,
       transactionCode,
       productName: productName || null,
       row: {
         transaction_code: transactionCode,
         buyer_name:
-          firstText(payload.buyerName, payload.buyer_name, payload.customer?.name) || null,
+          firstText(payload.buyerName, payload.buyer_name, record(payload.customer)?.name) || null,
         buyer_email:
-          firstText(payload.buyerEmail, payload.buyer_email, payload.customer?.email) || null,
-        buyer_phone:
-          firstText(payload.buyerPhone, payload.buyer_phone, payload.customer?.phone) || null,
-        buyer_document:
-          firstText(payload.buyerDocument, payload.buyer_document, payload.customer?.document) ||
+          firstText(payload.buyerEmail, payload.buyer_email, record(payload.customer)?.email) ||
           null,
-        src: itemSrc,
+        buyer_phone:
+          firstText(payload.buyerPhone, payload.buyer_phone, record(payload.customer)?.phone) ||
+          null,
+        buyer_document:
+          firstText(
+            payload.buyerDocument,
+            payload.buyer_document,
+            record(payload.customer)?.document,
+          ) || null,
+        src: storedSrc,
         product_name: productName || null,
         offer_name:
           firstText(item.offerName, item.offer_name, payload.offerName, payload.offer_name) || null,
@@ -473,38 +296,45 @@ function buildSaleCandidates(payload: PayloadData, raw: unknown): SaleCandidate[
             tracking?.source,
           ) || null,
         utm_status:
-          firstText(payload.utmStatus, payload.utm_status, payload.charge?.status) || null,
+          firstText(payload.utmStatus, payload.utm_status, record(payload.charge)?.status) || null,
         campaign_id:
           firstText(payload.campaignId, payload.campaign_id, tracking?.utm_campaign) || null,
         adset_id: firstText(payload.adsetId, payload.adset_id, tracking?.utm_medium) || null,
         ad_id: firstText(payload.adId, payload.ad_id, tracking?.utm_content) || null,
-        raw: raw as Record<string, unknown>,
+        raw: payload,
       },
     };
   });
 }
 
 function unwrapPayload(body: unknown): unknown {
-  if (!body || typeof body !== "object") return body;
-  const record = body as Record<string, unknown>;
+  const payload = record(body);
+  if (!payload) return body;
 
-  if (record.data && typeof record.data === "object") {
-    const data = record.data as Record<string, unknown>;
-    if (data.order_code || data.order_id || data.customer || data.items || data.products) {
-      return data;
-    }
+  const data = record(payload.data);
+  if (data && (data.order_code || data.order_id || data.customer || data.items || data.products)) {
+    return data;
   }
 
-  return body;
+  return payload;
 }
 
-function getItems(payload: PayloadData): ItemData[] {
-  if (payload.items?.length) return payload.items;
-  if (payload.products?.length) return payload.products;
+function getItems(payload: AnyRecord): AnyRecord[] {
+  const items = arrayOfRecords(payload.items);
+  if (items.length) return items;
+
+  const products = arrayOfRecords(payload.products);
+  if (products.length) return products;
 
   return [
     {
       id: firstText(payload.productId, payload.product_id, payload.productSrc, payload.src),
+      product_code: firstText(
+        payload.productId,
+        payload.product_id,
+        payload.productSrc,
+        payload.src,
+      ),
       name: firstText(payload.productName, payload.product_name),
       offerName: firstText(payload.offerName, payload.offer_name),
       item_type: firstText(payload.item_type, payload.itemType, payload.kind, payload.type),
@@ -520,19 +350,19 @@ function findProduct(products: ProductRow[], candidate: SaleCandidate) {
   if (bySrc) return bySrc;
 
   if (!candidate.productName) return null;
-  return products.find((p) => norm(p.name) === norm(candidate.productName)) ?? null;
+  return products.find((product) => norm(product.name) === norm(candidate.productName)) ?? null;
 }
 
 function findPayloadProduct(products: ProductRow[], candidates: SaleCandidate[]) {
   const bySrc = findProductBySrc(
     products,
-    candidates.flatMap((c) => c.productCandidates),
+    candidates.flatMap((candidate) => candidate.productCandidates),
   );
   if (bySrc) return bySrc;
 
   for (const candidate of candidates) {
     if (!candidate.productName) continue;
-    const byName = products.find((p) => norm(p.name) === norm(candidate.productName));
+    const byName = products.find((product) => norm(product.name) === norm(candidate.productName));
     if (byName) return byName;
   }
 
@@ -544,11 +374,33 @@ function findProductBySrc(products: ProductRow[], candidates: string[]) {
   return products.find((product) => normalized.has(norm(product.src))) ?? null;
 }
 
-function getTotalGross(payload: PayloadData, items: ItemData[]) {
+async function createProductFromCandidate(
+  supabaseAdmin: SupabaseAdminClient,
+  userId: string,
+  candidate: SaleCandidate,
+) {
+  const { data, error } = await supabaseAdmin
+    .from("products")
+    .upsert(
+      {
+        user_id: userId,
+        src: candidate.storedSrc,
+        name: candidate.productName || candidate.storedSrc,
+      },
+      { onConflict: "user_id,src" },
+    )
+    .select("id, src, name")
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data as ProductRow;
+}
+
+function getTotalGross(payload: AnyRecord, items: AnyRecord[]) {
   const explicit = firstNumber(
-    payload.commission?.totalPrice,
-    payload.commission?.total_price,
-    payload.charge?.amount,
+    record(payload.commission)?.totalPrice,
+    record(payload.commission)?.total_price,
+    record(payload.charge)?.amount,
     payload.grossValue,
     payload.gross_value,
   );
@@ -557,12 +409,12 @@ function getTotalGross(payload: PayloadData, items: ItemData[]) {
   return roundMoney(items.reduce((sum, item) => sum + getItemAmount(item), 0));
 }
 
-function getTotalCommission(payload: PayloadData, items: ItemData[], fallback: number) {
+function getTotalCommission(payload: AnyRecord, items: AnyRecord[], fallback: number) {
   const explicit = firstNumber(
-    payload.commission?.userCommission,
-    payload.commission?.user_commission,
-    payload.commission?.commissionValue,
-    payload.commission?.commission_value,
+    record(payload.commission)?.userCommission,
+    record(payload.commission)?.user_commission,
+    record(payload.commission)?.commissionValue,
+    record(payload.commission)?.commission_value,
     payload.commissionValue,
     payload.commission_value,
     payload.netValue,
@@ -574,7 +426,7 @@ function getTotalCommission(payload: PayloadData, items: ItemData[], fallback: n
 }
 
 function getItemCommission(
-  item: ItemData,
+  item: AnyRecord,
   totalCommission: number,
   totalItemAmount: number,
   itemCount: number,
@@ -598,7 +450,7 @@ function getItemCommission(
   return itemAmount;
 }
 
-function getItemAmount(item: ItemData) {
+function getItemAmount(item: AnyRecord) {
   const amount = firstNumber(
     item.amount,
     item.unitaryValue,
@@ -610,9 +462,13 @@ function getItemAmount(item: ItemData) {
   return roundMoney((amount ?? 0) * quantity);
 }
 
-function getFees(payload: PayloadData) {
+function getFees(payload: AnyRecord) {
   return (
-    firstNumber(payload.fees, payload.commission?.gatewayFee, payload.commission?.gateway_fee) ?? 0
+    firstNumber(
+      payload.fees,
+      record(payload.commission)?.gatewayFee,
+      record(payload.commission)?.gateway_fee,
+    ) ?? 0
   );
 }
 
@@ -648,29 +504,12 @@ function statusLabel(value: unknown) {
     return "Pendente";
   }
 
-  if (["refunded", "refundclaimed", "reembolso"].includes(normalized)) {
-    return "Reembolso";
-  }
-
-  if (normalized === "chargeback") {
-    return "Chargeback";
-  }
-
-  if (["canceled", "cancelled", "cancelado"].includes(normalized)) {
-    return "Cancelado";
-  }
-
-  if (["expired", "expiredpurchase", "overdue", "expirado"].includes(normalized)) {
-    return "Expirado";
-  }
-
-  if (["failed", "purchasedeclined", "nofunds", "recusado"].includes(normalized)) {
-    return "Recusado";
-  }
-
-  if (["abandoned", "abandonedcheckout", "abandonado"].includes(normalized)) {
-    return "Abandonado";
-  }
+  if (["refunded", "refundclaimed", "reembolso"].includes(normalized)) return "Reembolso";
+  if (normalized === "chargeback") return "Chargeback";
+  if (["canceled", "cancelled", "cancelado"].includes(normalized)) return "Cancelado";
+  if (["expired", "expiredpurchase", "overdue", "expirado"].includes(normalized)) return "Expirado";
+  if (["failed", "purchasedeclined", "nofunds", "recusado"].includes(normalized)) return "Recusado";
+  if (["abandoned", "abandonedcheckout", "abandonado"].includes(normalized)) return "Abandonado";
 
   return firstText(value) || "desconhecido";
 }
@@ -679,6 +518,37 @@ function orderKindLabel(value: unknown) {
   return norm(value).includes("assinatura") || norm(value).includes("subscription")
     ? "Assinatura"
     : "Pedido";
+}
+
+function buildTemporarySrc(productName: string, transactionCode: string, itemCode: string) {
+  const basis = firstText(productName, itemCode, transactionCode, crypto.randomUUID());
+  return `sem-src-${slug(basis)}`.slice(0, 120);
+}
+
+function slug(value: string) {
+  return (
+    value
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "produto"
+  );
+}
+
+function asRecord(value: unknown): AnyRecord | null {
+  return record(value) ?? null;
+}
+
+function record(value: unknown): AnyRecord | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as AnyRecord;
+}
+
+function arrayOfRecords(value: unknown): AnyRecord[] {
+  return Array.isArray(value)
+    ? value.flatMap((item) => (record(item) ? [record(item) as AnyRecord] : []))
+    : [];
 }
 
 function firstText(...values: unknown[]) {
@@ -705,15 +575,18 @@ function firstNumber(...values: unknown[]) {
   return null;
 }
 
-function num(v: unknown, def = 0): number {
-  if (v == null || v === "") return def;
-  if (typeof v === "number") return v;
-  let text = String(v)
+function num(value: unknown, fallback = 0): number {
+  if (value == null || value === "") return fallback;
+  if (typeof value === "number") return value;
+
+  let text = String(value)
     .trim()
     .replace(/[^\d,.-]/g, "");
+
   if (text.includes(",")) text = text.replace(/\./g, "").replace(",", ".");
-  const n = Number(text);
-  return Number.isNaN(n) ? def : n;
+
+  const parsed = Number(text);
+  return Number.isNaN(parsed) ? fallback : parsed;
 }
 
 function roundMoney(value: number) {
