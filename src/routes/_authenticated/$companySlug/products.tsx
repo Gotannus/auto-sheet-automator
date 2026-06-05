@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/table";
 import { Plus, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
-import { companyPath, isValidSlug, resolveCompany } from "@/lib/celetus/workspaces";
+import { companyPath, isValidSlug } from "@/lib/celetus/workspaces";
 
 const productsQO = (companySlug: string) =>
   queryOptions({

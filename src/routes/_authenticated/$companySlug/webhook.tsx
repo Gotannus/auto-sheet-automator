@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Copy, RefreshCw, Save } from "lucide-react";
-import { companyPath, isValidSlug, resolveCompany } from "@/lib/celetus/workspaces";
+import { companyPath, isValidSlug } from "@/lib/celetus/workspaces";
 
 const webhookQO = (companySlug: string) =>
   queryOptions({

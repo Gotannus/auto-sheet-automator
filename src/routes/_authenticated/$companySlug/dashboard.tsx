@@ -10,7 +10,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { listProducts, type Product } from "@/lib/celetus/products.functions";
 import { getDashboard, upsertDailyInput } from "@/lib/celetus/dashboard.functions";
-import { companyPath, isValidSlug, resolveCompany } from "@/lib/celetus/workspaces";
+import { companyPath, isValidSlug } from "@/lib/celetus/workspaces";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Select,

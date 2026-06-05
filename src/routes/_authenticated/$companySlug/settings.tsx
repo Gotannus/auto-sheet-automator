@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { companyPath, isValidSlug, resolveCompany } from "@/lib/celetus/workspaces";
+import { companyPath, isValidSlug } from "@/lib/celetus/workspaces";
 
 const settingsQO = (companySlug: string, year?: number, month?: number) =>
   queryOptions({
