@@ -188,6 +188,7 @@ export const getDashboard = createServerFn({ method: "POST" })
       } else if (kind === "orderbump" || kind === "order_bump" || kind === "bump") {
         a.obQty += 1;
         a.obRevenue += commission;
+        a.revenue += commission;
       }
     }
 
