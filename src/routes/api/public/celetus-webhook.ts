@@ -125,7 +125,7 @@ export const Route = createFileRoute("/api/public/celetus-webhook")({
           .from("celetus_sales")
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .upsert(rowsToUpsert as any, {
-            onConflict: "user_id,transaction_code,src,kind",
+            onConflict: "user_id,transaction_code,line_item_code",
           });
 
         if (upsertError) return json({ error: upsertError.message }, 500);
