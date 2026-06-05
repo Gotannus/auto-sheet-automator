@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet, Link } from "@tanstack/react-router";
-import { LayoutDashboard, Package, Receipt, Settings as SettingsIcon, Upload, Webhook } from "lucide-react";
+import { LayoutDashboard, Package, Receipt, Settings as SettingsIcon, Upload, Webhook, Activity } from "lucide-react";
 import { companyPath, getCompanyFromPath } from "@/lib/celetus/workspaces";
 
 export const Route = createFileRoute("/_authenticated")({
@@ -41,6 +41,9 @@ function AuthedLayout() {
           </NavItem>
           <NavItem to={companyPath(company.slug, "webhook")} icon={<Webhook className="h-4 w-4" />}>
             Webhook
+          </NavItem>
+          <NavItem to={companyPath(company.slug, "webhook-logs")} icon={<Activity className="h-4 w-4" />}>
+            Webhook logs
           </NavItem>
           <NavItem to={companyPath(company.slug, "import")} icon={<Upload className="h-4 w-4" />}>
             Importar planilha

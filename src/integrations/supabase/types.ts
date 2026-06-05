@@ -312,6 +312,45 @@ export type Database = {
         }
         Relationships: []
       }
+      webhook_events: {
+        Row: {
+          error_message: string | null
+          id: string
+          payload: Json | null
+          received_at: string
+          reprocessed_at: string | null
+          rows_ignored: number | null
+          rows_upserted: number | null
+          status: string
+          transaction_code: string | null
+          user_id: string
+        }
+        Insert: {
+          error_message?: string | null
+          id?: string
+          payload?: Json | null
+          received_at?: string
+          reprocessed_at?: string | null
+          rows_ignored?: number | null
+          rows_upserted?: number | null
+          status: string
+          transaction_code?: string | null
+          user_id: string
+        }
+        Update: {
+          error_message?: string | null
+          id?: string
+          payload?: Json | null
+          received_at?: string
+          reprocessed_at?: string | null
+          rows_ignored?: number | null
+          rows_upserted?: number | null
+          status?: string
+          transaction_code?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
