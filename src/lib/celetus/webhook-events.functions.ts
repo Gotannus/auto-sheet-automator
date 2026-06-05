@@ -33,7 +33,7 @@ export const listWebhookEvents = createServerFn({ method: "GET" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const userId = await resolveCompanyId(data.company_slug);
+    const userId = await resolveCompanyId(context.supabase, data.company_slug);
 
     let query = supabase
       .from("webhook_events")
@@ -100,7 +100,7 @@ export const reprocessWebhookEvent = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId: authUserId } = context;
-    const userId = await resolveCompanyId(data.company_slug);
+    const userId = await resolveCompanyId(context.supabase, data.company_slug);
 
     if (authUserId !== userId) {
       throw new Error("Não autorizado para esta conta.");

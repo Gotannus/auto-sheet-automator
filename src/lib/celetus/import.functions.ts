@@ -29,7 +29,7 @@ export const importCeletusReport = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data }) => {
-    const userId = await resolveCompanyId(data.company_slug);
+    const userId = await resolveCompanyId(context.supabase, data.company_slug);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const logImport = async (entry: {

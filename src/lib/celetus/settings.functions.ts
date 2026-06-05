@@ -39,7 +39,7 @@ export const getSettings = createServerFn({ method: "GET" })
   .inputValidator((input: unknown) => CompanyInput.parse(input ?? {}))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const userId = await resolveCompanyId(data.company_slug);
+    const userId = await resolveCompanyId(context.supabase, data.company_slug);
     const selected = currentYearMonth();
     const year = data.year ?? selected.year;
     const month = data.month ?? selected.month;
@@ -120,7 +120,7 @@ export const updateSettings = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const userId = await resolveCompanyId(data.company_slug);
+    const userId = await resolveCompanyId(context.supabase, data.company_slug);
     const { error: monthlyError } = await fromUntyped(supabase, "monthly_tax_settings").upsert(
       {
         user_id: userId,
@@ -155,7 +155,7 @@ export const getWebhookConfig = createServerFn({ method: "GET" })
   .inputValidator((input: unknown) => CompanyInput.parse(input ?? {}))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const userId = await resolveCompanyId(data.company_slug);
+    const userId = await resolveCompanyId(context.supabase, data.company_slug);
     const { data: config } = await supabase
       .from("webhook_config")
       .select("webhook_secret")
@@ -183,7 +183,7 @@ export const updateWebhookSecret = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const userId = await resolveCompanyId(data.company_slug);
+    const userId = await resolveCompanyId(context.supabase, data.company_slug);
     const secret = data.webhook_secret.trim();
     const { error } = await supabase
       .from("webhook_config")
@@ -197,7 +197,7 @@ export const rotateWebhookSecret = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => CompanyInput.parse(input ?? {}))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const userId = await resolveCompanyId(data.company_slug);
+    const userId = await resolveCompanyId(context.supabase, data.company_slug);
     // Generate via crypto
     const bytes = new Uint8Array(24);
     crypto.getRandomValues(bytes);

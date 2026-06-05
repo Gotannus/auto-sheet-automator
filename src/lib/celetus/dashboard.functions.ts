@@ -65,7 +65,7 @@ export const getDashboard = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const userId = await resolveCompanyId(data.company_slug);
+    const userId = await resolveCompanyId(context.supabase, data.company_slug);
 
     const { data: settings, error: settingsError } = await fromUntyped(
       supabase,
@@ -358,7 +358,7 @@ export const upsertDailyInput = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const userId = await resolveCompanyId(data.company_slug);
+    const userId = await resolveCompanyId(context.supabase, data.company_slug);
     const payload: Record<string, unknown> = {
       user_id: userId,
       product_id: data.product_id,

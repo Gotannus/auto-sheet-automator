@@ -55,7 +55,7 @@ export const listSales = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const userId = await resolveCompanyId(data.company_slug);
+    const userId = await resolveCompanyId(context.supabase, data.company_slug);
     const from = (data.page - 1) * data.page_size;
     const to = from + data.page_size - 1;
 
