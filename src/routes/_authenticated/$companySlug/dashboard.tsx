@@ -7,7 +7,7 @@ import {
   useSuspenseQuery,
 } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { listProducts } from "@/lib/celetus/products.functions";
 import { getDashboard, upsertDailyInput } from "@/lib/celetus/dashboard.functions";
 import { companyPath, isCompanySlug, resolveCompany } from "@/lib/celetus/workspaces";
@@ -238,7 +238,12 @@ function DailyTable({
       </TableHeader>
       <TableBody>
         {days.map((d) => (
-          <DailyRow key={d.date} companySlug={companySlug} productId={productId} day={d} />
+          <DailyRow
+            key={`${productId}:${d.date}`}
+            companySlug={companySlug}
+            productId={productId}
+            day={d}
+          />
         ))}
       </TableBody>
     </Table>
@@ -280,17 +285,47 @@ function DailyRow({
     return `${dd}/${mm}`;
   }, [day.date]);
 
+  useEffect(() => {
+    setInvest(day.invest_manual?.toString() ?? "");
+    setClicks(day.clicks?.toString() ?? "");
+    setCheckouts(day.checkouts?.toString() ?? "");
+    setImpressions(day.impressions?.toString() ?? "");
+    setNotes(day.notes ?? "");
+  }, [
+    productId,
+    day.date,
+    day.invest_manual,
+    day.clicks,
+    day.checkouts,
+    day.impressions,
+    day.notes,
+  ]);
+
+  const saveInvest = (value: number | null) => {
+    const current = day.invest_manual;
+    if (current != null && value != null && !sameMoney(current, value)) {
+      const confirmed = confirm(
+        `Substituir investimento do dia ${dateLabel}?\n\nAtual: ${fmtBRL(
+          current,
+        )}\nNovo: ${fmtBRL(value)}`,
+      );
+
+      if (!confirmed) {
+        setInvest(current.toString());
+        return;
+      }
+    }
+
+    mut.mutate({ invest_manual: value });
+  };
+
   return (
     <TableRow>
       <TableCell className="font-medium whitespace-nowrap">{dateLabel}</TableCell>
       <TableCell className="text-right">{day.sales || "-"}</TableCell>
       <TableCell className="text-right">{day.revenue ? fmtBRL(day.revenue) : "-"}</TableCell>
       <TableCell className="text-right">
-        <NumCell
-          value={invest}
-          onChange={setInvest}
-          onCommit={(v) => mut.mutate({ invest_manual: v })}
-        />
+        <NumCell value={invest} onChange={setInvest} onCommit={saveInvest} />
       </TableCell>
       <TableCell className="text-right">
         {day.invest_final ? fmtBRL(day.invest_final) : "-"}
@@ -397,4 +432,8 @@ function toneProfit(profit: number, revenue: number) {
   if (revenue <= 0) return "";
   const margin = profit / revenue;
   return toneROI(margin);
+}
+
+function sameMoney(a: number, b: number) {
+  return Math.round(a * 100) === Math.round(b * 100);
 }
