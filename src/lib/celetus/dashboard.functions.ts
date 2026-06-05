@@ -229,7 +229,8 @@ export const upsertDailyInput = createServerFn({ method: "POST" })
     if (data.notes !== undefined) payload.notes = data.notes;
     const { error } = await supabase
       .from("daily_manual_inputs")
-      .upsert(payload, { onConflict: "user_id,product_id,date" });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .upsert(payload as any, { onConflict: "user_id,product_id,date" });
     if (error) throw new Error(error.message);
     return { ok: true };
   });
