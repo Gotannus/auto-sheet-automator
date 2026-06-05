@@ -155,20 +155,14 @@ export const getWebhookConfig = createServerFn({ method: "GET" })
   .inputValidator((input: unknown) => CompanyInput.parse(input ?? {}))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const userId = await resolveCompanyId(context.supabase, data.company_slug);
-    const { data: config } = await supabase
-      .from("webhook_config")
+    const companyId = await resolveCompanyId(context.supabase, data.company_slug);
+    const { data: row, error } = await supabase
+      .from("companies")
       .select("webhook_secret")
-      .eq("user_id", userId)
+      .eq("id", companyId)
       .maybeSingle();
-    if (config) return config;
-    const ins = await supabase
-      .from("webhook_config")
-      .insert({ user_id: userId })
-      .select("webhook_secret")
-      .single();
-    if (ins.error) throw new Error(ins.error.message);
-    return ins.data;
+    if (error) throw new Error(error.message);
+    return { webhook_secret: row?.webhook_secret ?? "" };
   });
 
 export const updateWebhookSecret = createServerFn({ method: "POST" })
@@ -183,11 +177,12 @@ export const updateWebhookSecret = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const userId = await resolveCompanyId(context.supabase, data.company_slug);
+    const companyId = await resolveCompanyId(context.supabase, data.company_slug);
     const secret = data.webhook_secret.trim();
     const { error } = await supabase
-      .from("webhook_config")
-      .upsert({ user_id: userId, webhook_secret: secret }, { onConflict: "user_id" });
+      .from("companies")
+      .update({ webhook_secret: secret })
+      .eq("id", companyId);
     if (error) throw new Error(error.message);
     return { webhook_secret: secret };
   });
@@ -197,16 +192,17 @@ export const rotateWebhookSecret = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => CompanyInput.parse(input ?? {}))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const userId = await resolveCompanyId(context.supabase, data.company_slug);
-    // Generate via crypto
+    const companyId = await resolveCompanyId(context.supabase, data.company_slug);
     const bytes = new Uint8Array(24);
     crypto.getRandomValues(bytes);
     const secret = Array.from(bytes)
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
     const { error } = await supabase
-      .from("webhook_config")
-      .upsert({ user_id: userId, webhook_secret: secret }, { onConflict: "user_id" });
+      .from("companies")
+      .update({ webhook_secret: secret })
+      .eq("id", companyId);
     if (error) throw new Error(error.message);
     return { webhook_secret: secret };
   });
+
