@@ -124,10 +124,21 @@ function WebhookLogsPage() {
         <StatCard label="Erros" value={counts.error} tone="danger" />
       </div>
 
-      <div className="flex items-center gap-3">
-        <span className="text-sm text-muted-foreground">Filtrar status:</span>
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-sm text-muted-foreground">Tipo:</span>
+        <Select value={kind} onValueChange={(v) => setKind(v as KindFilter)}>
+          <SelectTrigger className="w-40">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos</SelectItem>
+            <SelectItem value="webhook">Webhook</SelectItem>
+            <SelectItem value="import">Importação</SelectItem>
+          </SelectContent>
+        </Select>
+        <span className="text-sm text-muted-foreground">Status:</span>
         <Select value={status} onValueChange={(v) => setStatus(v as StatusFilter)}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-40">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -145,8 +156,9 @@ function WebhookLogsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Recebido em</TableHead>
+                <TableHead>Tipo</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Transação</TableHead>
+                <TableHead>Origem / Transação</TableHead>
                 <TableHead className="text-right">Inseridas</TableHead>
                 <TableHead>Mensagem</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
@@ -155,74 +167,97 @@ function WebhookLogsPage() {
             <TableBody>
               {isLoading && (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
                     Carregando...
                   </TableCell>
                 </TableRow>
               )}
               {!isLoading && (data?.events.length ?? 0) === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
                     Nenhum evento ainda.
                   </TableCell>
                 </TableRow>
               )}
-              {data?.events.map((ev) => (
-                <TableRow key={ev.id}>
-                  <TableCell className="whitespace-nowrap text-sm">
-                    {new Date(ev.received_at).toLocaleString("pt-BR")}
-                    {ev.reprocessed_at && (
-                      <div className="text-xs text-muted-foreground">
-                        reproc. {new Date(ev.reprocessed_at).toLocaleString("pt-BR")}
+              {data?.events.map((ev) => {
+                const isImport = ev.kind === "import";
+                return (
+                  <TableRow key={ev.id}>
+                    <TableCell className="whitespace-nowrap text-sm">
+                      {new Date(ev.received_at).toLocaleString("pt-BR")}
+                      {ev.reprocessed_at && (
+                        <div className="text-xs text-muted-foreground">
+                          reproc. {new Date(ev.reprocessed_at).toLocaleString("pt-BR")}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={isImport ? "outline" : "secondary"} className="text-xs">
+                        {isImport ? "Importação" : "Webhook"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={ev.status} />
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {isImport
+                        ? (ev.file_name ?? "(planilha)")
+                        : (ev.transaction_code ?? "—")}
+                    </TableCell>
+                    <TableCell className="text-right text-sm">
+                      {ev.rows_upserted ?? 0}
+                      {ev.rows_read != null && isImport ? (
+                        <span className="text-xs text-muted-foreground">
+                          {" "}
+                          / {ev.rows_read} lidas
+                        </span>
+                      ) : null}
+                      {ev.rows_ignored ? (
+                        <span className="text-xs text-muted-foreground">
+                          {" "}
+                          (ig. {ev.rows_ignored})
+                        </span>
+                      ) : null}
+                      {ev.products_created ? (
+                        <div className="text-xs text-emerald-600">
+                          +{ev.products_created} produto(s)
+                        </div>
+                      ) : null}
+                    </TableCell>
+                    <TableCell className="max-w-md truncate text-xs text-muted-foreground">
+                      {ev.error_message ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setSelected(ev)}
+                          disabled={!ev.payload_json}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleReprocess(ev.id)}
+                          disabled={isImport || !ev.payload_json || reprocessing === ev.id}
+                          title={isImport ? "Reenvie a planilha pela tela Importar" : undefined}
+                        >
+                          <Play
+                            className={`h-4 w-4 ${reprocessing === ev.id ? "animate-pulse" : ""}`}
+                          />
+                        </Button>
                       </div>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge status={ev.status} />
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {ev.transaction_code ?? "—"}
-                  </TableCell>
-                  <TableCell className="text-right text-sm">
-                    {ev.rows_upserted ?? 0}
-                    {ev.rows_ignored ? (
-                      <span className="text-xs text-muted-foreground">
-                        {" "}
-                        (ig. {ev.rows_ignored})
-                      </span>
-                    ) : null}
-                  </TableCell>
-                  <TableCell className="max-w-md truncate text-xs text-muted-foreground">
-                    {ev.error_message ?? "—"}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setSelected(ev)}
-                        disabled={!ev.payload_json}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleReprocess(ev.id)}
-                        disabled={!ev.payload_json || reprocessing === ev.id}
-                      >
-                        <Play
-                          className={`h-4 w-4 ${reprocessing === ev.id ? "animate-pulse" : ""}`}
-                        />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
+
 
       <Dialog open={selected !== null} onOpenChange={(open) => !open && setSelected(null)}>
         <DialogContent className="max-w-3xl">
