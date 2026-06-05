@@ -30,7 +30,7 @@ function ImportPage() {
     mutationFn: async (f: File) => {
       const buf = await f.arrayBuffer();
       const file_b64 = arrayBufferToBase64(buf);
-      return importFn({ data: { company_slug: companySlug, file_b64 } });
+      return importFn({ data: { company_slug: companySlug, file_b64, file_name: f.name } });
     },
     onSuccess: (data) => {
       setResult(data);

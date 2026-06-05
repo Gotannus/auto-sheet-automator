@@ -211,6 +211,9 @@ export const getDashboard = createServerFn({ method: "POST" })
       } else if (kind === "orderbump" || kind === "order_bump" || kind === "bump") {
         a.obQty += 1;
         a.obRevenue += itemCommission;
+        // Match Celetus "faturado no dia" — sum every line item (Principal + Orderbump)
+        // into the headline revenue, not only Principal.
+        a.revenue += itemCommission;
       }
     }
 
