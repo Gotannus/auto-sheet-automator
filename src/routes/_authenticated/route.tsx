@@ -15,7 +15,7 @@ import {
   companyPath,
   getCompanySlugFromPath,
 } from "@/lib/celetus/workspaces";
-import { getCompanyBySlug } from "@/lib/celetus/companies.functions";
+import { getCompanyBySlug, listMyCompanies } from "@/lib/celetus/companies.functions";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -32,6 +32,14 @@ function AuthedLayout() {
     enabled: !!slug,
   });
 
+  // Only fetch the list of companies if the user might switch — used to decide
+  // whether to show the "Trocar de empresa" link. Sócios with 1 company never see it.
+  const { data: companies } = useQuery({
+    queryKey: ["my-companies"],
+    queryFn: () => listMyCompanies(),
+  });
+  const canSwitch = (companies?.length ?? 0) > 1;
+
   const displayName = company?.name ?? slug ?? "Empresa";
 
   return (
@@ -43,13 +51,15 @@ function AuthedLayout() {
             <Building2 className="h-4 w-4 text-primary shrink-0" />
             <div className="text-sm font-medium truncate flex-1">{displayName}</div>
           </div>
-          <Link
-            to="/companies"
-            className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-          >
-            <ChevronsLeftRight className="h-3 w-3" />
-            Trocar de empresa
-          </Link>
+          {canSwitch && (
+            <Link
+              to="/tannus"
+              className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <ChevronsLeftRight className="h-3 w-3" />
+              Trocar de empresa
+            </Link>
+          )}
         </div>
         {slug ? (
           <nav className="flex-1 p-2 space-y-1 text-sm">
