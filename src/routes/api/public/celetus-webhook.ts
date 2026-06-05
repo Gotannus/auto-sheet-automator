@@ -125,7 +125,7 @@ export const Route = createFileRoute("/api/public/celetus-webhook")({
           .from("celetus_sales")
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .upsert(rowsToUpsert as any, {
-            onConflict: "user_id,transaction_code,src,kind",
+            onConflict: "user_id,transaction_code,line_item_code",
           });
 
         if (upsertError) return json({ error: upsertError.message }, 500);
@@ -271,6 +271,19 @@ function buildSaleCandidates(payload: AnyRecord): SaleCandidate[] {
     ]);
     const itemCommission = getItemCommission(item, totalCommission, totalItemAmount, items.length);
     const quantity = Math.max(1, Math.trunc(num(item.quantity ?? payload.quantity, 1)));
+    const lineItemCode =
+      firstText(
+        item.productPriceCodeId,
+        item.product_price_code_id,
+        item.priceCodeId,
+        item.price_code_id,
+        item.product_code,
+        item.productCode,
+        item.product_id,
+        item.productId,
+        item.id,
+        item.code,
+      ) || `${storedSrc}:${itemKind}`;
 
     return {
       productCandidates,
@@ -294,6 +307,7 @@ function buildSaleCandidates(payload: AnyRecord): SaleCandidate[] {
             record(payload.customer)?.document,
           ) || null,
         src: storedSrc,
+        line_item_code: lineItemCode,
         product_name: productName || null,
         offer_name:
           firstText(item.offerName, item.offer_name, payload.offerName, payload.offer_name) || null,
