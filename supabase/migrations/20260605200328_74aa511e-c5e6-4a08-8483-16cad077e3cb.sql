@@ -1,0 +1,1 @@
+ALTER TABLE public.monthly_tax_settings DROP CONSTRAINT IF EXISTS monthly_tax_settings_user_id_fkey;
