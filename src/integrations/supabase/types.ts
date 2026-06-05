@@ -141,6 +141,7 @@ export type Database = {
           owner_user_id: string
           slug: string
           updated_at: string
+          webhook_secret: string
         }
         Insert: {
           created_at?: string
@@ -149,6 +150,7 @@ export type Database = {
           owner_user_id: string
           slug: string
           updated_at?: string
+          webhook_secret?: string
         }
         Update: {
           created_at?: string
@@ -157,6 +159,7 @@ export type Database = {
           owner_user_id?: string
           slug?: string
           updated_at?: string
+          webhook_secret?: string
         }
         Relationships: []
       }

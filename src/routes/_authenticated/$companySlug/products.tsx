@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/table";
 import { Plus, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
-import { companyPath, isCompanySlug, resolveCompany } from "@/lib/celetus/workspaces";
+import { companyPath, isValidSlug } from "@/lib/celetus/workspaces";
 
 const productsQO = (companySlug: string) =>
   queryOptions({
@@ -42,8 +42,8 @@ const productsQO = (companySlug: string) =>
 export const Route = createFileRoute("/_authenticated/$companySlug/products")({
   head: () => ({ meta: [{ title: "Produtos â€” Painel Celetus" }] }),
   beforeLoad: ({ params }) => {
-    if (!isCompanySlug(params.companySlug)) {
-      throw redirect({ to: companyPath("tannus-labs", "products"), replace: true });
+    if (!isValidSlug(params.companySlug)) {
+      throw redirect({ to: "/companies", replace: true });
     }
   },
   loader: ({ context, params }) =>
@@ -54,7 +54,7 @@ export const Route = createFileRoute("/_authenticated/$companySlug/products")({
 
 function ProductsPage() {
   const { companySlug } = Route.useParams();
-  const company = resolveCompany(companySlug);
+  const company = { slug: companySlug };
   const { data: products } = useSuspenseQuery(productsQO(company.slug));
   const qc = useQueryClient();
   const create = useServerFn(createProduct);

@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { resolveCompany } from "@/lib/celetus/workspaces";
+import { resolveCompanyId } from "@/lib/celetus/companies-resolve";
 import {
   hasIndicationMarker,
   isIndicationText,
@@ -28,8 +28,8 @@ export const importCeletusReport = createServerFn({ method: "POST" })
       })
       .parse(input),
   )
-  .handler(async ({ data }) => {
-    const userId = resolveCompany(data.company_slug).userId;
+  .handler(async ({ data, context }) => {
+    const userId = await resolveCompanyId(context.supabase, data.company_slug);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const logImport = async (entry: {

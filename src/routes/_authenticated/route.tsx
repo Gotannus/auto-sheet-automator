@@ -1,6 +1,21 @@
-import { createFileRoute, Outlet, Link } from "@tanstack/react-router";
-import { LayoutDashboard, Package, Receipt, Settings as SettingsIcon, Upload, Webhook, Activity } from "lucide-react";
-import { companyPath, getCompanyFromPath } from "@/lib/celetus/workspaces";
+import { createFileRoute, Outlet, Link, useRouterState } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import {
+  LayoutDashboard,
+  Package,
+  Receipt,
+  Settings as SettingsIcon,
+  Upload,
+  Webhook,
+  Activity,
+  Building2,
+  ChevronsLeftRight,
+} from "lucide-react";
+import {
+  companyPath,
+  getCompanySlugFromPath,
+} from "@/lib/celetus/workspaces";
+import { getCompanyBySlug } from "@/lib/celetus/companies.functions";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -8,53 +23,61 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 function AuthedLayout() {
-  const company =
-    typeof window === "undefined"
-      ? getCompanyFromPath("/")
-      : getCompanyFromPath(window.location.pathname);
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const slug = getCompanySlugFromPath(pathname);
+
+  const { data: company } = useQuery({
+    queryKey: ["company-current", slug],
+    queryFn: () => (slug ? getCompanyBySlug({ data: { slug } }) : null),
+    enabled: !!slug,
+  });
+
+  const displayName = company?.name ?? slug ?? "Empresa";
 
   return (
     <div className="min-h-screen flex bg-muted/30">
       <aside className="w-60 border-r bg-card hidden md:flex flex-col">
         <div className="p-4 border-b">
           <div className="font-bold text-lg">Painel Celetus</div>
-          <div className="text-xs text-muted-foreground">por produto Â· mensal</div>
+          <div className="flex items-center gap-2 mt-2 px-2 py-1.5 rounded-md bg-muted">
+            <Building2 className="h-4 w-4 text-primary shrink-0" />
+            <div className="text-sm font-medium truncate flex-1">{displayName}</div>
+          </div>
+          <Link
+            to="/companies"
+            className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+          >
+            <ChevronsLeftRight className="h-3 w-3" />
+            Trocar de empresa
+          </Link>
         </div>
-        <nav className="flex-1 p-2 space-y-1 text-sm">
-          <NavItem
-            to={companyPath(company.slug, "dashboard")}
-            icon={<LayoutDashboard className="h-4 w-4" />}
-          >
-            Dashboard
-          </NavItem>
-          <NavItem
-            to={companyPath(company.slug, "sales")}
-            icon={<Receipt className="h-4 w-4" />}
-          >
-            Vendas
-          </NavItem>
-          <NavItem
-            to={companyPath(company.slug, "products")}
-            icon={<Package className="h-4 w-4" />}
-          >
-            Produtos
-          </NavItem>
-          <NavItem to={companyPath(company.slug, "webhook")} icon={<Webhook className="h-4 w-4" />}>
-            Webhook
-          </NavItem>
-          <NavItem to={companyPath(company.slug, "webhook-logs")} icon={<Activity className="h-4 w-4" />}>
-            Webhook logs
-          </NavItem>
-          <NavItem to={companyPath(company.slug, "import")} icon={<Upload className="h-4 w-4" />}>
-            Importar planilha
-          </NavItem>
-          <NavItem
-            to={companyPath(company.slug, "settings")}
-            icon={<SettingsIcon className="h-4 w-4" />}
-          >
-            ConfiguraÃ§Ãµes
-          </NavItem>
-        </nav>
+        {slug ? (
+          <nav className="flex-1 p-2 space-y-1 text-sm">
+            <NavItem to={companyPath(slug, "dashboard")} icon={<LayoutDashboard className="h-4 w-4" />}>
+              Dashboard
+            </NavItem>
+            <NavItem to={companyPath(slug, "sales")} icon={<Receipt className="h-4 w-4" />}>
+              Vendas
+            </NavItem>
+            <NavItem to={companyPath(slug, "products")} icon={<Package className="h-4 w-4" />}>
+              Produtos
+            </NavItem>
+            <NavItem to={companyPath(slug, "webhook")} icon={<Webhook className="h-4 w-4" />}>
+              Webhook
+            </NavItem>
+            <NavItem to={companyPath(slug, "webhook-logs")} icon={<Activity className="h-4 w-4" />}>
+              Webhook logs
+            </NavItem>
+            <NavItem to={companyPath(slug, "import")} icon={<Upload className="h-4 w-4" />}>
+              Importar planilha
+            </NavItem>
+            <NavItem to={companyPath(slug, "settings")} icon={<SettingsIcon className="h-4 w-4" />}>
+              Configurações
+            </NavItem>
+          </nav>
+        ) : (
+          <div className="flex-1" />
+        )}
       </aside>
       <main className="flex-1 min-w-0">
         <Outlet />

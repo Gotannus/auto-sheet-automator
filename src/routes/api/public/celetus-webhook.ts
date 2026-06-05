@@ -6,7 +6,7 @@ import {
   kindLabel,
   norm,
 } from "@/lib/celetus/normalize";
-import { getCompany } from "@/lib/celetus/workspaces";
+
 
 type AnyRecord = Record<string, unknown>;
 type SupabaseAdminClient =
@@ -43,23 +43,23 @@ export const Route = createFileRoute("/api/public/celetus-webhook")({
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const companySlug =
           url.searchParams.get("company") || url.searchParams.get("workspace") || "";
-        const company = companySlug ? getCompany(companySlug) : null;
 
-        if (companySlug && !company) return json({ error: "invalid company" }, 404);
-
-        let configQuery = supabaseAdmin
-          .from("webhook_config")
-          .select("user_id")
+        // Lookup the company by its webhook secret. Optionally also scope by
+        // slug if provided in the URL, so two companies couldn't be confused.
+        let companyQuery = supabaseAdmin
+          .from("companies")
+          .select("id, slug")
           .eq("webhook_secret", secret);
+        if (companySlug) companyQuery = companyQuery.eq("slug", companySlug);
 
-        if (company) configQuery = configQuery.eq("user_id", company.userId);
+        const { data: company, error: companyError } = await companyQuery.maybeSingle();
 
-        const { data: config, error: configError } = await configQuery.maybeSingle();
+        if (companyError) return json({ error: companyError.message }, 500);
+        if (!company) return json({ error: "invalid secret" }, 401);
 
-        if (configError) return json({ error: configError.message }, 500);
-        if (!config) return json({ error: "invalid secret" }, 401);
-
-        const userId = String(config.user_id);
+        // `user_id` columns on operational tables actually store the company id
+        // (tenant identifier) in the current schema.
+        const userId = String(company.id);
 
         let rawBody: unknown = null;
         try {

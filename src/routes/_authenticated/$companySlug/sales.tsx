@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown, RefreshCw } from "lucide-react";
 import { listSales, type SaleRow } from "@/lib/celetus/sales.functions";
 import { listProducts } from "@/lib/celetus/products.functions";
-import { companyPath, isCompanySlug } from "@/lib/celetus/workspaces";
+import { companyPath, isValidSlug } from "@/lib/celetus/workspaces";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,8 +30,8 @@ import {
 export const Route = createFileRoute("/_authenticated/$companySlug/sales")({
   head: () => ({ meta: [{ title: "Vendas — Painel Celetus" }] }),
   beforeLoad: ({ params }) => {
-    if (!isCompanySlug(params.companySlug)) {
-      throw redirect({ to: companyPath("tannus-labs", "sales"), replace: true });
+    if (!isValidSlug(params.companySlug)) {
+      throw redirect({ to: "/companies", replace: true });
     }
   },
   component: SalesPage,

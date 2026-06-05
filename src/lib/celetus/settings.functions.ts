@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { resolveCompany } from "@/lib/celetus/workspaces";
+import { resolveCompanyId } from "@/lib/celetus/companies-resolve";
 
 type SupabaseClient = (typeof import("@/integrations/supabase/client.server"))["supabaseAdmin"];
 
@@ -39,7 +39,7 @@ export const getSettings = createServerFn({ method: "GET" })
   .inputValidator((input: unknown) => CompanyInput.parse(input ?? {}))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const userId = resolveCompany(data.company_slug).userId;
+    const userId = await resolveCompanyId(context.supabase, data.company_slug);
     const selected = currentYearMonth();
     const year = data.year ?? selected.year;
     const month = data.month ?? selected.month;
@@ -120,7 +120,7 @@ export const updateSettings = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const userId = resolveCompany(data.company_slug).userId;
+    const userId = await resolveCompanyId(context.supabase, data.company_slug);
     const { error: monthlyError } = await fromUntyped(supabase, "monthly_tax_settings").upsert(
       {
         user_id: userId,
@@ -155,20 +155,14 @@ export const getWebhookConfig = createServerFn({ method: "GET" })
   .inputValidator((input: unknown) => CompanyInput.parse(input ?? {}))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const userId = resolveCompany(data.company_slug).userId;
-    const { data: config } = await supabase
-      .from("webhook_config")
+    const companyId = await resolveCompanyId(context.supabase, data.company_slug);
+    const { data: row, error } = await supabase
+      .from("companies")
       .select("webhook_secret")
-      .eq("user_id", userId)
+      .eq("id", companyId)
       .maybeSingle();
-    if (config) return config;
-    const ins = await supabase
-      .from("webhook_config")
-      .insert({ user_id: userId })
-      .select("webhook_secret")
-      .single();
-    if (ins.error) throw new Error(ins.error.message);
-    return ins.data;
+    if (error) throw new Error(error.message);
+    return { webhook_secret: row?.webhook_secret ?? "" };
   });
 
 export const updateWebhookSecret = createServerFn({ method: "POST" })
@@ -183,11 +177,12 @@ export const updateWebhookSecret = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const userId = resolveCompany(data.company_slug).userId;
+    const companyId = await resolveCompanyId(context.supabase, data.company_slug);
     const secret = data.webhook_secret.trim();
     const { error } = await supabase
-      .from("webhook_config")
-      .upsert({ user_id: userId, webhook_secret: secret }, { onConflict: "user_id" });
+      .from("companies")
+      .update({ webhook_secret: secret })
+      .eq("id", companyId);
     if (error) throw new Error(error.message);
     return { webhook_secret: secret };
   });
@@ -197,16 +192,17 @@ export const rotateWebhookSecret = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => CompanyInput.parse(input ?? {}))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const userId = resolveCompany(data.company_slug).userId;
-    // Generate via crypto
+    const companyId = await resolveCompanyId(context.supabase, data.company_slug);
     const bytes = new Uint8Array(24);
     crypto.getRandomValues(bytes);
     const secret = Array.from(bytes)
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
     const { error } = await supabase
-      .from("webhook_config")
-      .upsert({ user_id: userId, webhook_secret: secret }, { onConflict: "user_id" });
+      .from("companies")
+      .update({ webhook_secret: secret })
+      .eq("id", companyId);
     if (error) throw new Error(error.message);
     return { webhook_secret: secret };
   });
+

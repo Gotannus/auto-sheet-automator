@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { resolveCompany } from "@/lib/celetus/workspaces";
+import { resolveCompanyId } from "@/lib/celetus/companies-resolve";
 
 const SortField = z.enum(["sale_date", "commission_value", "net_value", "gross_value"]);
 const SortDir = z.enum(["asc", "desc"]);
@@ -55,7 +55,7 @@ export const listSales = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const userId = resolveCompany(data.company_slug).userId;
+    const userId = await resolveCompanyId(context.supabase, data.company_slug);
     const from = (data.page - 1) * data.page_size;
     const to = from + data.page_size - 1;
 

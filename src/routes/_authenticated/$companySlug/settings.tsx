@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { companyPath, isCompanySlug, resolveCompany } from "@/lib/celetus/workspaces";
+import { companyPath, isValidSlug } from "@/lib/celetus/workspaces";
 
 const settingsQO = (companySlug: string, year?: number, month?: number) =>
   queryOptions({
@@ -41,8 +41,8 @@ const MONTHS = [
 export const Route = createFileRoute("/_authenticated/$companySlug/settings")({
   head: () => ({ meta: [{ title: "Configuracoes - Painel Celetus" }] }),
   beforeLoad: ({ params }) => {
-    if (!isCompanySlug(params.companySlug)) {
-      throw redirect({ to: companyPath("tannus-labs", "settings"), replace: true });
+    if (!isValidSlug(params.companySlug)) {
+      throw redirect({ to: "/companies", replace: true });
     }
   },
   loader: ({ context, params }) =>
@@ -53,7 +53,7 @@ export const Route = createFileRoute("/_authenticated/$companySlug/settings")({
 
 function SettingsPage() {
   const { companySlug } = Route.useParams();
-  const company = resolveCompany(companySlug);
+  const company = { slug: companySlug };
   const { data: initialSettings } = useSuspenseQuery(settingsQO(company.slug));
   const qc = useQueryClient();
   const save = useServerFn(updateSettings);

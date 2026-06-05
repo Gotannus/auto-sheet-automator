@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { resolveCompany } from "@/lib/celetus/workspaces";
+import { resolveCompanyId } from "@/lib/celetus/companies-resolve";
 
 export type Product = {
   id: string;
@@ -19,7 +19,7 @@ export const listProducts = createServerFn({ method: "GET" })
   .inputValidator((input: unknown) => CompanyInput.parse(input ?? {}))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const userId = resolveCompany(data.company_slug).userId;
+    const userId = await resolveCompanyId(context.supabase, data.company_slug);
     const { data: rows, error } = await supabase
       .from("products")
       .select("id, name, src, created_at")
@@ -42,7 +42,7 @@ export const createProduct = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const userId = resolveCompany(data.company_slug).userId;
+    const userId = await resolveCompanyId(context.supabase, data.company_slug);
     const { data: row, error } = await supabase
       .from("products")
       .insert({ user_id: userId, name: data.name, src: data.src.trim() })
@@ -66,7 +66,7 @@ export const updateProduct = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const userId = resolveCompany(data.company_slug).userId;
+    const userId = await resolveCompanyId(context.supabase, data.company_slug);
     const { error } = await supabase
       .from("products")
       .update({ name: data.name, src: data.src.trim() })
@@ -83,7 +83,7 @@ export const deleteProduct = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const userId = resolveCompany(data.company_slug).userId;
+    const userId = await resolveCompanyId(context.supabase, data.company_slug);
     const { error } = await supabase
       .from("products")
       .delete()
