@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { resolveCompanyId } from "@/lib/celetus/companies.server";
+import { resolveCompanyId } from "@/lib/celetus/companies-resolve";
 
 type SupabaseClient = (typeof import("@/integrations/supabase/client.server"))["supabaseAdmin"];
 

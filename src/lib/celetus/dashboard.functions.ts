@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { resolveCompanyId } from "@/lib/celetus/companies.server";
+import { resolveCompanyId } from "@/lib/celetus/companies-resolve";
 import { hasIndicationMarker, isIndicationText } from "@/lib/celetus/normalize";
 
 const PAID = [

@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { resolveCompanyId } from "@/lib/celetus/companies.server";
+import { resolveCompanyId } from "@/lib/celetus/companies-resolve";
 
 const SortField = z.enum(["sale_date", "commission_value", "net_value", "gross_value"]);
 const SortDir = z.enum(["asc", "desc"]);
