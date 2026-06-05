@@ -127,7 +127,7 @@ function ProductsPage() {
                   </TableCell>
                 </TableRow>
               )}
-              {products.map((p) => (
+              {products.map((p: Product) => (
                 <TableRow key={p.id}>
                   <TableCell className="font-medium">{p.name}</TableCell>
                   <TableCell className="font-mono text-xs">{p.src}</TableCell>
