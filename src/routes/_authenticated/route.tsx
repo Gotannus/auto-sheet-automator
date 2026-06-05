@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet, Link } from "@tanstack/react-router";
-import { LayoutDashboard, Package, Settings as SettingsIcon, Webhook } from "lucide-react";
+import { LayoutDashboard, Package, Settings as SettingsIcon, Upload, Webhook } from "lucide-react";
 import { companyPath, getCompanyFromPath } from "@/lib/celetus/workspaces";
 
 export const Route = createFileRoute("/_authenticated")({
