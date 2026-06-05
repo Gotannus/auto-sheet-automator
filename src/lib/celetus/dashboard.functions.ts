@@ -99,7 +99,7 @@ export const getDashboard = createServerFn({ method: "POST" })
     let salesQuery = supabase
       .from("celetus_sales")
       .select(
-        "kind, status, recipient, commission_value, sale_date, quantity, src, src_tag, utm_source, campaign_id, adset_id, ad_id, raw",
+        "kind, status, recipient, commission_value, net_value, sale_date, quantity, src, src_tag, utm_source, campaign_id, adset_id, ad_id, raw",
       )
       .eq("user_id", userId)
       .gte("sale_date", fromIso)
@@ -178,17 +178,17 @@ export const getDashboard = createServerFn({ method: "POST" })
       const brt = new Date(dt.getTime() - 3 * 60 * 60 * 1000);
       const key = brt.toISOString().slice(0, 10);
       const a = getAgg(key);
-      const commission = Number(s.commission_value ?? 0);
+      const itemCommission = Number(s.commission_value ?? 0);
+      const orderCommission = Number(s.net_value ?? s.commission_value ?? 0);
       const qty = Number(s.quantity ?? 1);
       if (kind === "principal" || kind === "main") {
         if (qty === 1) {
           a.sales += 1;
-          a.revenue += commission;
+          a.revenue += orderCommission;
         }
       } else if (kind === "orderbump" || kind === "order_bump" || kind === "bump") {
         a.obQty += 1;
-        a.obRevenue += commission;
-        a.revenue += commission;
+        a.obRevenue += itemCommission;
       }
     }
 

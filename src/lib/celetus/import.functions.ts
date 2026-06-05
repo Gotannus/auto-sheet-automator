@@ -14,14 +14,7 @@ type AnyRecord = Record<string, unknown>;
 
 type ProductRow = { id: string; src: string; name: string };
 
-const PAID_STATUSES = new Set([
-  "pago",
-  "paid",
-  "aprovado",
-  "approved",
-  "complete",
-  "completed",
-]);
+const PAID_STATUSES = new Set(["pago", "paid", "aprovado", "approved", "complete", "completed"]);
 
 export const importCeletusReport = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -124,17 +117,14 @@ export const importCeletusReport = createServerFn({ method: "POST" })
         parseCeletusDate(pickText(row, ["CreatedDate", "created_date", "Date"])) ?? new Date();
       const value = pickNumber(row, ["Value", "value"]);
       const commissionValue = pickNumber(row, ["CommissionValue", "commission_value"]);
-      const totalAmountPaid = pickNumber(row, [
-        "TotalAmountPaid",
-        "total_amount_paid",
-        "Amount",
-      ]);
+      const totalAmountPaid = pickNumber(row, ["TotalAmountPaid", "total_amount_paid", "Amount"]);
       const processingFee = pickNumber(row, ["ProcessingFee", "processing_fee"]);
       const sellerName = pickText(row, ["SellerName", "seller_name"]);
       const sellerType = pickText(row, ["SellerType", "seller_type"]);
       const mainProduct = pickText(row, ["MainProduct", "main_product", "Recipient"]) || "Produtor";
+      const offerName = pickText(row, ["OfferName", "offer_name"]);
 
-      const lineItemCode = productPriceCodeId || `${storedSrc}:${kind}`;
+      const lineItemCode = buildLineItemCode(productName, kind, offerName, storedSrc);
 
       toUpsert.push({
         user_id: userId,
@@ -143,7 +133,7 @@ export const importCeletusReport = createServerFn({ method: "POST" })
         line_item_code: lineItemCode,
         src: storedSrc,
         product_name: productName || null,
-        offer_name: pickText(row, ["OfferName", "offer_name"]) || null,
+        offer_name: offerName || null,
         kind,
         status,
         doc_type:
@@ -221,7 +211,9 @@ function pickNumber(row: AnyRecord, keys: string[]): number | null {
     const v = row[k];
     if (v === null || v === undefined || v === "") continue;
     if (typeof v === "number" && !Number.isNaN(v)) return v;
-    const text = String(v).trim().replace(/[^\d,.-]/g, "");
+    const text = String(v)
+      .trim()
+      .replace(/[^\d,.-]/g, "");
     const normalized = text.includes(",") ? text.replace(/\./g, "").replace(",", ".") : text;
     const n = Number(normalized);
     if (!Number.isNaN(n)) return n;
@@ -232,15 +224,9 @@ function pickNumber(row: AnyRecord, keys: string[]): number | null {
 function mapStatus(raw: string): string {
   const n = norm(raw).replace(/[^a-z0-9]/g, "");
   if (
-    [
-      "pago",
-      "paid",
-      "approved",
-      "aprovado",
-      "complete",
-      "completed",
-      "approvedpurchase",
-    ].includes(n)
+    ["pago", "paid", "approved", "aprovado", "complete", "completed", "approvedpurchase"].includes(
+      n,
+    )
   )
     return "Pago";
   if (["pending", "pendente", "waitingpayment", "pixgenerated", "boletogenerated"].includes(n))
@@ -263,4 +249,19 @@ function slug(value: string) {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "") || "produto"
   );
+}
+
+function buildLineItemCode(
+  productName: string,
+  kind: string,
+  offerName: string,
+  storedSrc: string,
+) {
+  return uniqueTexts([kind, productName || storedSrc, offerName])
+    .join(":")
+    .slice(0, 240);
+}
+
+function uniqueTexts(values: string[]) {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
 }

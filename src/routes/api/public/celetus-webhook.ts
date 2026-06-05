@@ -271,19 +271,13 @@ function buildSaleCandidates(payload: AnyRecord): SaleCandidate[] {
     ]);
     const itemCommission = getItemCommission(item, totalCommission, totalItemAmount, items.length);
     const quantity = Math.max(1, Math.trunc(num(item.quantity ?? payload.quantity, 1)));
-    const lineItemCode =
-      firstText(
-        item.productPriceCodeId,
-        item.product_price_code_id,
-        item.priceCodeId,
-        item.price_code_id,
-        item.product_code,
-        item.productCode,
-        item.product_id,
-        item.productId,
-        item.id,
-        item.code,
-      ) || `${storedSrc}:${itemKind}`;
+    const offerName = firstText(
+      item.offerName,
+      item.offer_name,
+      payload.offerName,
+      payload.offer_name,
+    );
+    const lineItemCode = buildLineItemCode(productName, itemKind, offerName, storedSrc);
 
     return {
       productCandidates,
@@ -309,8 +303,7 @@ function buildSaleCandidates(payload: AnyRecord): SaleCandidate[] {
         src: storedSrc,
         line_item_code: lineItemCode,
         product_name: productName || null,
-        offer_name:
-          firstText(item.offerName, item.offer_name, payload.offerName, payload.offer_name) || null,
+        offer_name: offerName || null,
         kind: itemKind,
         status,
         doc_type: orderKindLabel(firstText(item.item_type_sale)),
@@ -561,6 +554,17 @@ function orderKindLabel(value: unknown) {
 function buildTemporarySrc(productName: string, transactionCode: string, itemCode: string) {
   const basis = firstText(productName, itemCode, transactionCode, crypto.randomUUID());
   return `sem-src-${slug(basis)}`.slice(0, 120);
+}
+
+function buildLineItemCode(
+  productName: string,
+  itemKind: string,
+  offerName: string,
+  storedSrc: string,
+) {
+  return uniqueTexts([itemKind, productName || storedSrc, offerName])
+    .join(":")
+    .slice(0, 240);
 }
 
 function slug(value: string) {
