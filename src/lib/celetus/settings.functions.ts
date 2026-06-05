@@ -116,6 +116,16 @@ export const updateSettings = createServerFn({ method: "POST" })
         partner_2_name: z.string().trim().min(1).max(80),
         partner_2_rate: z.number().min(0).max(1),
       })
+      .superRefine((value, ctx) => {
+        const partnerTotal = value.partner_1_rate + value.partner_2_rate;
+        if (Math.abs(partnerTotal - 1) > 0.0001) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["partner_2_rate"],
+            message: "A soma dos percentuais dos socios precisa ser 100%.",
+          });
+        }
+      })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
