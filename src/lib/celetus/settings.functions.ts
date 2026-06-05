@@ -5,6 +5,9 @@ import { resolveCompany } from "@/lib/celetus/workspaces";
 
 type SupabaseClient = (typeof import("@/integrations/supabase/client.server"))["supabaseAdmin"];
 
+const SETTINGS_SELECT =
+  "year, month, investment_tax_rate, revenue_tax_rate, monthly_expenses, company_cash_rate, partner_1_name, partner_1_rate, partner_2_name, partner_2_rate";
+
 const CompanyInput = z.object({
   company_slug: z.string().optional(),
   year: z.number().int().min(2000).max(2100).optional(),
@@ -42,7 +45,7 @@ export const getSettings = createServerFn({ method: "GET" })
     const month = data.month ?? selected.month;
 
     const { data: settings, error } = await fromUntyped(supabase, "monthly_tax_settings")
-      .select("year, month, investment_tax_rate, revenue_tax_rate")
+      .select(SETTINGS_SELECT)
       .eq("user_id", userId)
       .eq("year", year)
       .eq("month", month)
@@ -55,6 +58,12 @@ export const getSettings = createServerFn({ method: "GET" })
         month: settings.month,
         tax_rate: Number(settings.investment_tax_rate),
         revenue_tax_rate: Number(settings.revenue_tax_rate),
+        monthly_expenses: Number(settings.monthly_expenses ?? 0),
+        company_cash_rate: Number(settings.company_cash_rate ?? 0.1),
+        partner_1_name: String(settings.partner_1_name ?? "Rodrigo"),
+        partner_1_rate: Number(settings.partner_1_rate ?? 0.35),
+        partner_2_name: String(settings.partner_2_name ?? "Marcos"),
+        partner_2_rate: Number(settings.partner_2_rate ?? 0.65),
       };
     }
 
@@ -66,8 +75,14 @@ export const getSettings = createServerFn({ method: "GET" })
         month,
         investment_tax_rate: legacyTaxRate,
         revenue_tax_rate: 0,
+        monthly_expenses: 0,
+        company_cash_rate: 0.1,
+        partner_1_name: "Rodrigo",
+        partner_1_rate: 0.35,
+        partner_2_name: "Marcos",
+        partner_2_rate: 0.65,
       })
-      .select("year, month, investment_tax_rate, revenue_tax_rate")
+      .select(SETTINGS_SELECT)
       .single();
     if (ins.error) throw new Error(ins.error.message);
     return {
@@ -75,6 +90,12 @@ export const getSettings = createServerFn({ method: "GET" })
       month: ins.data.month,
       tax_rate: Number(ins.data.investment_tax_rate),
       revenue_tax_rate: Number(ins.data.revenue_tax_rate),
+      monthly_expenses: Number(ins.data.monthly_expenses ?? 0),
+      company_cash_rate: Number(ins.data.company_cash_rate ?? 0.1),
+      partner_1_name: String(ins.data.partner_1_name ?? "Rodrigo"),
+      partner_1_rate: Number(ins.data.partner_1_rate ?? 0.35),
+      partner_2_name: String(ins.data.partner_2_name ?? "Marcos"),
+      partner_2_rate: Number(ins.data.partner_2_rate ?? 0.65),
     };
   });
 
@@ -88,6 +109,12 @@ export const updateSettings = createServerFn({ method: "POST" })
         month: z.number().int().min(1).max(12),
         tax_rate: z.number().min(0).max(1),
         revenue_tax_rate: z.number().min(0).max(1),
+        monthly_expenses: z.number().min(0),
+        company_cash_rate: z.number().min(0).max(1),
+        partner_1_name: z.string().trim().min(1).max(80),
+        partner_1_rate: z.number().min(0).max(1),
+        partner_2_name: z.string().trim().min(1).max(80),
+        partner_2_rate: z.number().min(0).max(1),
       })
       .parse(input),
   )
@@ -101,6 +128,12 @@ export const updateSettings = createServerFn({ method: "POST" })
         month: data.month,
         investment_tax_rate: data.tax_rate,
         revenue_tax_rate: data.revenue_tax_rate,
+        monthly_expenses: data.monthly_expenses,
+        company_cash_rate: data.company_cash_rate,
+        partner_1_name: data.partner_1_name.trim(),
+        partner_1_rate: data.partner_1_rate,
+        partner_2_name: data.partner_2_name.trim(),
+        partner_2_rate: data.partner_2_rate,
       },
       { onConflict: "user_id,year,month" },
     );

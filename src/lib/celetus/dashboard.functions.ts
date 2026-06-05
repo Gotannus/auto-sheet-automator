@@ -71,7 +71,9 @@ export const getDashboard = createServerFn({ method: "POST" })
       supabase,
       "monthly_tax_settings",
     )
-      .select("investment_tax_rate, revenue_tax_rate")
+      .select(
+        "investment_tax_rate, revenue_tax_rate, monthly_expenses, company_cash_rate, partner_1_name, partner_1_rate, partner_2_name, partner_2_rate",
+      )
       .eq("user_id", userId)
       .eq("year", data.year)
       .eq("month", data.month)
@@ -80,6 +82,12 @@ export const getDashboard = createServerFn({ method: "POST" })
 
     const investmentTaxRate = Number(settings?.investment_tax_rate ?? 0.1215);
     const revenueTaxRate = Number(settings?.revenue_tax_rate ?? 0);
+    const monthlyExpenses = data.product_id ? 0 : Number(settings?.monthly_expenses ?? 0);
+    const companyCashRate = Number(settings?.company_cash_rate ?? 0.1);
+    const partner1Name = String(settings?.partner_1_name ?? "Rodrigo");
+    const partner1Rate = Number(settings?.partner_1_rate ?? 0.35);
+    const partner2Name = String(settings?.partner_2_name ?? "Marcos");
+    const partner2Rate = Number(settings?.partner_2_rate ?? 0.65);
 
     const dim = daysInMonth(data.year, data.month);
     const firstDay = fmtDate(data.year, data.month, 1);
@@ -246,8 +254,14 @@ export const getDashboard = createServerFn({ method: "POST" })
       },
     );
 
-    const profit = totals.revenue - totals.revenue_tax - totals.invest_final;
-    const roi = totals.invest_final > 0 ? profit / totals.invest_final : 0;
+    const profitBeforeExpenses = totals.revenue - totals.revenue_tax - totals.invest_final;
+    const netProfit = profitBeforeExpenses - monthlyExpenses;
+    const positiveSplitBase = Math.max(0, netProfit);
+    const companyCash = positiveSplitBase * companyCashRate;
+    const distributableProfit = Math.max(0, positiveSplitBase - companyCash);
+    const partner1Amount = distributableProfit * partner1Rate;
+    const partner2Amount = distributableProfit * partner2Rate;
+    const roi = totals.invest_final > 0 ? netProfit / totals.invest_final : 0;
     const cpa = totals.sales > 0 ? totals.invest_final / totals.sales : 0;
     const ticket = totals.sales > 0 ? totals.revenue / totals.sales : 0;
     const obPct = totals.sales > 0 ? totals.ob_qty / totals.sales : 0;
@@ -262,7 +276,19 @@ export const getDashboard = createServerFn({ method: "POST" })
       days,
       totals: {
         ...totals,
-        profit,
+        profit: netProfit,
+        profit_before_expenses: profitBeforeExpenses,
+        monthly_expenses: monthlyExpenses,
+        net_profit: netProfit,
+        company_cash_rate: companyCashRate,
+        company_cash: companyCash,
+        distributable_profit: distributableProfit,
+        partner_1_name: partner1Name,
+        partner_1_rate: partner1Rate,
+        partner_1_amount: partner1Amount,
+        partner_2_name: partner2Name,
+        partner_2_rate: partner2Rate,
+        partner_2_amount: partner2Amount,
         roi,
         cpa,
         ticket,

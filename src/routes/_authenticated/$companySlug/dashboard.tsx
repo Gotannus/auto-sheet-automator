@@ -202,7 +202,11 @@ function DashContent({
         <Stat label="Faturamento" value={fmtBRL(t.revenue)} />
         <Stat label="Imposto fat." value={fmtBRL(t.revenue_tax)} />
         <Stat label="Investimento" value={fmtBRL(t.invest_final)} />
-        <Stat label="Lucro" value={fmtBRL(t.profit)} tone={toneProfit(t.profit, t.revenue)} />
+        <Stat
+          label={isTotal ? "Lucro liquido" : "Lucro"}
+          value={fmtBRL(t.profit)}
+          tone={toneProfit(t.profit, t.revenue)}
+        />
         <Stat label="ROI" value={fmtPct(t.roi)} tone={toneROI(t.roi)} />
         <Stat label="CPA" value={fmtBRL(t.cpa)} />
       </div>
@@ -214,6 +218,30 @@ function DashContent({
         <Stat label="Conv. clique" value={fmtPct(t.conv_click)} />
         <Stat label="Conv. checkout" value={fmtPct(t.conv_checkout)} />
       </div>
+
+      {isTotal && (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <Stat label="Lucro antes desp." value={fmtBRL(t.profit_before_expenses)} />
+          <Stat label="Despesas" value={fmtBRL(t.monthly_expenses)} />
+          <Stat
+            label="Lucro liquido"
+            value={fmtBRL(t.net_profit)}
+            tone={toneProfit(t.net_profit, t.revenue)}
+          />
+          <Stat
+            label="Caixa Empresa"
+            value={`${fmtBRL(t.company_cash)} / ${fmtPct(t.company_cash_rate)}`}
+          />
+          <Stat
+            label={t.partner_1_name}
+            value={`${fmtBRL(t.partner_1_amount)} / ${fmtPct(t.partner_1_rate)}`}
+          />
+          <Stat
+            label={t.partner_2_name}
+            value={`${fmtBRL(t.partner_2_amount)} / ${fmtPct(t.partner_2_rate)}`}
+          />
+        </div>
+      )}
 
       <Card>
         <CardContent className="p-0 overflow-x-auto">

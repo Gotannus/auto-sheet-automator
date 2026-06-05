@@ -65,12 +65,32 @@ function SettingsPage() {
   const [revenueTaxPct, setRevenueTaxPct] = useState(
     (Number(initialSettings.revenue_tax_rate) * 100).toFixed(2),
   );
+  const [monthlyExpenses, setMonthlyExpenses] = useState(
+    Number(initialSettings.monthly_expenses ?? 0).toFixed(2),
+  );
+  const [companyCashPct, setCompanyCashPct] = useState(
+    (Number(initialSettings.company_cash_rate ?? 0.1) * 100).toFixed(2),
+  );
+  const [partner1Name, setPartner1Name] = useState(initialSettings.partner_1_name ?? "Rodrigo");
+  const [partner1Pct, setPartner1Pct] = useState(
+    (Number(initialSettings.partner_1_rate ?? 0.35) * 100).toFixed(2),
+  );
+  const [partner2Name, setPartner2Name] = useState(initialSettings.partner_2_name ?? "Marcos");
+  const [partner2Pct, setPartner2Pct] = useState(
+    (Number(initialSettings.partner_2_rate ?? 0.65) * 100).toFixed(2),
+  );
 
   useEffect(() => {
     setYear(data.year);
     setMonth(data.month);
     setTaxPct((Number(data.tax_rate) * 100).toFixed(2));
     setRevenueTaxPct((Number(data.revenue_tax_rate) * 100).toFixed(2));
+    setMonthlyExpenses(Number(data.monthly_expenses ?? 0).toFixed(2));
+    setCompanyCashPct((Number(data.company_cash_rate ?? 0.1) * 100).toFixed(2));
+    setPartner1Name(data.partner_1_name ?? "Rodrigo");
+    setPartner1Pct((Number(data.partner_1_rate ?? 0.35) * 100).toFixed(2));
+    setPartner2Name(data.partner_2_name ?? "Marcos");
+    setPartner2Pct((Number(data.partner_2_rate ?? 0.65) * 100).toFixed(2));
   }, [data]);
 
   const mut = useMutation({
@@ -80,8 +100,14 @@ function SettingsPage() {
           company_slug: company.slug,
           year,
           month,
-          tax_rate: Number(taxPct.replace(",", ".")) / 100,
-          revenue_tax_rate: Number(revenueTaxPct.replace(",", ".")) / 100,
+          tax_rate: parsePtNumber(taxPct) / 100,
+          revenue_tax_rate: parsePtNumber(revenueTaxPct) / 100,
+          monthly_expenses: parsePtNumber(monthlyExpenses),
+          company_cash_rate: parsePtNumber(companyCashPct) / 100,
+          partner_1_name: partner1Name,
+          partner_1_rate: parsePtNumber(partner1Pct) / 100,
+          partner_2_name: partner2Name,
+          partner_2_rate: parsePtNumber(partner2Pct) / 100,
         },
       }),
     onSuccess: () => {
@@ -151,6 +177,67 @@ function SettingsPage() {
               dashboard.
             </p>
           </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="monthly-expenses">Despesas do mes (R$)</Label>
+              <Input
+                id="monthly-expenses"
+                value={monthlyExpenses}
+                onChange={(e) => setMonthlyExpenses(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="company-cash">Caixa Empresa (%)</Label>
+              <Input
+                id="company-cash"
+                value={companyCashPct}
+                onChange={(e) => setCompanyCashPct(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="space-y-2 rounded-md border p-3">
+            <div>
+              <div className="text-sm font-medium">Socios</div>
+              <p className="text-xs text-muted-foreground">
+                Primeiro o sistema desconta despesas e caixa da empresa; depois divide o restante
+                pelos percentuais abaixo.
+              </p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-[1fr_120px]">
+              <div className="space-y-1.5">
+                <Label htmlFor="partner-1-name">Socio 1</Label>
+                <Input
+                  id="partner-1-name"
+                  value={partner1Name}
+                  onChange={(e) => setPartner1Name(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="partner-1-pct">Percentual (%)</Label>
+                <Input
+                  id="partner-1-pct"
+                  value={partner1Pct}
+                  onChange={(e) => setPartner1Pct(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="partner-2-name">Socio 2</Label>
+                <Input
+                  id="partner-2-name"
+                  value={partner2Name}
+                  onChange={(e) => setPartner2Name(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="partner-2-pct">Percentual (%)</Label>
+                <Input
+                  id="partner-2-pct"
+                  value={partner2Pct}
+                  onChange={(e) => setPartner2Pct(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
           <Button onClick={() => mut.mutate()} disabled={mut.isPending}>
             Salvar
           </Button>
@@ -158,4 +245,14 @@ function SettingsPage() {
       </Card>
     </div>
   );
+}
+
+function parsePtNumber(value: string) {
+  const normalized = value.trim().replace(/[^\d,.-]/g, "");
+  if (!normalized) return 0;
+  const parsed = Number(
+    normalized.includes(",") ? normalized.replace(/\./g, "").replace(",", ".") : normalized,
+  );
+
+  return Number.isNaN(parsed) ? 0 : parsed;
 }
