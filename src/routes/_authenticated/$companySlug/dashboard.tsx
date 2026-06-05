@@ -133,7 +133,7 @@ function DashboardPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={TOTAL_PRODUCT_ID}>Total</SelectItem>
-              {products.map((p) => (
+              {products.map((p: Product) => (
                 <SelectItem key={p.id} value={p.id}>
                   {p.name}
                 </SelectItem>
