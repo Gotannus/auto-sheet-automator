@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard,
@@ -9,11 +9,9 @@ import {
   Webhook,
   Activity,
   Building2,
+  CircleDollarSign,
 } from "lucide-react";
-import {
-  companyPath,
-  getCompanySlugFromPath,
-} from "@/lib/celetus/workspaces";
+import { companyPath, getCompanySlugFromPath } from "@/lib/celetus/workspaces";
 import { getCompanyBySlug } from "@/lib/celetus/companies.functions";
 
 export const Route = createFileRoute("/_authenticated")({
@@ -45,11 +43,20 @@ function AuthedLayout() {
         </div>
         {slug ? (
           <nav className="flex-1 p-2 space-y-1 text-sm">
-            <NavItem to={companyPath(slug, "dashboard")} icon={<LayoutDashboard className="h-4 w-4" />}>
+            <NavItem
+              to={companyPath(slug, "dashboard")}
+              icon={<LayoutDashboard className="h-4 w-4" />}
+            >
               Dashboard
             </NavItem>
             <NavItem to={companyPath(slug, "sales")} icon={<Receipt className="h-4 w-4" />}>
               Vendas
+            </NavItem>
+            <NavItem
+              to={companyPath(slug, "financeiro")}
+              icon={<CircleDollarSign className="h-4 w-4" />}
+            >
+              Financeiro
             </NavItem>
             <NavItem to={companyPath(slug, "products")} icon={<Package className="h-4 w-4" />}>
               Produtos

@@ -188,7 +188,7 @@ function SalesPage() {
                 <SelectItem value="Aprovado">Aprovado</SelectItem>
                 <SelectItem value="Pendente">Pendente</SelectItem>
                 <SelectItem value="Recusado">Recusado</SelectItem>
-                <SelectItem value="Reembolsado">Reembolsado</SelectItem>
+                <SelectItem value="Reembolso">Reembolso</SelectItem>
                 <SelectItem value="Cancelado">Cancelado</SelectItem>
                 <SelectItem value="Chargeback">Chargeback</SelectItem>
               </SelectContent>
@@ -205,9 +205,9 @@ function SalesPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL}>Todos</SelectItem>
-                <SelectItem value="principal">Principal</SelectItem>
-                <SelectItem value="orderbump">Orderbump</SelectItem>
-                <SelectItem value="upsell">Upsell</SelectItem>
+                <SelectItem value="Principal">Principal</SelectItem>
+                <SelectItem value="Orderbump">Orderbump</SelectItem>
+                <SelectItem value="Upsell">Upsell</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -514,6 +514,7 @@ function SummaryCards({
   const commission = totals?.commission ?? 0;
   const principalQty = totals?.principal_qty ?? 0;
   const orderbumpQty = totals?.orderbump_qty ?? 0;
+  const sales = principalQty;
   const ticket = principalQty > 0 ? commission / principalQty : 0;
   return (
     <div className="grid gap-3 md:grid-cols-3">
@@ -521,10 +522,10 @@ function SummaryCards({
         <CardContent className="p-4">
           <div className="text-xs text-muted-foreground">Vendas</div>
           <div className="text-2xl font-bold tabular-nums">
-            {loading && count === 0 ? "—" : count.toLocaleString("pt-BR")}
+            {loading && count === 0 ? "—" : sales.toLocaleString("pt-BR")}
           </div>
           <div className="text-xs text-muted-foreground mt-1">
-            {principalQty} principal · {orderbumpQty} orderbump
+            {count} registros - {orderbumpQty} orderbump
           </div>
         </CardContent>
       </Card>

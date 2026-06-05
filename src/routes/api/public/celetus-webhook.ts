@@ -81,8 +81,10 @@ export const Route = createFileRoute("/api/public/celetus-webhook")({
           status: result.status,
           transaction_code: result.transactionCode,
           error_message: result.errorMessage,
+          rows_read: result.rowsReceived,
           rows_upserted: result.rowsUpserted,
           rows_ignored: result.rowsIgnored,
+          products_created: result.autoCreatedProducts,
           payload: rawBody,
         });
 
@@ -246,19 +248,24 @@ async function logWebhookEvent(
     status: "ok" | "ignored" | "error";
     transaction_code?: string | null;
     error_message?: string | null;
+    rows_read?: number | null;
     rows_upserted?: number | null;
     rows_ignored?: number | null;
+    products_created?: number | null;
     payload: unknown;
   },
 ) {
   try {
     await supabaseAdmin.from("webhook_events").insert({
       user_id: data.user_id,
+      kind: "webhook",
       status: data.status,
       transaction_code: data.transaction_code ?? null,
       error_message: data.error_message ?? null,
+      rows_read: data.rows_read ?? null,
       rows_upserted: data.rows_upserted ?? null,
       rows_ignored: data.rows_ignored ?? null,
+      products_created: data.products_created ?? null,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       payload: data.payload as any,
     });

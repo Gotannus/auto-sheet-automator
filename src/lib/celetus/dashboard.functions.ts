@@ -19,7 +19,7 @@ const PAID = [
 ];
 
 export type DayRow = {
-  date: string; // YYYY-MM-DD
+  date: string;
   sales: number;
   revenue: number;
   revenue_tax: number;
@@ -38,17 +38,75 @@ export type DayRow = {
   notes: string | null;
 };
 
-function daysInMonth(year: number, month: number) {
-  return new Date(year, month, 0).getDate();
-}
+export type ExpenseRow = {
+  id: string;
+  description: string;
+  category: string;
+  amount: number;
+  expense_date: string | null;
+};
 
-function fmtDate(y: number, m: number, d: number) {
-  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-}
+type ManualAgg = {
+  investManual: number | null;
+  clicks: number | null;
+  checkouts: number | null;
+  impressions: number | null;
+  notes: string | null;
+};
+
+type SalesAgg = {
+  sales: number;
+  revenue: number;
+  obQty: number;
+  obRevenue: number;
+};
 
 function fromUntyped(supabase: unknown, table: string) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (supabase as any).from(table);
+}
+
+function num(value: unknown, fallback = 0) {
+  const parsed = Number(value ?? fallback);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function daysInMonth(year: number, month: number) {
+  return new Date(year, month, 0).getDate();
+}
+
+function fmtDate(year: number, month: number, day: number) {
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function brDateKey(value: unknown) {
+  const date = new Date(String(value ?? ""));
+  if (Number.isNaN(date.getTime())) return "";
+  return new Date(date.getTime() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+function nullableSum(current: number | null, value: unknown) {
+  if (value === null || value === undefined) return current;
+  return (current ?? 0) + num(value);
+}
+
+function isIgnoredIndicationSale(sale: Record<string, unknown>) {
+  return (
+    hasIndicationMarker(sale.raw) ||
+    [sale.src, sale.src_tag, sale.utm_source, sale.campaign_id, sale.adset_id, sale.ad_id].some(
+      isIndicationText,
+    )
+  );
+}
+
+function normalizeExpense(row: Record<string, unknown>): ExpenseRow {
+  return {
+    id: String(row.id),
+    description: String(row.description ?? ""),
+    category: String(row.category ?? "Geral"),
+    amount: num(row.amount),
+    expense_date: row.expense_date ? String(row.expense_date) : null,
+  };
 }
 
 export const getDashboard = createServerFn({ method: "POST" })
@@ -80,57 +138,72 @@ export const getDashboard = createServerFn({ method: "POST" })
       .maybeSingle();
     if (settingsError) throw new Error(settingsError.message);
 
-    const investmentTaxRate = Number(settings?.investment_tax_rate ?? 0.1215);
-    const revenueTaxRate = Number(settings?.revenue_tax_rate ?? 0);
-    const monthlyExpenses = data.product_id ? 0 : Number(settings?.monthly_expenses ?? 0);
-    const companyCashRate = Number(settings?.company_cash_rate ?? 0.1);
+    let expenseRows: ExpenseRow[] = [];
+    let itemizedExpenseTotal = 0;
+    if (!data.product_id) {
+      const { data: expenses, error: expensesError } = await fromUntyped(
+        supabase,
+        "monthly_expenses",
+      )
+        .select("id, description, category, amount, expense_date, created_at")
+        .eq("user_id", userId)
+        .eq("year", data.year)
+        .eq("month", data.month)
+        .order("expense_date", { ascending: true, nullsFirst: true })
+        .order("created_at", { ascending: true });
+
+      if (expensesError) throw new Error(expensesError.message);
+      expenseRows = ((expenses ?? []) as Record<string, unknown>[]).map(normalizeExpense);
+      itemizedExpenseTotal = expenseRows.reduce((sum, row) => sum + row.amount, 0);
+    }
+
+    const investmentTaxRate = num(settings?.investment_tax_rate, 0.1215);
+    const revenueTaxRate = num(settings?.revenue_tax_rate);
+    const legacyMonthlyExpenses = data.product_id ? 0 : num(settings?.monthly_expenses);
+    const monthlyExpenses = data.product_id
+      ? 0
+      : itemizedExpenseTotal > 0
+        ? itemizedExpenseTotal
+        : legacyMonthlyExpenses;
+    const companyCashRate = num(settings?.company_cash_rate, 0.1);
     const partner1Name = String(settings?.partner_1_name ?? "Rodrigo");
-    const partner1Rate = Number(settings?.partner_1_rate ?? 0.35);
+    const partner1Rate = num(settings?.partner_1_rate, 0.35);
     const partner2Name = String(settings?.partner_2_name ?? "Marcos");
-    const partner2Rate = Number(settings?.partner_2_rate ?? 0.65);
+    const partner2Rate = num(settings?.partner_2_rate, 0.65);
 
     const dim = daysInMonth(data.year, data.month);
     const firstDay = fmtDate(data.year, data.month, 1);
     const lastDay = fmtDate(data.year, data.month, dim);
-    // Sale_date range as ISO timestamps (Brazil local boundaries)
     const fromIso = `${firstDay}T00:00:00-03:00`;
     const toIso = `${lastDay}T23:59:59-03:00`;
 
-    // If filtering by product, also resolve its src so we can attribute
-    // orderbumps purchased on this product's checkout (Celetus-style grouping).
     let productSrc: string | null = null;
     if (data.product_id) {
-      const { data: prod, error: prodError } = await supabase
-        .from("products")
+      const { data: product, error: productError } = await fromUntyped(supabase, "products")
         .select("src")
         .eq("user_id", userId)
         .eq("id", data.product_id)
         .maybeSingle();
-      if (prodError) throw new Error(prodError.message);
-      productSrc = prod?.src ?? null;
+      if (productError) throw new Error(productError.message);
+      productSrc = product?.src ?? null;
     }
 
-    let salesQuery = supabase
-      .from("celetus_sales")
+    let salesQuery = fromUntyped(supabase, "celetus_sales")
       .select(
-        "kind, status, recipient, commission_value, net_value, sale_date, quantity, src, src_tag, utm_source, campaign_id, adset_id, ad_id, raw, product_id",
+        "transaction_code, kind, status, recipient, commission_value, net_value, sale_date, quantity, src, src_tag, utm_source, campaign_id, adset_id, ad_id, raw, product_id",
       )
       .eq("user_id", userId)
       .gte("sale_date", fromIso)
       .lte("sale_date", toIso)
       .in("status", PAID);
 
-    let dmiQuery = supabase
-      .from("daily_manual_inputs")
+    let manualQuery = fromUntyped(supabase, "daily_manual_inputs")
       .select("date, invest_manual, clicks, checkouts, impressions, notes")
       .eq("user_id", userId)
       .gte("date", firstDay)
       .lte("date", lastDay);
 
     if (data.product_id) {
-      // Match Celetus checkout-level grouping:
-      //   sales whose product_id is this product (Principal + own Orderbumps)
-      //   OR orderbumps purchased on this product's checkout (src = product.src)
       if (productSrc) {
         salesQuery = salesQuery.or(
           `product_id.eq.${data.product_id},and(kind.eq.Orderbump,src.eq.${productSrc})`,
@@ -138,24 +211,16 @@ export const getDashboard = createServerFn({ method: "POST" })
       } else {
         salesQuery = salesQuery.eq("product_id", data.product_id);
       }
-      dmiQuery = dmiQuery.eq("product_id", data.product_id);
+      manualQuery = manualQuery.eq("product_id", data.product_id);
     }
 
-    const [salesRes, dmiRes] = await Promise.all([salesQuery, dmiQuery]);
-
+    const [salesRes, manualRes] = await Promise.all([salesQuery, manualQuery]);
     if (salesRes.error) throw new Error(salesRes.error.message);
-    if (dmiRes.error) throw new Error(dmiRes.error.message);
+    if (manualRes.error) throw new Error(manualRes.error.message);
 
-    type ManualAgg = {
-      investManual: number | null;
-      clicks: number | null;
-      checkouts: number | null;
-      impressions: number | null;
-      notes: string | null;
-    };
-    const dmiByDate = new Map<string, ManualAgg>();
-    const getManualAgg = (date: string): ManualAgg => {
-      let manual = dmiByDate.get(date);
+    const manualByDate = new Map<string, ManualAgg>();
+    const getManual = (date: string) => {
+      let manual = manualByDate.get(date);
       if (!manual) {
         manual = {
           investManual: null,
@@ -164,107 +229,122 @@ export const getDashboard = createServerFn({ method: "POST" })
           impressions: null,
           notes: null,
         };
-        dmiByDate.set(date, manual);
+        manualByDate.set(date, manual);
       }
       return manual;
     };
 
-    for (const r of dmiRes.data ?? []) {
-      const manual = getManualAgg(r.date);
-      manual.investManual = nullableSum(manual.investManual, r.invest_manual);
-      manual.clicks = nullableSum(manual.clicks, r.clicks);
-      manual.checkouts = nullableSum(manual.checkouts, r.checkouts);
-      manual.impressions = nullableSum(manual.impressions, r.impressions);
-      manual.notes = data.product_id ? (r.notes ?? null) : null;
+    for (const row of (manualRes.data ?? []) as Record<string, unknown>[]) {
+      const manual = getManual(String(row.date));
+      manual.investManual = nullableSum(manual.investManual, row.invest_manual);
+      manual.clicks = nullableSum(manual.clicks, row.clicks);
+      manual.checkouts = nullableSum(manual.checkouts, row.checkouts);
+      manual.impressions = nullableSum(manual.impressions, row.impressions);
+      manual.notes = data.product_id ? String(row.notes ?? "") || null : null;
     }
 
-    // Aggregate sales per day in BRT
-    type Agg = { sales: number; revenue: number; obQty: number; obRevenue: number };
-    const agg = new Map<string, Agg>();
-    const getAgg = (k: string): Agg => {
-      let a = agg.get(k);
-      if (!a) {
-        a = { sales: 0, revenue: 0, obQty: 0, obRevenue: 0 };
-        agg.set(k, a);
+    const salesByDate = new Map<string, SalesAgg>();
+    const getSales = (date: string) => {
+      let agg = salesByDate.get(date);
+      if (!agg) {
+        agg = { sales: 0, revenue: 0, obQty: 0, obRevenue: 0 };
+        salesByDate.set(date, agg);
       }
-      return a;
+      return agg;
     };
 
-    for (const s of salesRes.data ?? []) {
-      if (isIgnoredIndicationSale(s)) continue;
+    const transactionsWithPrincipal = new Set<string>();
+    const pendingOrderbumpRevenue = new Map<string, { dateKey: string; amount: number }>();
 
-      const kind = String(s.kind ?? "").toLowerCase();
-      const rec = String(s.recipient ?? "").toLowerCase();
-      if (rec !== "produtor" && rec !== "producer") continue;
-      const dt = new Date(s.sale_date);
-      // Convert to BRT date string
-      const brt = new Date(dt.getTime() - 3 * 60 * 60 * 1000);
-      const key = brt.toISOString().slice(0, 10);
-      const a = getAgg(key);
-      const itemCommission = Number(s.commission_value ?? 0);
-      const qty = Number(s.quantity ?? 1);
+    for (const sale of (salesRes.data ?? []) as Record<string, unknown>[]) {
+      if (isIgnoredIndicationSale(sale)) continue;
+
+      const recipient = String(sale.recipient ?? "").toLowerCase();
+      if (recipient !== "produtor" && recipient !== "producer") continue;
+
+      const dateKey = brDateKey(sale.sale_date);
+      if (!dateKey) continue;
+
+      const kind = String(sale.kind ?? "").toLowerCase();
+      const agg = getSales(dateKey);
+      const transactionCode = String(sale.transaction_code ?? "");
+      const commissionValue = num(sale.commission_value);
+      const quantity = num(sale.quantity, 1);
+
       if (kind === "principal" || kind === "main") {
-        if (qty === 1) {
-          a.sales += 1;
-          a.revenue += itemCommission;
+        if (quantity === 1) {
+          agg.sales += 1;
+          agg.revenue += num(sale.net_value, commissionValue);
+          if (transactionCode) transactionsWithPrincipal.add(transactionCode);
         }
-      } else if (kind === "orderbump" || kind === "order_bump" || kind === "bump") {
-        a.obQty += 1;
-        a.obRevenue += itemCommission;
-        // Match Celetus "faturado no dia" — sum every line item (Principal + Orderbump)
-        // into the headline revenue, not only Principal.
-        a.revenue += itemCommission;
+        continue;
+      }
+
+      if (kind === "orderbump" || kind === "order_bump" || kind === "bump") {
+        agg.obQty += 1;
+        agg.obRevenue += commissionValue;
+        if (transactionCode) {
+          const pending = pendingOrderbumpRevenue.get(transactionCode);
+          pendingOrderbumpRevenue.set(transactionCode, {
+            dateKey,
+            amount: (pending?.amount ?? 0) + commissionValue,
+          });
+        } else {
+          agg.revenue += commissionValue;
+        }
+      }
+    }
+
+    for (const [transactionCode, pending] of pendingOrderbumpRevenue) {
+      if (!transactionsWithPrincipal.has(transactionCode)) {
+        getSales(pending.dateKey).revenue += pending.amount;
       }
     }
 
     const days: DayRow[] = [];
-    for (let d = 1; d <= dim; d++) {
-      const key = fmtDate(data.year, data.month, d);
-      const a = agg.get(key) ?? { sales: 0, revenue: 0, obQty: 0, obRevenue: 0 };
-      const dmi = dmiByDate.get(key);
-      const investManual = dmi?.investManual != null ? Number(dmi.investManual) : null;
+    for (let day = 1; day <= dim; day += 1) {
+      const key = fmtDate(data.year, data.month, day);
+      const sale = salesByDate.get(key) ?? { sales: 0, revenue: 0, obQty: 0, obRevenue: 0 };
+      const manual = manualByDate.get(key);
+      const investManual = manual?.investManual != null ? num(manual.investManual) : null;
       const investFinal = investManual != null ? investManual * (1 + investmentTaxRate) : 0;
-      const revenueTax = a.revenue * revenueTaxRate;
-      const profit = a.revenue - revenueTax - investFinal;
-      const roi = investFinal > 0 ? profit / investFinal : 0;
-      const cpa = a.sales > 0 ? investFinal / a.sales : 0;
-      const ticket = a.sales > 0 ? a.revenue / a.sales : 0;
-      const obPct = a.sales > 0 ? a.obQty / a.sales : 0;
+      const revenueTax = sale.revenue * revenueTaxRate;
+      const profit = sale.revenue - revenueTax - investFinal;
+
       days.push({
         date: key,
-        sales: a.sales,
-        revenue: a.revenue,
+        sales: sale.sales,
+        revenue: sale.revenue,
         revenue_tax: revenueTax,
-        ob_qty: a.obQty,
-        ob_revenue: a.obRevenue,
+        ob_qty: sale.obQty,
+        ob_revenue: sale.obRevenue,
         invest_manual: investManual,
         invest_final: investFinal,
         profit,
-        roi,
-        cpa,
-        ticket,
-        ob_pct: obPct,
-        clicks: dmi?.clicks ?? null,
-        checkouts: dmi?.checkouts ?? null,
-        impressions: dmi?.impressions ?? null,
-        notes: dmi?.notes ?? null,
+        roi: investFinal > 0 ? profit / investFinal : 0,
+        cpa: sale.sales > 0 ? investFinal / sale.sales : 0,
+        ticket: sale.sales > 0 ? sale.revenue / sale.sales : 0,
+        ob_pct: sale.sales > 0 ? sale.obQty / sale.sales : 0,
+        clicks: manual?.clicks ?? null,
+        checkouts: manual?.checkouts ?? null,
+        impressions: manual?.impressions ?? null,
+        notes: manual?.notes ?? null,
       });
     }
 
-    // Totals
     const totals = days.reduce(
-      (t, d) => {
-        t.sales += d.sales;
-        t.revenue += d.revenue;
-        t.revenue_tax += d.revenue_tax;
-        t.ob_qty += d.ob_qty;
-        t.ob_revenue += d.ob_revenue;
-        t.invest_manual += d.invest_manual ?? 0;
-        t.invest_final += d.invest_final;
-        t.clicks += d.clicks ?? 0;
-        t.checkouts += d.checkouts ?? 0;
-        t.impressions += d.impressions ?? 0;
-        return t;
+      (acc, day) => {
+        acc.sales += day.sales;
+        acc.revenue += day.revenue;
+        acc.revenue_tax += day.revenue_tax;
+        acc.ob_qty += day.ob_qty;
+        acc.ob_revenue += day.ob_revenue;
+        acc.invest_manual += day.invest_manual ?? 0;
+        acc.invest_final += day.invest_final;
+        acc.clicks += day.clicks ?? 0;
+        acc.checkouts += day.checkouts ?? 0;
+        acc.impressions += day.impressions ?? 0;
+        return acc;
       },
       {
         sales: 0,
@@ -287,24 +367,20 @@ export const getDashboard = createServerFn({ method: "POST" })
     const distributableProfit = Math.max(0, positiveSplitBase - companyCash);
     const partner1Amount = distributableProfit * partner1Rate;
     const partner2Amount = distributableProfit * partner2Rate;
-    const roi = totals.invest_final > 0 ? netProfit / totals.invest_final : 0;
-    const cpa = totals.sales > 0 ? totals.invest_final / totals.sales : 0;
-    const ticket = totals.sales > 0 ? totals.revenue / totals.sales : 0;
-    const obPct = totals.sales > 0 ? totals.ob_qty / totals.sales : 0;
-    const cpm = totals.impressions > 0 ? (totals.invest_final / totals.impressions) * 1000 : 0;
-    const convClick = totals.clicks > 0 ? totals.sales / totals.clicks : 0;
-    const convCheckout = totals.checkouts > 0 ? totals.sales / totals.checkouts : 0;
 
     return {
       taxRate: investmentTaxRate,
       investmentTaxRate,
       revenueTaxRate,
       days,
+      expenses: data.product_id ? [] : expenseRows,
       totals: {
         ...totals,
         profit: netProfit,
         profit_before_expenses: profitBeforeExpenses,
         monthly_expenses: monthlyExpenses,
+        legacy_monthly_expenses: legacyMonthlyExpenses,
+        expense_count: expenseRows.length,
         net_profit: netProfit,
         company_cash_rate: companyCashRate,
         company_cash: companyCash,
@@ -315,30 +391,16 @@ export const getDashboard = createServerFn({ method: "POST" })
         partner_2_name: partner2Name,
         partner_2_rate: partner2Rate,
         partner_2_amount: partner2Amount,
-        roi,
-        cpa,
-        ticket,
-        ob_pct: obPct,
-        cpm,
-        conv_click: convClick,
-        conv_checkout: convCheckout,
+        roi: totals.invest_final > 0 ? netProfit / totals.invest_final : 0,
+        cpa: totals.sales > 0 ? totals.invest_final / totals.sales : 0,
+        ticket: totals.sales > 0 ? totals.revenue / totals.sales : 0,
+        ob_pct: totals.sales > 0 ? totals.ob_qty / totals.sales : 0,
+        cpm: totals.impressions > 0 ? (totals.invest_final / totals.impressions) * 1000 : 0,
+        conv_click: totals.clicks > 0 ? totals.sales / totals.clicks : 0,
+        conv_checkout: totals.checkouts > 0 ? totals.sales / totals.checkouts : 0,
       },
     };
   });
-
-function nullableSum(current: number | null, value: unknown) {
-  if (value === null || value === undefined) return current;
-  return (current ?? 0) + Number(value ?? 0);
-}
-
-function isIgnoredIndicationSale(sale: Record<string, unknown>) {
-  return (
-    hasIndicationMarker(sale.raw) ||
-    [sale.src, sale.src_tag, sale.utm_source, sale.campaign_id, sale.adset_id, sale.ad_id].some(
-      isIndicationText,
-    )
-  );
-}
 
 export const upsertDailyInput = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -357,24 +419,26 @@ export const upsertDailyInput = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
     const userId = await resolveCompanyId(context.supabase, data.company_slug);
     const payload: Record<string, unknown> = {
       user_id: userId,
       product_id: data.product_id,
       date: data.date,
     };
+
     if (data.invest_manual !== undefined) payload.invest_manual = data.invest_manual;
     if (data.clicks !== undefined) payload.clicks = data.clicks;
     if (data.checkouts !== undefined) payload.checkouts = data.checkouts;
     if (data.impressions !== undefined) payload.impressions = data.impressions;
     if (data.notes !== undefined) payload.notes = data.notes;
-    const { data: saved, error } = await supabase
+
+    const { data: saved, error } = await context.supabase
       .from("daily_manual_inputs")
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .upsert(payload as any, { onConflict: "user_id,product_id,date" })
       .select("product_id, date, invest_manual, clicks, checkouts, impressions, notes, updated_at")
       .single();
+
     if (error) throw new Error(error.message);
     if (!saved) throw new Error("Investimento nao foi confirmado pelo banco de dados.");
     return { ok: true, saved };
