@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { parseCeletusDate, kindLabel, norm } from "@/lib/celetus/normalize";
+import { getCompany } from "@/lib/celetus/workspaces";
 
 type AnyRecord = Record<string, unknown>;
 type SupabaseAdminClient =
@@ -34,11 +35,20 @@ export const Route = createFileRoute("/api/public/celetus-webhook")({
         if (!secret) return json({ error: "missing secret" }, 401);
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const { data: config, error: configError } = await supabaseAdmin
+        const companySlug =
+          url.searchParams.get("company") || url.searchParams.get("workspace") || "";
+        const company = companySlug ? getCompany(companySlug) : null;
+
+        if (companySlug && !company) return json({ error: "invalid company" }, 404);
+
+        let configQuery = supabaseAdmin
           .from("webhook_config")
           .select("user_id")
-          .eq("webhook_secret", secret)
-          .maybeSingle();
+          .eq("webhook_secret", secret);
+
+        if (company) configQuery = configQuery.eq("user_id", company.userId);
+
+        const { data: config, error: configError } = await configQuery.maybeSingle();
 
         if (configError) return json({ error: configError.message }, 500);
         if (!config) return json({ error: "invalid secret" }, 401);

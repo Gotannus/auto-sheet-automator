@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { resolveCompany } from "@/lib/celetus/workspaces";
 
 const PAID = [
   "Pago",
@@ -48,6 +49,7 @@ export const getDashboard = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
     z
       .object({
+        company_slug: z.string().optional(),
         product_id: z.string().uuid(),
         year: z.number().int(),
         month: z.number().int().min(1).max(12),
@@ -55,7 +57,8 @@ export const getDashboard = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+    const { supabase } = context;
+    const userId = resolveCompany(data.company_slug).userId;
 
     const { data: settings } = await supabase
       .from("monthly_settings")
@@ -220,6 +223,7 @@ export const upsertDailyInput = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
     z
       .object({
+        company_slug: z.string().optional(),
         product_id: z.string().uuid(),
         date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
         invest_manual: z.number().nullable().optional(),
@@ -231,7 +235,8 @@ export const upsertDailyInput = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+    const { supabase } = context;
+    const userId = resolveCompany(data.company_slug).userId;
     const payload: Record<string, unknown> = {
       user_id: userId,
       product_id: data.product_id,

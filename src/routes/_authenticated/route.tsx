@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, Link } from "@tanstack/react-router";
 import { LayoutDashboard, Package, Settings as SettingsIcon, Webhook } from "lucide-react";
+import { companyPath, getCompanyFromPath } from "@/lib/celetus/workspaces";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -7,6 +8,11 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 function AuthedLayout() {
+  const company =
+    typeof window === "undefined"
+      ? getCompanyFromPath("/")
+      : getCompanyFromPath(window.location.pathname);
+
   return (
     <div className="min-h-screen flex bg-muted/30">
       <aside className="w-60 border-r bg-card hidden md:flex flex-col">
@@ -15,16 +21,25 @@ function AuthedLayout() {
           <div className="text-xs text-muted-foreground">por produto Â· mensal</div>
         </div>
         <nav className="flex-1 p-2 space-y-1 text-sm">
-          <NavItem to="/dashboard" icon={<LayoutDashboard className="h-4 w-4" />}>
+          <NavItem
+            to={companyPath(company.slug, "dashboard")}
+            icon={<LayoutDashboard className="h-4 w-4" />}
+          >
             Dashboard
           </NavItem>
-          <NavItem to="/products" icon={<Package className="h-4 w-4" />}>
+          <NavItem
+            to={companyPath(company.slug, "products")}
+            icon={<Package className="h-4 w-4" />}
+          >
             Produtos
           </NavItem>
-          <NavItem to="/webhook" icon={<Webhook className="h-4 w-4" />}>
+          <NavItem to={companyPath(company.slug, "webhook")} icon={<Webhook className="h-4 w-4" />}>
             Webhook
           </NavItem>
-          <NavItem to="/settings" icon={<SettingsIcon className="h-4 w-4" />}>
+          <NavItem
+            to={companyPath(company.slug, "settings")}
+            icon={<SettingsIcon className="h-4 w-4" />}
+          >
             ConfiguraÃ§Ãµes
           </NavItem>
         </nav>

@@ -16,11 +16,16 @@ import { Route as AuthenticatedWebhookRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedProductsRouteImport } from './routes/_authenticated/products'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedCompanySlugIndexRouteImport } from './routes/_authenticated/$companySlug/index'
 import { Route as ApiPublicCeletusWebhookRouteImport } from './routes/api/public/celetus-webhook'
+import { Route as AuthenticatedCompanySlugWebhookRouteImport } from './routes/_authenticated/$companySlug/webhook'
+import { Route as AuthenticatedCompanySlugSettingsRouteImport } from './routes/_authenticated/$companySlug/settings'
+import { Route as AuthenticatedCompanySlugProductsRouteImport } from './routes/_authenticated/$companySlug/products'
+import { Route as AuthenticatedCompanySlugDashboardRouteImport } from './routes/_authenticated/$companySlug/dashboard'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
-  path: '/auth',
+  path: 'auth',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
@@ -34,29 +39,59 @@ const IndexRoute = IndexRouteImport.update({
 } as any)
 const AuthenticatedWebhookRoute = AuthenticatedWebhookRouteImport.update({
   id: '/webhook',
-  path: '/webhook',
+  path: 'webhook',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
-  path: '/settings',
+  path: 'settings',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedProductsRoute = AuthenticatedProductsRouteImport.update({
   id: '/products',
-  path: '/products',
+  path: 'products',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
-  path: '/dashboard',
+  path: 'dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedCompanySlugIndexRoute =
+  AuthenticatedCompanySlugIndexRouteImport.update({
+    id: '/$companySlug/',
+    path: '/$companySlug/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const ApiPublicCeletusWebhookRoute = ApiPublicCeletusWebhookRouteImport.update({
   id: '/api/public/celetus-webhook',
-  path: '/api/public/celetus-webhook',
+  path: 'api/public/celetus-webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedCompanySlugWebhookRoute =
+  AuthenticatedCompanySlugWebhookRouteImport.update({
+    id: '/$companySlug/webhook',
+    path: '/$companySlug/webhook',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedCompanySlugSettingsRoute =
+  AuthenticatedCompanySlugSettingsRouteImport.update({
+    id: '/$companySlug/settings',
+    path: '/$companySlug/settings',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedCompanySlugProductsRoute =
+  AuthenticatedCompanySlugProductsRouteImport.update({
+    id: '/$companySlug/products',
+    path: '/$companySlug/products',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedCompanySlugDashboardRoute =
+  AuthenticatedCompanySlugDashboardRouteImport.update({
+    id: '/$companySlug/dashboard',
+    path: '/$companySlug/dashboard',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -65,7 +100,12 @@ export interface FileRoutesByFullPath {
   '/products': typeof AuthenticatedProductsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/webhook': typeof AuthenticatedWebhookRoute
+  '/$companySlug/dashboard': typeof AuthenticatedCompanySlugDashboardRoute
+  '/$companySlug/products': typeof AuthenticatedCompanySlugProductsRoute
+  '/$companySlug/settings': typeof AuthenticatedCompanySlugSettingsRoute
+  '/$companySlug/webhook': typeof AuthenticatedCompanySlugWebhookRoute
   '/api/public/celetus-webhook': typeof ApiPublicCeletusWebhookRoute
+  '/$companySlug/': typeof AuthenticatedCompanySlugIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -74,7 +114,12 @@ export interface FileRoutesByTo {
   '/products': typeof AuthenticatedProductsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/webhook': typeof AuthenticatedWebhookRoute
+  '/$companySlug/dashboard': typeof AuthenticatedCompanySlugDashboardRoute
+  '/$companySlug/products': typeof AuthenticatedCompanySlugProductsRoute
+  '/$companySlug/settings': typeof AuthenticatedCompanySlugSettingsRoute
+  '/$companySlug/webhook': typeof AuthenticatedCompanySlugWebhookRoute
   '/api/public/celetus-webhook': typeof ApiPublicCeletusWebhookRoute
+  '/$companySlug': typeof AuthenticatedCompanySlugIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -85,7 +130,12 @@ export interface FileRoutesById {
   '/_authenticated/products': typeof AuthenticatedProductsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/webhook': typeof AuthenticatedWebhookRoute
+  '/_authenticated/$companySlug/dashboard': typeof AuthenticatedCompanySlugDashboardRoute
+  '/_authenticated/$companySlug/products': typeof AuthenticatedCompanySlugProductsRoute
+  '/_authenticated/$companySlug/settings': typeof AuthenticatedCompanySlugSettingsRoute
+  '/_authenticated/$companySlug/webhook': typeof AuthenticatedCompanySlugWebhookRoute
   '/api/public/celetus-webhook': typeof ApiPublicCeletusWebhookRoute
+  '/_authenticated/$companySlug/': typeof AuthenticatedCompanySlugIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -96,7 +146,12 @@ export interface FileRouteTypes {
     | '/products'
     | '/settings'
     | '/webhook'
+    | '/$companySlug/dashboard'
+    | '/$companySlug/products'
+    | '/$companySlug/settings'
+    | '/$companySlug/webhook'
     | '/api/public/celetus-webhook'
+    | '/$companySlug/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -105,7 +160,12 @@ export interface FileRouteTypes {
     | '/products'
     | '/settings'
     | '/webhook'
+    | '/$companySlug/dashboard'
+    | '/$companySlug/products'
+    | '/$companySlug/settings'
+    | '/$companySlug/webhook'
     | '/api/public/celetus-webhook'
+    | '/$companySlug'
   id:
     | '__root__'
     | '/'
@@ -115,7 +175,12 @@ export interface FileRouteTypes {
     | '/_authenticated/products'
     | '/_authenticated/settings'
     | '/_authenticated/webhook'
+    | '/_authenticated/$companySlug/dashboard'
+    | '/_authenticated/$companySlug/products'
+    | '/_authenticated/$companySlug/settings'
+    | '/_authenticated/$companySlug/webhook'
     | '/api/public/celetus-webhook'
+    | '/_authenticated/$companySlug/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -129,7 +194,7 @@ declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
     '/auth': {
       id: '/auth'
-      path: '/auth'
+      path: 'auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
@@ -176,12 +241,47 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/$companySlug/': {
+      id: '/_authenticated/$companySlug/'
+      path: '/$companySlug'
+      fullPath: '/$companySlug/'
+      preLoaderRoute: typeof AuthenticatedCompanySlugIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/api/public/celetus-webhook': {
       id: '/api/public/celetus-webhook'
       path: '/api/public/celetus-webhook'
       fullPath: '/api/public/celetus-webhook'
       preLoaderRoute: typeof ApiPublicCeletusWebhookRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/$companySlug/webhook': {
+      id: '/_authenticated/$companySlug/webhook'
+      path: '/$companySlug/webhook'
+      fullPath: '/$companySlug/webhook'
+      preLoaderRoute: typeof AuthenticatedCompanySlugWebhookRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/$companySlug/settings': {
+      id: '/_authenticated/$companySlug/settings'
+      path: '/$companySlug/settings'
+      fullPath: '/$companySlug/settings'
+      preLoaderRoute: typeof AuthenticatedCompanySlugSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/$companySlug/products': {
+      id: '/_authenticated/$companySlug/products'
+      path: '/$companySlug/products'
+      fullPath: '/$companySlug/products'
+      preLoaderRoute: typeof AuthenticatedCompanySlugProductsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/$companySlug/dashboard': {
+      id: '/_authenticated/$companySlug/dashboard'
+      path: '/$companySlug/dashboard'
+      fullPath: '/$companySlug/dashboard'
+      preLoaderRoute: typeof AuthenticatedCompanySlugDashboardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
   }
 }
@@ -191,6 +291,11 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedProductsRoute: typeof AuthenticatedProductsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedWebhookRoute: typeof AuthenticatedWebhookRoute
+  AuthenticatedCompanySlugDashboardRoute: typeof AuthenticatedCompanySlugDashboardRoute
+  AuthenticatedCompanySlugProductsRoute: typeof AuthenticatedCompanySlugProductsRoute
+  AuthenticatedCompanySlugSettingsRoute: typeof AuthenticatedCompanySlugSettingsRoute
+  AuthenticatedCompanySlugWebhookRoute: typeof AuthenticatedCompanySlugWebhookRoute
+  AuthenticatedCompanySlugIndexRoute: typeof AuthenticatedCompanySlugIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -198,6 +303,12 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedProductsRoute: AuthenticatedProductsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedWebhookRoute: AuthenticatedWebhookRoute,
+  AuthenticatedCompanySlugDashboardRoute:
+    AuthenticatedCompanySlugDashboardRoute,
+  AuthenticatedCompanySlugProductsRoute: AuthenticatedCompanySlugProductsRoute,
+  AuthenticatedCompanySlugSettingsRoute: AuthenticatedCompanySlugSettingsRoute,
+  AuthenticatedCompanySlugWebhookRoute: AuthenticatedCompanySlugWebhookRoute,
+  AuthenticatedCompanySlugIndexRoute: AuthenticatedCompanySlugIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
@@ -212,3 +323,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
