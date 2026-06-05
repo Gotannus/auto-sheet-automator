@@ -6,11 +6,15 @@ import { resolveCompany } from "@/lib/celetus/workspaces";
 export type WebhookEventRow = {
   id: string;
   received_at: string;
+  kind: string;
   transaction_code: string | null;
   status: string;
   error_message: string | null;
+  rows_read: number | null;
   rows_upserted: number | null;
   rows_ignored: number | null;
+  products_created: number | null;
+  file_name: string | null;
   reprocessed_at: string | null;
   payload_json: string | null;
 };
@@ -22,6 +26,7 @@ export const listWebhookEvents = createServerFn({ method: "GET" })
       .object({
         company_slug: z.string().optional(),
         status: z.enum(["all", "ok", "ignored", "error"]).optional().default("all"),
+        kind: z.enum(["all", "webhook", "import"]).optional().default("all"),
         limit: z.number().int().min(1).max(200).optional().default(100),
       })
       .parse(input),
@@ -33,7 +38,7 @@ export const listWebhookEvents = createServerFn({ method: "GET" })
     let query = supabase
       .from("webhook_events")
       .select(
-        "id, received_at, transaction_code, status, error_message, rows_upserted, rows_ignored, reprocessed_at, payload",
+        "id, received_at, kind, transaction_code, status, error_message, rows_read, rows_upserted, rows_ignored, products_created, file_name, reprocessed_at, payload",
       )
       .eq("user_id", userId)
       .order("received_at", { ascending: false })
@@ -41,6 +46,9 @@ export const listWebhookEvents = createServerFn({ method: "GET" })
 
     if (data.status !== "all") {
       query = query.eq("status", data.status);
+    }
+    if (data.kind !== "all") {
+      query = query.eq("kind", data.kind);
     }
 
     const { data: events, error } = await query;
@@ -64,11 +72,15 @@ export const listWebhookEvents = createServerFn({ method: "GET" })
     const serialized: WebhookEventRow[] = (events ?? []).map((row: Record<string, unknown>) => ({
       id: String(row.id),
       received_at: String(row.received_at),
+      kind: row.kind ? String(row.kind) : "webhook",
       transaction_code: row.transaction_code ? String(row.transaction_code) : null,
       status: String(row.status),
       error_message: row.error_message ? String(row.error_message) : null,
+      rows_read: row.rows_read != null ? Number(row.rows_read) : null,
       rows_upserted: row.rows_upserted != null ? Number(row.rows_upserted) : null,
       rows_ignored: row.rows_ignored != null ? Number(row.rows_ignored) : null,
+      products_created: row.products_created != null ? Number(row.products_created) : null,
+      file_name: row.file_name ? String(row.file_name) : null,
       reprocessed_at: row.reprocessed_at ? String(row.reprocessed_at) : null,
       payload_json: row.payload ? JSON.stringify(row.payload) : null,
     }));
