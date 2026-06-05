@@ -1,5 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { parseCeletusDate, kindLabel, norm } from "@/lib/celetus/normalize";
+import {
+  hasIndicationMarker,
+  isIndicationText,
+  parseCeletusDate,
+  kindLabel,
+  norm,
+} from "@/lib/celetus/normalize";
 import { getCompany } from "@/lib/celetus/workspaces";
 
 type AnyRecord = Record<string, unknown>;
@@ -75,6 +81,14 @@ export const Route = createFileRoute("/api/public/celetus-webhook")({
 
         if (candidates.length === 0) return ignoreWebhook("missing sale items");
 
+        const sellableCandidates = candidates.filter(
+          (candidate) => !isIndicationCandidate(payload, candidate),
+        );
+
+        if (sellableCandidates.length === 0) {
+          return ignoreWebhook("indication sale");
+        }
+
         const userId = String(config.user_id);
         const { data: products, error: productsError } = await supabaseAdmin
           .from("products")
@@ -87,7 +101,7 @@ export const Route = createFileRoute("/api/public/celetus-webhook")({
         let autoCreatedProducts = 0;
         const rows: Array<{ candidate: SaleCandidate; row: AnyRecord | null }> = [];
 
-        for (const candidate of candidates) {
+        for (const candidate of sellableCandidates) {
           let product = findProduct(productRows, candidate);
 
           if (!product) {
@@ -120,6 +134,7 @@ export const Route = createFileRoute("/api/public/celetus-webhook")({
           ok: true,
           rows_received: candidates.length,
           rows_upserted: rowsToUpsert.length,
+          rows_ignored: candidates.length - sellableCandidates.length,
           auto_created_products: autoCreatedProducts,
         });
       },
@@ -314,6 +329,22 @@ function buildSaleCandidates(payload: AnyRecord): SaleCandidate[] {
       },
     };
   });
+}
+
+function isIndicationCandidate(payload: AnyRecord, candidate: SaleCandidate) {
+  return (
+    hasIndicationMarker(payload) ||
+    candidate.productCandidates.some(isIndicationText) ||
+    isIndicationText(candidate.storedSrc) ||
+    [
+      candidate.row.src,
+      candidate.row.src_tag,
+      candidate.row.utm_source,
+      candidate.row.campaign_id,
+      candidate.row.adset_id,
+      candidate.row.ad_id,
+    ].some(isIndicationText)
+  );
 }
 
 function unwrapPayload(body: unknown): unknown {

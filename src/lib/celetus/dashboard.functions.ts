@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveCompany } from "@/lib/celetus/workspaces";
+import { hasIndicationMarker, isIndicationText } from "@/lib/celetus/normalize";
 
 const PAID = [
   "Pago",
@@ -56,7 +57,7 @@ export const getDashboard = createServerFn({ method: "POST" })
     z
       .object({
         company_slug: z.string().optional(),
-        product_id: z.string().uuid(),
+        product_id: z.string().uuid().optional(),
         year: z.number().int(),
         month: z.number().int().min(1).max(12),
       })
@@ -87,30 +88,64 @@ export const getDashboard = createServerFn({ method: "POST" })
     const fromIso = `${firstDay}T00:00:00-03:00`;
     const toIso = `${lastDay}T23:59:59-03:00`;
 
-    const [salesRes, dmiRes] = await Promise.all([
-      supabase
-        .from("celetus_sales")
-        .select("kind, status, recipient, commission_value, sale_date, quantity")
-        .eq("user_id", userId)
-        .eq("product_id", data.product_id)
-        .gte("sale_date", fromIso)
-        .lte("sale_date", toIso)
-        .in("status", PAID),
-      supabase
-        .from("daily_manual_inputs")
-        .select("date, invest_manual, clicks, checkouts, impressions, notes")
-        .eq("user_id", userId)
-        .eq("product_id", data.product_id)
-        .gte("date", firstDay)
-        .lte("date", lastDay),
-    ]);
+    let salesQuery = supabase
+      .from("celetus_sales")
+      .select(
+        "kind, status, recipient, commission_value, sale_date, quantity, src, src_tag, utm_source, campaign_id, adset_id, ad_id, raw",
+      )
+      .eq("user_id", userId)
+      .gte("sale_date", fromIso)
+      .lte("sale_date", toIso)
+      .in("status", PAID);
+
+    let dmiQuery = supabase
+      .from("daily_manual_inputs")
+      .select("date, invest_manual, clicks, checkouts, impressions, notes")
+      .eq("user_id", userId)
+      .gte("date", firstDay)
+      .lte("date", lastDay);
+
+    if (data.product_id) {
+      salesQuery = salesQuery.eq("product_id", data.product_id);
+      dmiQuery = dmiQuery.eq("product_id", data.product_id);
+    }
+
+    const [salesRes, dmiRes] = await Promise.all([salesQuery, dmiQuery]);
 
     if (salesRes.error) throw new Error(salesRes.error.message);
     if (dmiRes.error) throw new Error(dmiRes.error.message);
 
-    // Index daily manual inputs by date
-    const dmiByDate = new Map<string, (typeof dmiRes.data)[number]>();
-    for (const r of dmiRes.data ?? []) dmiByDate.set(r.date, r);
+    type ManualAgg = {
+      investManual: number | null;
+      clicks: number | null;
+      checkouts: number | null;
+      impressions: number | null;
+      notes: string | null;
+    };
+    const dmiByDate = new Map<string, ManualAgg>();
+    const getManualAgg = (date: string): ManualAgg => {
+      let manual = dmiByDate.get(date);
+      if (!manual) {
+        manual = {
+          investManual: null,
+          clicks: null,
+          checkouts: null,
+          impressions: null,
+          notes: null,
+        };
+        dmiByDate.set(date, manual);
+      }
+      return manual;
+    };
+
+    for (const r of dmiRes.data ?? []) {
+      const manual = getManualAgg(r.date);
+      manual.investManual = nullableSum(manual.investManual, r.invest_manual);
+      manual.clicks = nullableSum(manual.clicks, r.clicks);
+      manual.checkouts = nullableSum(manual.checkouts, r.checkouts);
+      manual.impressions = nullableSum(manual.impressions, r.impressions);
+      manual.notes = data.product_id ? (r.notes ?? null) : null;
+    }
 
     // Aggregate sales per day in BRT
     type Agg = { sales: number; revenue: number; obQty: number; obRevenue: number };
@@ -125,6 +160,8 @@ export const getDashboard = createServerFn({ method: "POST" })
     };
 
     for (const s of salesRes.data ?? []) {
+      if (isIgnoredIndicationSale(s)) continue;
+
       const kind = String(s.kind ?? "").toLowerCase();
       const rec = String(s.recipient ?? "").toLowerCase();
       if (rec !== "produtor" && rec !== "producer") continue;
@@ -151,7 +188,7 @@ export const getDashboard = createServerFn({ method: "POST" })
       const key = fmtDate(data.year, data.month, d);
       const a = agg.get(key) ?? { sales: 0, revenue: 0, obQty: 0, obRevenue: 0 };
       const dmi = dmiByDate.get(key);
-      const investManual = dmi?.invest_manual != null ? Number(dmi.invest_manual) : null;
+      const investManual = dmi?.investManual != null ? Number(dmi.investManual) : null;
       const investFinal = investManual != null ? investManual * (1 + investmentTaxRate) : 0;
       const revenueTax = a.revenue * revenueTaxRate;
       const profit = a.revenue - revenueTax - investFinal;
@@ -236,6 +273,20 @@ export const getDashboard = createServerFn({ method: "POST" })
       },
     };
   });
+
+function nullableSum(current: number | null, value: unknown) {
+  if (value === null || value === undefined) return current;
+  return (current ?? 0) + Number(value ?? 0);
+}
+
+function isIgnoredIndicationSale(sale: Record<string, unknown>) {
+  return (
+    hasIndicationMarker(sale.raw) ||
+    [sale.src, sale.src_tag, sale.utm_source, sale.campaign_id, sale.adset_id, sale.ad_id].some(
+      isIndicationText,
+    )
+  );
+}
 
 export const upsertDailyInput = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

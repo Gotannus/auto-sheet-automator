@@ -33,7 +33,7 @@ import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_authenticated/$companySlug/dashboard")({
-  head: () => ({ meta: [{ title: "Dashboard â€” Painel Celetus" }] }),
+  head: () => ({ meta: [{ title: "Dashboard - Painel Celetus" }] }),
   beforeLoad: ({ params }) => {
     if (!isCompanySlug(params.companySlug)) {
       throw redirect({ to: companyPath("tannus-labs", "dashboard"), replace: true });
@@ -54,7 +54,7 @@ const productsQO = (companySlug: string) =>
 const MONTHS = [
   "Janeiro",
   "Fevereiro",
-  "MarÃ§o",
+  "Marco",
   "Abril",
   "Maio",
   "Junho",
@@ -65,22 +65,38 @@ const MONTHS = [
   "Novembro",
   "Dezembro",
 ];
+const TOTAL_PRODUCT_ID = "__total__";
+
+type DashboardData = Awaited<ReturnType<typeof getDashboard>>;
+type DayData = DashboardData["days"][number];
 
 function DashboardPage() {
   const { companySlug } = Route.useParams();
   const company = resolveCompany(companySlug);
   const { data: products } = useSuspenseQuery(productsQO(company.slug));
   const now = new Date();
-  const [productId, setProductId] = useState<string | undefined>(products[0]?.id);
+  const [productId, setProductId] = useState<string>(TOTAL_PRODUCT_ID);
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
+  const isTotal = productId === TOTAL_PRODUCT_ID;
+  const selectedProductId = isTotal ? undefined : productId;
+  const selectedLabel = isTotal
+    ? "Total de todos os produtos"
+    : products.find((product) => product.id === productId)?.name || "Produto";
 
   const fetchDash = useServerFn(getDashboard);
   const dashQuery = useQuery({
     queryKey: ["dash", company.slug, productId, year, month],
     queryFn: () =>
-      fetchDash({ data: { company_slug: company.slug, product_id: productId!, year, month } }),
-    enabled: !!productId,
+      fetchDash({
+        data: {
+          company_slug: company.slug,
+          ...(selectedProductId ? { product_id: selectedProductId } : {}),
+          year,
+          month,
+        },
+      }),
+    enabled: isTotal || !!selectedProductId,
   });
 
   if (!products.length) {
@@ -90,7 +106,7 @@ function DashboardPage() {
           <CardContent className="p-8 text-center space-y-3">
             <h2 className="text-xl font-semibold">Nenhum produto cadastrado</h2>
             <p className="text-muted-foreground">
-              Cadastre o primeiro produto com nome + SRC da Celetus para comeÃ§ar.
+              Cadastre o primeiro produto com nome + SRC da Celetus para comecar.
             </p>
             <Button asChild>
               <Link to={companyPath(company.slug, "products")}>Cadastrar produto</Link>
@@ -107,15 +123,16 @@ function DashboardPage() {
         <div>
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <p className="text-sm text-muted-foreground">
-            {MONTHS[month - 1]} {year} â€” mÃ©tricas por dia, alimentadas via webhook da Celetus.
+            {selectedLabel} - {MONTHS[month - 1]} {year}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Select value={productId} onValueChange={setProductId}>
             <SelectTrigger className="w-56">
               <SelectValue placeholder="Produto" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value={TOTAL_PRODUCT_ID}>Total</SelectItem>
               {products.map((p) => (
                 <SelectItem key={p.id} value={p.id}>
                   {p.name}
@@ -152,14 +169,13 @@ function DashboardPage() {
 
       {dashQuery.isLoading || !dashQuery.data ? (
         <Card>
-          <CardContent className="p-6 text-sm text-muted-foreground">Carregandoâ€¦</CardContent>
+          <CardContent className="p-6 text-sm text-muted-foreground">Carregando...</CardContent>
         </Card>
       ) : (
         <DashContent
           companySlug={company.slug}
-          productId={productId!}
-          year={year}
-          month={month}
+          productId={selectedProductId}
+          isTotal={isTotal}
           data={dashQuery.data}
         />
       )}
@@ -170,13 +186,13 @@ function DashboardPage() {
 function DashContent({
   companySlug,
   productId,
+  isTotal,
   data,
 }: {
   companySlug: string;
-  productId: string;
-  year: number;
-  month: number;
-  data: Awaited<ReturnType<typeof getDashboard>>;
+  productId?: string;
+  isTotal: boolean;
+  data: DashboardData;
 }) {
   const t = data.totals;
   return (
@@ -191,17 +207,22 @@ function DashContent({
         <Stat label="CPA" value={fmtBRL(t.cpa)} />
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <Stat label="Ticket mÃ©dio" value={fmtBRL(t.ticket)} />
+        <Stat label="Ticket medio" value={fmtBRL(t.ticket)} />
         <Stat label="OB qtd / %" value={`${fmtInt(t.ob_qty)} / ${fmtPct(t.ob_pct)}`} />
         <Stat label="OB R$" value={fmtBRL(t.ob_revenue)} />
-        <Stat label="CPM mÃ©dio" value={fmtBRL(t.cpm)} />
+        <Stat label="CPM medio" value={fmtBRL(t.cpm)} />
         <Stat label="Conv. clique" value={fmtPct(t.conv_click)} />
         <Stat label="Conv. checkout" value={fmtPct(t.conv_checkout)} />
       </div>
 
       <Card>
         <CardContent className="p-0 overflow-x-auto">
-          <DailyTable companySlug={companySlug} productId={productId} days={data.days} />
+          <DailyTable
+            companySlug={companySlug}
+            productId={productId}
+            isTotal={isTotal}
+            days={data.days}
+          />
         </CardContent>
       </Card>
     </div>
@@ -211,11 +232,13 @@ function DashContent({
 function DailyTable({
   companySlug,
   productId,
+  isTotal,
   days,
 }: {
   companySlug: string;
-  productId: string;
-  days: Awaited<ReturnType<typeof getDashboard>>["days"];
+  productId?: string;
+  isTotal: boolean;
+  days: DashboardData["days"];
 }) {
   return (
     <Table>
@@ -234,21 +257,61 @@ function DailyTable({
           <TableHead className="text-right">OB%</TableHead>
           <TableHead className="text-right">Cliques</TableHead>
           <TableHead className="text-right">Checkouts</TableHead>
-          <TableHead className="text-right">ImpressÃµes</TableHead>
-          <TableHead>ObservaÃ§Ãµes</TableHead>
+          <TableHead className="text-right">Impressoes</TableHead>
+          <TableHead>Observacoes</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {days.map((d) => (
-          <DailyRow
-            key={`${productId}:${d.date}`}
-            companySlug={companySlug}
-            productId={productId}
-            day={d}
-          />
-        ))}
+        {days.map((d) =>
+          isTotal ? (
+            <ReadOnlyDailyRow key={`total:${d.date}`} day={d} />
+          ) : (
+            <DailyRow
+              key={`${productId}:${d.date}`}
+              companySlug={companySlug}
+              productId={productId!}
+              day={d}
+            />
+          ),
+        )}
       </TableBody>
     </Table>
+  );
+}
+
+function ReadOnlyDailyRow({ day }: { day: DayData }) {
+  return (
+    <TableRow>
+      <TableCell className="font-medium whitespace-nowrap">{dateLabel(day.date)}</TableCell>
+      <TableCell className="text-right">{day.sales || "-"}</TableCell>
+      <TableCell className="text-right">{day.revenue ? fmtBRL(day.revenue) : "-"}</TableCell>
+      <TableCell className="text-right">
+        {day.revenue_tax ? fmtBRL(day.revenue_tax) : "-"}
+      </TableCell>
+      <TableCell className="text-right">
+        {day.invest_manual != null ? fmtBRL(day.invest_manual) : "-"}
+      </TableCell>
+      <TableCell className="text-right">
+        {day.invest_final ? fmtBRL(day.invest_final) : "-"}
+      </TableCell>
+      <TableCell className={`text-right ${toneProfit(day.profit, day.revenue)}`}>
+        {day.revenue || day.invest_final ? fmtBRL(day.profit) : "-"}
+      </TableCell>
+      <TableCell className={`text-right ${toneROI(day.roi)}`}>
+        {day.invest_final ? fmtPct(day.roi) : "-"}
+      </TableCell>
+      <TableCell className="text-right">{day.sales ? fmtBRL(day.cpa) : "-"}</TableCell>
+      <TableCell className="text-right">{day.sales ? fmtBRL(day.ticket) : "-"}</TableCell>
+      <TableCell className="text-right">{day.sales ? fmtPct(day.ob_pct) : "-"}</TableCell>
+      <TableCell className="text-right">{day.clicks != null ? fmtInt(day.clicks) : "-"}</TableCell>
+      <TableCell className="text-right">
+        {day.checkouts != null ? fmtInt(day.checkouts) : "-"}
+      </TableCell>
+      <TableCell className="text-right">
+        {day.impressions != null ? fmtInt(day.impressions) : "-"}
+      </TableCell>
+      <TableCell>-</TableCell>
+    </TableRow>
   );
 }
 
@@ -259,7 +322,7 @@ function DailyRow({
 }: {
   companySlug: string;
   productId: string;
-  day: Awaited<ReturnType<typeof getDashboard>>["days"][number];
+  day: DayData;
 }) {
   const qc = useQueryClient();
   const save = useServerFn(upsertDailyInput);
@@ -282,10 +345,7 @@ function DailyRow({
   const [impressions, setImpressions] = useState(day.impressions?.toString() ?? "");
   const [notes, setNotes] = useState(day.notes ?? "");
 
-  const dateLabel = useMemo(() => {
-    const [, mm, dd] = day.date.split("-");
-    return `${dd}/${mm}`;
-  }, [day.date]);
+  const currentDateLabel = useMemo(() => dateLabel(day.date), [day.date]);
 
   useEffect(() => {
     setInvest(day.invest_manual?.toString() ?? "");
@@ -307,7 +367,7 @@ function DailyRow({
     const current = day.invest_manual;
     if (current != null && value != null && !sameMoney(current, value)) {
       const confirmed = confirm(
-        `Substituir investimento do dia ${dateLabel}?\n\nAtual: ${fmtBRL(
+        `Substituir investimento do dia ${currentDateLabel}?\n\nAtual: ${fmtBRL(
           current,
         )}\nNovo: ${fmtBRL(value)}`,
       );
@@ -323,7 +383,7 @@ function DailyRow({
 
   return (
     <TableRow>
-      <TableCell className="font-medium whitespace-nowrap">{dateLabel}</TableCell>
+      <TableCell className="font-medium whitespace-nowrap">{currentDateLabel}</TableCell>
       <TableCell className="text-right">{day.sales || "-"}</TableCell>
       <TableCell className="text-right">{day.revenue ? fmtBRL(day.revenue) : "-"}</TableCell>
       <TableCell className="text-right">
@@ -419,12 +479,16 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: str
   );
 }
 
-// formatters
 const fmtBRL = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 2 });
 const fmtInt = (n: number) => n.toLocaleString("pt-BR");
 const fmtPct = (n: number) =>
   (n * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1, minimumFractionDigits: 1 }) + "%";
+
+function dateLabel(date: string) {
+  const [, mm, dd] = date.split("-");
+  return `${dd}/${mm}`;
+}
 
 function toneROI(roi: number) {
   if (roi < 0) return "text-red-600 font-semibold";
@@ -433,6 +497,7 @@ function toneROI(roi: number) {
   if (roi < 0.5) return "text-green-600";
   return "text-emerald-700 font-semibold";
 }
+
 function toneProfit(profit: number, revenue: number) {
   if (revenue <= 0) return "";
   const margin = profit / revenue;
