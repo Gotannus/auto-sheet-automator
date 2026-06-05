@@ -49,6 +49,7 @@ export const Route = createFileRoute("/_authenticated/$companySlug/webhook-logs"
 });
 
 type StatusFilter = "all" | "ok" | "ignored" | "error";
+type KindFilter = "all" | "webhook" | "import";
 
 function WebhookLogsPage() {
   const { companySlug } = Route.useParams();
@@ -57,15 +58,16 @@ function WebhookLogsPage() {
   const reprocessFn = useServerFn(reprocessWebhookEvent);
 
   const [status, setStatus] = useState<StatusFilter>("all");
+  const [kind, setKind] = useState<KindFilter>("all");
   const [selected, setSelected] = useState<WebhookEventRow | null>(null);
   const [reprocessing, setReprocessing] = useState<string | null>(null);
 
-  const queryKey = ["webhook-events", companySlug, status];
+  const queryKey = ["webhook-events", companySlug, status, kind];
 
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey,
     queryFn: () =>
-      listFn({ data: { company_slug: companySlug, status, limit: 100 } }),
+      listFn({ data: { company_slug: companySlug, status, kind, limit: 100 } }),
     refetchOnWindowFocus: false,
   });
 
