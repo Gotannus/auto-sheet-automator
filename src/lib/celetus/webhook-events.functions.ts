@@ -61,7 +61,19 @@ export const listWebhookEvents = createServerFn({ method: "GET" })
       if (s in counts) counts[s] += 1;
     }
 
-    return { events: (events ?? []) as WebhookEventRow[], counts };
+    const serialized: WebhookEventRow[] = (events ?? []).map((row) => ({
+      id: String(row.id),
+      received_at: String(row.received_at),
+      transaction_code: row.transaction_code ? String(row.transaction_code) : null,
+      status: String(row.status),
+      error_message: row.error_message ? String(row.error_message) : null,
+      rows_upserted: row.rows_upserted != null ? Number(row.rows_upserted) : null,
+      rows_ignored: row.rows_ignored != null ? Number(row.rows_ignored) : null,
+      reprocessed_at: row.reprocessed_at ? String(row.reprocessed_at) : null,
+      payload_json: row.payload ? JSON.stringify(row.payload) : null,
+    }));
+
+    return { events: serialized, counts };
   });
 
 export const reprocessWebhookEvent = createServerFn({ method: "POST" })
