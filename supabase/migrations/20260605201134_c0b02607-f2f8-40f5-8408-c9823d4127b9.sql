@@ -1,0 +1,2 @@
+ALTER TABLE public.companies ADD COLUMN IF NOT EXISTS webhook_secret text NOT NULL DEFAULT encode(extensions.gen_random_bytes(24), 'hex');
+CREATE UNIQUE INDEX IF NOT EXISTS companies_webhook_secret_key ON public.companies(webhook_secret);
