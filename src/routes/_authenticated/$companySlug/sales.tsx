@@ -230,7 +230,7 @@ function SalesPage() {
                 from = ymd(new Date(today.getFullYear(), today.getMonth(), 1));
               } else if ("single" in preset && preset.single) {
                 const d = new Date(today);
-                d.setDate(d.getDate() - preset.days);
+                d.setDate(d.getDate() - (preset as { days: number }).days);
                 from = ymd(d);
                 to = ymd(d);
               } else {
