@@ -61,7 +61,7 @@ export const listWebhookEvents = createServerFn({ method: "GET" })
       if (s in counts) counts[s] += 1;
     }
 
-    const serialized: WebhookEventRow[] = (events ?? []).map((row) => ({
+    const serialized: WebhookEventRow[] = (events ?? []).map((row: Record<string, unknown>) => ({
       id: String(row.id),
       received_at: String(row.received_at),
       transaction_code: row.transaction_code ? String(row.transaction_code) : null,
