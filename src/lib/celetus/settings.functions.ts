@@ -6,7 +6,11 @@ export const getSettings = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    const { data } = await supabase.from("monthly_settings").select("year, tax_rate").maybeSingle();
+    const { data } = await supabase
+      .from("monthly_settings")
+      .select("year, tax_rate")
+      .eq("user_id", userId)
+      .maybeSingle();
     if (data) return data;
     // self-heal: insert default row if trigger didn't fire (e.g. older user)
     const ins = await supabase
@@ -44,7 +48,11 @@ export const getWebhookConfig = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    const { data } = await supabase.from("webhook_config").select("webhook_secret").maybeSingle();
+    const { data } = await supabase
+      .from("webhook_config")
+      .select("webhook_secret")
+      .eq("user_id", userId)
+      .maybeSingle();
     if (data) return data;
     const ins = await supabase
       .from("webhook_config")

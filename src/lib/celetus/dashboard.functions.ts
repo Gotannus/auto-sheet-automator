@@ -55,11 +55,12 @@ export const getDashboard = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
 
     const { data: settings } = await supabase
       .from("monthly_settings")
       .select("tax_rate")
+      .eq("user_id", userId)
       .maybeSingle();
     const taxRate = Number(settings?.tax_rate ?? 0.1215);
 
@@ -74,6 +75,7 @@ export const getDashboard = createServerFn({ method: "POST" })
       supabase
         .from("celetus_sales")
         .select("kind, status, recipient, commission_value, sale_date, quantity")
+        .eq("user_id", userId)
         .eq("product_id", data.product_id)
         .gte("sale_date", fromIso)
         .lte("sale_date", toIso)
@@ -81,6 +83,7 @@ export const getDashboard = createServerFn({ method: "POST" })
       supabase
         .from("daily_manual_inputs")
         .select("date, invest_manual, clicks, checkouts, impressions, notes")
+        .eq("user_id", userId)
         .eq("product_id", data.product_id)
         .gte("date", firstDay)
         .lte("date", lastDay),
