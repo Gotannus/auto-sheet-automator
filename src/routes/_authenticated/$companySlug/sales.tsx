@@ -235,7 +235,7 @@ function SalesPage() {
                 to = ymd(d);
               } else {
                 const d = new Date(today);
-                d.setDate(d.getDate() - (preset.days as number));
+                d.setDate(d.getDate() - ((preset as { days: number }).days ?? 0));
                 from = ymd(d);
               }
               const active = dateFrom === from && dateTo === to;
