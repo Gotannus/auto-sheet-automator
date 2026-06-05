@@ -243,9 +243,15 @@ function SettingsPage() {
           </Button>
         </CardContent>
       </Card>
+      <MembersSection companySlug={company.slug} />
     </div>
   );
 }
+
+function MembersSection({ companySlug }: { companySlug: string }) {
+  return <MembersCard companySlug={companySlug} />;
+}
+
 
 function parsePtNumber(value: string) {
   const normalized = value.trim().replace(/[^\d,.-]/g, "");
