@@ -307,6 +307,7 @@ function buildSaleCandidates(payload: AnyRecord): SaleCandidate[] {
             record(payload.customer)?.document,
           ) || null,
         src: storedSrc,
+        line_item_code: lineItemCode,
         product_name: productName || null,
         offer_name:
           firstText(item.offerName, item.offer_name, payload.offerName, payload.offer_name) || null,
