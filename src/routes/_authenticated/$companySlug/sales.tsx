@@ -211,6 +211,65 @@ function SalesPage() {
               </SelectContent>
             </Select>
           </div>
+          <div className="md:col-span-6 flex flex-wrap gap-1.5">
+            {(
+              [
+                { label: "Hoje", days: 0 },
+                { label: "Ontem", days: 1, single: true },
+                { label: "7 dias", days: 6 },
+                { label: "30 dias", days: 29 },
+                { label: "Mês atual", month: true },
+              ] as const
+            ).map((preset) => {
+              const today = new Date();
+              const ymd = (d: Date) =>
+                `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+              let from = "";
+              let to = ymd(today);
+              if ("month" in preset && preset.month) {
+                from = ymd(new Date(today.getFullYear(), today.getMonth(), 1));
+              } else if ("single" in preset && preset.single) {
+                const d = new Date(today);
+                d.setDate(d.getDate() - preset.days);
+                from = ymd(d);
+                to = ymd(d);
+              } else {
+                const d = new Date(today);
+                d.setDate(d.getDate() - (preset.days as number));
+                from = ymd(d);
+              }
+              const active = dateFrom === from && dateTo === to;
+              return (
+                <Button
+                  key={preset.label}
+                  type="button"
+                  size="sm"
+                  variant={active ? "default" : "outline"}
+                  onClick={() => {
+                    setDateFrom(from);
+                    setDateTo(to);
+                    setPage(1);
+                  }}
+                >
+                  {preset.label}
+                </Button>
+              );
+            })}
+            {(dateFrom || dateTo) && (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setDateFrom("");
+                  setDateTo("");
+                  setPage(1);
+                }}
+              >
+                Limpar datas
+              </Button>
+            )}
+          </div>
           <div className="space-y-1.5">
             <Label className="text-xs">De</Label>
             <Input
