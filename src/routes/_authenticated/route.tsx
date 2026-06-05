@@ -28,6 +28,12 @@ function AuthedLayout() {
             Dashboard
           </NavItem>
           <NavItem
+            to={companyPath(company.slug, "sales")}
+            icon={<Receipt className="h-4 w-4" />}
+          >
+            Vendas
+          </NavItem>
+          <NavItem
             to={companyPath(company.slug, "products")}
             icon={<Package className="h-4 w-4" />}
           >
