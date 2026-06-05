@@ -1,4 +1,4 @@
-CREATE TABLE public.monthly_tax_settings (
+CREATE TABLE IF NOT EXISTS public.monthly_tax_settings (
   id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   year integer NOT NULL,
