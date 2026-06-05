@@ -96,10 +96,24 @@ export const getDashboard = createServerFn({ method: "POST" })
     const fromIso = `${firstDay}T00:00:00-03:00`;
     const toIso = `${lastDay}T23:59:59-03:00`;
 
+    // If filtering by product, also resolve its src so we can attribute
+    // orderbumps purchased on this product's checkout (Celetus-style grouping).
+    let productSrc: string | null = null;
+    if (data.product_id) {
+      const { data: prod, error: prodError } = await supabase
+        .from("products")
+        .select("src")
+        .eq("user_id", userId)
+        .eq("id", data.product_id)
+        .maybeSingle();
+      if (prodError) throw new Error(prodError.message);
+      productSrc = prod?.src ?? null;
+    }
+
     let salesQuery = supabase
       .from("celetus_sales")
       .select(
-        "kind, status, recipient, commission_value, net_value, sale_date, quantity, src, src_tag, utm_source, campaign_id, adset_id, ad_id, raw",
+        "kind, status, recipient, commission_value, net_value, sale_date, quantity, src, src_tag, utm_source, campaign_id, adset_id, ad_id, raw, product_id",
       )
       .eq("user_id", userId)
       .gte("sale_date", fromIso)
