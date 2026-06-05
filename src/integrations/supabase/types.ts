@@ -14,7 +14,250 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      celetus_sales: {
+        Row: {
+          ad_id: string | null
+          adset_id: string | null
+          buyer_document: string | null
+          buyer_email: string | null
+          buyer_name: string | null
+          buyer_phone: string | null
+          campaign_id: string | null
+          commission_value: number
+          created_at: string
+          doc_type: string | null
+          fees: number | null
+          gross_value: number | null
+          id: string
+          item_type: string | null
+          kind: string
+          net_value: number | null
+          offer_name: string | null
+          payment_method: string | null
+          product_id: string
+          product_name: string | null
+          quantity: number
+          raw: Json | null
+          recipient: string | null
+          recipient_company: string | null
+          recipient_type: string | null
+          sale_date: string
+          src: string
+          src_tag: string | null
+          status: string
+          transaction_code: string
+          user_id: string
+          utm_source: string | null
+          utm_status: string | null
+        }
+        Insert: {
+          ad_id?: string | null
+          adset_id?: string | null
+          buyer_document?: string | null
+          buyer_email?: string | null
+          buyer_name?: string | null
+          buyer_phone?: string | null
+          campaign_id?: string | null
+          commission_value?: number
+          created_at?: string
+          doc_type?: string | null
+          fees?: number | null
+          gross_value?: number | null
+          id?: string
+          item_type?: string | null
+          kind: string
+          net_value?: number | null
+          offer_name?: string | null
+          payment_method?: string | null
+          product_id: string
+          product_name?: string | null
+          quantity?: number
+          raw?: Json | null
+          recipient?: string | null
+          recipient_company?: string | null
+          recipient_type?: string | null
+          sale_date: string
+          src: string
+          src_tag?: string | null
+          status: string
+          transaction_code: string
+          user_id: string
+          utm_source?: string | null
+          utm_status?: string | null
+        }
+        Update: {
+          ad_id?: string | null
+          adset_id?: string | null
+          buyer_document?: string | null
+          buyer_email?: string | null
+          buyer_name?: string | null
+          buyer_phone?: string | null
+          campaign_id?: string | null
+          commission_value?: number
+          created_at?: string
+          doc_type?: string | null
+          fees?: number | null
+          gross_value?: number | null
+          id?: string
+          item_type?: string | null
+          kind?: string
+          net_value?: number | null
+          offer_name?: string | null
+          payment_method?: string | null
+          product_id?: string
+          product_name?: string | null
+          quantity?: number
+          raw?: Json | null
+          recipient?: string | null
+          recipient_company?: string | null
+          recipient_type?: string | null
+          sale_date?: string
+          src?: string
+          src_tag?: string | null
+          status?: string
+          transaction_code?: string
+          user_id?: string
+          utm_source?: string | null
+          utm_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "celetus_sales_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      daily_manual_inputs: {
+        Row: {
+          checkouts: number | null
+          clicks: number | null
+          created_at: string
+          date: string
+          id: string
+          impressions: number | null
+          invest_manual: number | null
+          notes: string | null
+          product_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          checkouts?: number | null
+          clicks?: number | null
+          created_at?: string
+          date: string
+          id?: string
+          impressions?: number | null
+          invest_manual?: number | null
+          notes?: string | null
+          product_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          checkouts?: number | null
+          clicks?: number | null
+          created_at?: string
+          date?: string
+          id?: string
+          impressions?: number | null
+          invest_manual?: number | null
+          notes?: string | null
+          product_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_manual_inputs_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      monthly_settings: {
+        Row: {
+          created_at: string
+          id: string
+          tax_rate: number
+          updated_at: string
+          user_id: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          tax_rate?: number
+          updated_at?: string
+          user_id: string
+          year?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          tax_rate?: number
+          updated_at?: string
+          user_id?: string
+          year?: number
+        }
+        Relationships: []
+      }
+      products: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          src: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          src: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          src?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      webhook_config: {
+        Row: {
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+          webhook_secret: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+          webhook_secret?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+          webhook_secret?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
