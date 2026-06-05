@@ -148,6 +148,10 @@ function SalesPage() {
         </Button>
       </header>
 
+      <SummaryCards totals={salesQ.data?.totals} loading={salesQ.isFetching} />
+
+
+
       <Card>
         <CardContent className="p-4 grid gap-3 md:grid-cols-6">
           <div className="space-y-1.5 md:col-span-2">
@@ -431,7 +435,64 @@ function SaleRowItem({ row }: { row: SaleRow }) {
   );
 }
 
+function SummaryCards({
+  totals,
+  loading,
+}: {
+  totals:
+    | {
+        count: number;
+        commission: number;
+        gross: number;
+        net: number;
+        principal_qty: number;
+        orderbump_qty: number;
+      }
+    | undefined;
+  loading: boolean;
+}) {
+  const count = totals?.count ?? 0;
+  const commission = totals?.commission ?? 0;
+  const principalQty = totals?.principal_qty ?? 0;
+  const orderbumpQty = totals?.orderbump_qty ?? 0;
+  const ticket = principalQty > 0 ? commission / principalQty : 0;
+  return (
+    <div className="grid gap-3 md:grid-cols-3">
+      <Card>
+        <CardContent className="p-4">
+          <div className="text-xs text-muted-foreground">Vendas</div>
+          <div className="text-2xl font-bold tabular-nums">
+            {loading && count === 0 ? "—" : count.toLocaleString("pt-BR")}
+          </div>
+          <div className="text-xs text-muted-foreground mt-1">
+            {principalQty} principal · {orderbumpQty} orderbump
+          </div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent className="p-4">
+          <div className="text-xs text-muted-foreground">Faturamento (comissão)</div>
+          <div className="text-2xl font-bold tabular-nums">{formatBRL(commission)}</div>
+          <div className="text-xs text-muted-foreground mt-1">
+            Soma de commission_value (ignora TestWebhook)
+          </div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent className="p-4">
+          <div className="text-xs text-muted-foreground">Ticket médio (Principal)</div>
+          <div className="text-2xl font-bold tabular-nums">{formatBRL(ticket)}</div>
+          <div className="text-xs text-muted-foreground mt-1">
+            Faturamento ÷ vendas Principal
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function formatBRL(v: number) {
+
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 }
 

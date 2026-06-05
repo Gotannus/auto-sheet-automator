@@ -179,12 +179,11 @@ export const getDashboard = createServerFn({ method: "POST" })
       const key = brt.toISOString().slice(0, 10);
       const a = getAgg(key);
       const itemCommission = Number(s.commission_value ?? 0);
-      const orderCommission = Number(s.net_value ?? s.commission_value ?? 0);
       const qty = Number(s.quantity ?? 1);
       if (kind === "principal" || kind === "main") {
         if (qty === 1) {
           a.sales += 1;
-          a.revenue += orderCommission;
+          a.revenue += itemCommission;
         }
       } else if (kind === "orderbump" || kind === "order_bump" || kind === "bump") {
         a.obQty += 1;
