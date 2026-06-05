@@ -21,6 +21,7 @@ export type DayRow = {
   date: string; // YYYY-MM-DD
   sales: number;
   revenue: number;
+  revenue_tax: number;
   ob_qty: number;
   ob_revenue: number;
   invest_manual: number | null;
@@ -44,6 +45,11 @@ function fmtDate(y: number, m: number, d: number) {
   return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
+function fromUntyped(supabase: unknown, table: string) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (supabase as any).from(table);
+}
+
 export const getDashboard = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
@@ -60,12 +66,19 @@ export const getDashboard = createServerFn({ method: "POST" })
     const { supabase } = context;
     const userId = resolveCompany(data.company_slug).userId;
 
-    const { data: settings } = await supabase
-      .from("monthly_settings")
-      .select("tax_rate")
+    const { data: settings, error: settingsError } = await fromUntyped(
+      supabase,
+      "monthly_tax_settings",
+    )
+      .select("investment_tax_rate, revenue_tax_rate")
       .eq("user_id", userId)
+      .eq("year", data.year)
+      .eq("month", data.month)
       .maybeSingle();
-    const taxRate = Number(settings?.tax_rate ?? 0.1215);
+    if (settingsError) throw new Error(settingsError.message);
+
+    const investmentTaxRate = Number(settings?.investment_tax_rate ?? 0.1215);
+    const revenueTaxRate = Number(settings?.revenue_tax_rate ?? 0);
 
     const dim = daysInMonth(data.year, data.month);
     const firstDay = fmtDate(data.year, data.month, 1);
@@ -139,8 +152,9 @@ export const getDashboard = createServerFn({ method: "POST" })
       const a = agg.get(key) ?? { sales: 0, revenue: 0, obQty: 0, obRevenue: 0 };
       const dmi = dmiByDate.get(key);
       const investManual = dmi?.invest_manual != null ? Number(dmi.invest_manual) : null;
-      const investFinal = investManual != null ? investManual * (1 + taxRate) : 0;
-      const profit = a.revenue - investFinal;
+      const investFinal = investManual != null ? investManual * (1 + investmentTaxRate) : 0;
+      const revenueTax = a.revenue * revenueTaxRate;
+      const profit = a.revenue - revenueTax - investFinal;
       const roi = investFinal > 0 ? profit / investFinal : 0;
       const cpa = a.sales > 0 ? investFinal / a.sales : 0;
       const ticket = a.sales > 0 ? a.revenue / a.sales : 0;
@@ -149,6 +163,7 @@ export const getDashboard = createServerFn({ method: "POST" })
         date: key,
         sales: a.sales,
         revenue: a.revenue,
+        revenue_tax: revenueTax,
         ob_qty: a.obQty,
         ob_revenue: a.obRevenue,
         invest_manual: investManual,
@@ -170,6 +185,7 @@ export const getDashboard = createServerFn({ method: "POST" })
       (t, d) => {
         t.sales += d.sales;
         t.revenue += d.revenue;
+        t.revenue_tax += d.revenue_tax;
         t.ob_qty += d.ob_qty;
         t.ob_revenue += d.ob_revenue;
         t.invest_manual += d.invest_manual ?? 0;
@@ -182,6 +198,7 @@ export const getDashboard = createServerFn({ method: "POST" })
       {
         sales: 0,
         revenue: 0,
+        revenue_tax: 0,
         ob_qty: 0,
         ob_revenue: 0,
         invest_manual: 0,
@@ -192,7 +209,7 @@ export const getDashboard = createServerFn({ method: "POST" })
       },
     );
 
-    const profit = totals.revenue - totals.invest_final;
+    const profit = totals.revenue - totals.revenue_tax - totals.invest_final;
     const roi = totals.invest_final > 0 ? profit / totals.invest_final : 0;
     const cpa = totals.sales > 0 ? totals.invest_final / totals.sales : 0;
     const ticket = totals.sales > 0 ? totals.revenue / totals.sales : 0;
@@ -202,7 +219,9 @@ export const getDashboard = createServerFn({ method: "POST" })
     const convCheckout = totals.checkouts > 0 ? totals.sales / totals.checkouts : 0;
 
     return {
-      taxRate,
+      taxRate: investmentTaxRate,
+      investmentTaxRate,
+      revenueTaxRate,
       days,
       totals: {
         ...totals,
@@ -247,10 +266,13 @@ export const upsertDailyInput = createServerFn({ method: "POST" })
     if (data.checkouts !== undefined) payload.checkouts = data.checkouts;
     if (data.impressions !== undefined) payload.impressions = data.impressions;
     if (data.notes !== undefined) payload.notes = data.notes;
-    const { error } = await supabase
+    const { data: saved, error } = await supabase
       .from("daily_manual_inputs")
+      .select("product_id, date, invest_manual, clicks, checkouts, impressions, notes, updated_at")
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .upsert(payload as any, { onConflict: "user_id,product_id,date" });
+      .upsert(payload as any, { onConflict: "user_id,product_id,date" })
+      .single();
     if (error) throw new Error(error.message);
-    return { ok: true };
+    if (!saved) throw new Error("Investimento nao foi confirmado pelo banco de dados.");
+    return { ok: true, saved };
   });

@@ -181,9 +181,10 @@ function DashContent({
   const t = data.totals;
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
         <Stat label="Vendas" value={fmtInt(t.sales)} />
         <Stat label="Faturamento" value={fmtBRL(t.revenue)} />
+        <Stat label="Imposto fat." value={fmtBRL(t.revenue_tax)} />
         <Stat label="Investimento" value={fmtBRL(t.invest_final)} />
         <Stat label="Lucro" value={fmtBRL(t.profit)} tone={toneProfit(t.profit, t.revenue)} />
         <Stat label="ROI" value={fmtPct(t.roi)} tone={toneROI(t.roi)} />
@@ -223,6 +224,7 @@ function DailyTable({
           <TableHead>Data</TableHead>
           <TableHead className="text-right">Vendas</TableHead>
           <TableHead className="text-right">Faturamento</TableHead>
+          <TableHead className="text-right">Imposto fat.</TableHead>
           <TableHead className="text-right">Invest. manual</TableHead>
           <TableHead className="text-right">Invest. final</TableHead>
           <TableHead className="text-right">Lucro</TableHead>
@@ -325,13 +327,16 @@ function DailyRow({
       <TableCell className="text-right">{day.sales || "-"}</TableCell>
       <TableCell className="text-right">{day.revenue ? fmtBRL(day.revenue) : "-"}</TableCell>
       <TableCell className="text-right">
+        {day.revenue_tax ? fmtBRL(day.revenue_tax) : "-"}
+      </TableCell>
+      <TableCell className="text-right">
         <NumCell value={invest} onChange={setInvest} onCommit={saveInvest} />
       </TableCell>
       <TableCell className="text-right">
         {day.invest_final ? fmtBRL(day.invest_final) : "-"}
       </TableCell>
       <TableCell className={`text-right ${toneProfit(day.profit, day.revenue)}`}>
-        {day.invest_final ? fmtBRL(day.profit) : "-"}
+        {day.revenue || day.invest_final ? fmtBRL(day.profit) : "-"}
       </TableCell>
       <TableCell className={`text-right ${toneROI(day.roi)}`}>
         {day.invest_final ? fmtPct(day.roi) : "-"}
