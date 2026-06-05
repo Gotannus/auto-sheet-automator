@@ -2,7 +2,19 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-const PAID = ["pago", "paid", "approved", "aprovado", "completed"];
+const PAID = [
+  "Pago",
+  "Aprovado",
+  "pago",
+  "paid",
+  "approved",
+  "aprovado",
+  "complete",
+  "completed",
+  "ApprovedPurchase",
+  "SubscriptionActive",
+  "SubscriptionCompleted",
+];
 
 export type DayRow = {
   date: string; // YYYY-MM-DD

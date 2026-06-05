@@ -8,8 +8,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Copy, RefreshCw } from "lucide-react";
 
-const webhookQO = () =>
-  queryOptions({ queryKey: ["webhook"], queryFn: () => getWebhookConfig() });
+const webhookQO = () => queryOptions({ queryKey: ["webhook"], queryFn: () => getWebhookConfig() });
 
 export const Route = createFileRoute("/_authenticated/webhook")({
   head: () => ({ meta: [{ title: "Webhook — Painel Celetus" }] }),
@@ -26,13 +25,14 @@ function WebhookPage() {
     mutationFn: () => rot(),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["webhook"] });
-      toast.success("Novo secret gerado");
+      toast.success("Novo token gerado");
     },
   });
 
-  const url = typeof window !== "undefined"
-    ? `${window.location.origin}/api/public/celetus-webhook`
-    : "/api/public/celetus-webhook";
+  const url =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/api/public/celetus-webhook`
+      : "/api/public/celetus-webhook";
 
   const copy = (s: string) => {
     navigator.clipboard.writeText(s);
@@ -44,13 +44,15 @@ function WebhookPage() {
       <header>
         <h1 className="text-2xl font-bold">Webhook da Celetus</h1>
         <p className="text-sm text-muted-foreground">
-          Cole essa URL nas configurações de webhook do seu painel da Celetus.
-          As vendas vão entrar automaticamente no dashboard do produto correspondente (identificado pelo SRC).
+          Cole essa URL nas configurações de webhook do seu painel da Celetus. As vendas vão entrar
+          automaticamente no dashboard do produto correspondente (identificado pelo SRC).
         </p>
       </header>
 
       <Card>
-        <CardHeader><CardTitle>URL</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>URL</CardTitle>
+        </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex gap-2">
             <Input value={url} readOnly className="font-mono text-xs" />
@@ -59,49 +61,68 @@ function WebhookPage() {
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Aceita POST com JSON. Autentica pelo header <code>X-Webhook-Secret</code> ou query <code>?secret=</code>.
+            Aceita POST com JSON. Na Celetus, cole essa URL no campo URL do webhook.
           </p>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Secret</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>Token</CardTitle>
+        </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex gap-2">
             <Input value={data.webhook_secret} readOnly className="font-mono text-xs" />
             <Button variant="outline" size="icon" onClick={() => copy(data.webhook_secret)}>
               <Copy className="h-4 w-4" />
             </Button>
-            <Button variant="outline" onClick={() => {
-              if (confirm("Gerar novo secret? O anterior deixa de funcionar.")) rotMut.mutate();
-            }}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (confirm("Gerar novo token? O anterior deixa de funcionar.")) rotMut.mutate();
+              }}
+            >
               <RefreshCw className="h-4 w-4 mr-1" /> Rotacionar
             </Button>
           </div>
           <div className="rounded-md bg-muted p-3 text-xs font-mono whitespace-pre-wrap break-all">
-{`curl -X POST "${url}" \\
+            {`curl -X POST "${url}" \\
   -H "Content-Type: application/json" \\
-  -H "X-Webhook-Secret: ${data.webhook_secret}" \\
+  -H "Api-Token: ${data.webhook_secret}" \\
   -d '{
-    "transactionCode": "ABC123",
-    "src": "8578ff75-82f3-411a-95ec-060c062509ef",
-    "productName": "O Peso da Cama Feita",
-    "offerName": "OFERTA 10 UNIDADES R$10",
-    "kind": "Principal",
-    "status": "Pago",
-    "paymentMethod": "PIX",
-    "commissionValue": 9.45,
-    "saleDate": "04/06/2026 22:26:20",
-    "recipient": "Produtor",
-    "buyerName": "Fulano",
-    "buyerEmail": "fulano@example.com"
+    "event_type": "ApprovedPurchase",
+    "payment_method": "pix",
+    "order_code": "ABC123",
+    "order_status": "Approved",
+    "approved_date": "2026-06-04T22:26:20.000Z",
+    "customer": {
+      "name": "Fulano",
+      "email": "fulano@example.com"
+    },
+    "items": [{
+      "id": "8578ff75-82f3-411a-95ec-060c062509ef",
+      "name": "O Peso da Cama Feita",
+      "offer_name": "OFERTA 10 UNIDADES R$10",
+      "item_type": "Principal",
+      "amount": 10.99
+    }],
+    "charge": {
+      "status": "paid",
+      "amount": 10.99
+    },
+    "commission": {
+      "totalPrice": 10.99,
+      "gatewayFee": 1.54,
+      "userCommission": 9.45
+    },
+    "seller_name": "TANNUS LABS",
+    "seller_type": "Produtor"
   }'`}
           </div>
           <p className="text-xs text-muted-foreground">
-            Campos aceitos (camelCase ou snake_case): <code>transactionCode</code>, <code>src</code>,
-            <code> productName</code>, <code>offerName</code>, <code>kind</code>, <code>status</code>,
-            <code> paymentMethod</code>, <code>commissionValue</code>, <code>saleDate</code>,
-            <code> recipient</code>, <code>buyerName</code>, <code>buyerEmail</code>, etc.
+            Na Celetus, use esse valor no campo Token. A plataforma envia esse token no header{" "}
+            <code>Api-Token</code>. O endpoint tambem aceita
+            <code> X-Webhook-Secret</code> ou <code>?secret=</code> para testes manuais.
           </p>
         </CardContent>
       </Card>

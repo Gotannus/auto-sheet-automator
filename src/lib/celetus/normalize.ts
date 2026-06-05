@@ -1,12 +1,26 @@
 // Helpers shared between webhook and server functions.
 
-const PAID = new Set(["pago", "paid", "approved", "aprovado", "completed"]);
+const PAID = new Set([
+  "pago",
+  "paid",
+  "approved",
+  "aprovado",
+  "complete",
+  "completed",
+  "approvedpurchase",
+  "subscriptionactive",
+  "subscriptioncompleted",
+]);
 const PRINCIPAL = new Set(["principal", "main"]);
 const ORDERBUMP = new Set(["orderbump", "order_bump", "bump", "order bump"]);
 const PRODUCER = new Set(["produtor", "producer"]);
 
 export const norm = (v: unknown): string =>
-  String(v ?? "").trim().toLowerCase();
+  String(v ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
 
 export const isPaid = (status: unknown) => PAID.has(norm(status));
 export const isPrincipal = (kind: unknown) => PRINCIPAL.has(norm(kind));
@@ -23,9 +37,7 @@ export function parseCeletusDate(value: unknown): Date | null {
   const s = String(value).trim();
   if (!s) return null;
   // dd/MM/yyyy [HH:mm:ss]
-  const m = s.match(
-    /^(\d{2})\/(\d{2})\/(\d{4})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/,
-  );
+  const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/);
   if (m) {
     const [, dd, mm, yyyy, hh = "0", mi = "0", ss = "0"] = m;
     // Treat as local BRT; store as UTC after offset
