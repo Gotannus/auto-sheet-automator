@@ -3,6 +3,13 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveCompany } from "@/lib/celetus/workspaces";
 
+export type Product = {
+  id: string;
+  name: string;
+  src: string;
+  created_at: string;
+};
+
 const CompanyInput = z.object({
   company_slug: z.string().optional(),
 });
@@ -19,7 +26,7 @@ export const listProducts = createServerFn({ method: "GET" })
       .eq("user_id", userId)
       .order("created_at", { ascending: true });
     if (error) throw new Error(error.message);
-    return rows ?? [];
+    return (rows ?? []) as Product[];
   });
 
 export const createProduct = createServerFn({ method: "POST" })
