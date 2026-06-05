@@ -78,8 +78,7 @@ export const Route = createFileRoute("/api/public/celetus-webhook")({
         const rows: Array<{ candidate: SaleCandidate; row: AnyRecord | null }> = [];
 
         for (const candidate of candidates) {
-          const fallbackProduct = findPayloadProduct(productRows, candidates);
-          let product = findProduct(productRows, candidate) ?? fallbackProduct;
+          let product = findProduct(productRows, candidate);
 
           if (!product) {
             product = await createProductFromCandidate(supabaseAdmin, userId, candidate);
@@ -351,22 +350,6 @@ function findProduct(products: ProductRow[], candidate: SaleCandidate) {
 
   if (!candidate.productName) return null;
   return products.find((product) => norm(product.name) === norm(candidate.productName)) ?? null;
-}
-
-function findPayloadProduct(products: ProductRow[], candidates: SaleCandidate[]) {
-  const bySrc = findProductBySrc(
-    products,
-    candidates.flatMap((candidate) => candidate.productCandidates),
-  );
-  if (bySrc) return bySrc;
-
-  for (const candidate of candidates) {
-    if (!candidate.productName) continue;
-    const byName = products.find((product) => norm(product.name) === norm(candidate.productName));
-    if (byName) return byName;
-  }
-
-  return null;
 }
 
 function findProductBySrc(products: ProductRow[], candidates: string[]) {
