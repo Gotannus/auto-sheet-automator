@@ -1,8 +1,15 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { queryOptions, useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { queryOptions, useMutation, useQueryClient, useSuspenseQuery, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState, useEffect } from "react";
+import { Trash2, UserPlus, Crown } from "lucide-react";
 import { getSettings, updateSettings } from "@/lib/celetus/settings.functions";
+import {
+  getCompanyBySlug,
+  listCompanyMembers,
+  addCompanyMember,
+  removeCompanyMember,
+} from "@/lib/celetus/companies.functions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +22,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { companyPath, isValidSlug } from "@/lib/celetus/workspaces";
+import { isValidSlug } from "@/lib/celetus/workspaces";
+
 
 const settingsQO = (companySlug: string, year?: number, month?: number) =>
   queryOptions({
