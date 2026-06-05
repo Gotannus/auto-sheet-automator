@@ -178,7 +178,8 @@ export const Route = createFileRoute("/api/public/celetus-webhook")({
 
         const { error: upErr } = await supabaseAdmin
           .from("celetus_sales")
-          .upsert(row, { onConflict: "user_id,transaction_code,src,kind" });
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .upsert(row as any, { onConflict: "user_id,transaction_code,src,kind" });
         if (upErr) return json({ error: upErr.message }, 500);
 
         return json({ ok: true });
