@@ -1,59 +1,85 @@
-## Diagnóstico
 
-**1. Peso da Cama Feita (173,29)** — Não é bug de cálculo. Celetus agrupa por **checkout** (tudo vendido na página do Peso); nosso dashboard agrupa por **produto**. Resultado hoje:
-- Principal "Peso": 13 × 9,45 = 122,85
-- Orderbumps comprados no checkout do Peso (mas hoje listados como produtos próprios): Me lembra 16,68 + Devocional 22,64 + Casado 11,12 = **50,44**
-- Soma = 173,29 ✅ (bate com Celetus, só está distribuído)
+## Auditoria do gap 324 vs 425,41
 
-Cada orderbump tem `src = bm05conta02-peso-cp01` apontando o checkout pai → dá pra reatribuir.
+Cruzei a planilha (`report_2026-06-05T19_48_01_730Z.xlsx`) com o banco e isolei **dois problemas independentes** que somados produzem o gap.
 
-**2. Mulher Forte (faltou 1 venda das 06:17)** — Webhook não chegou no banco. Logs do servidor só cobrem a última hora, então não dá pra ver o que aconteceu agora; precisamos passar a registrar para o futuro.
+### Diagnóstico
+
+**Totais na planilha (05/06, Status=Pago):**
+
+| Tipo | Qtde | Soma `Value` |
+|---|---:|---:|
+| Principal | 38 | 325,40 |
+| Orderbump | 28 | 100,01 |
+| **Total** | **66** | **425,41** ✅ (igual ao "faturado" da Celetus) |
+
+**Totais no banco (mesmo intervalo):**
+
+| Tipo | Qtde | Soma `commission_value` |
+|---|---:|---:|
+| Principal | 28 | 324,31 |
+| Orderbump | 16 | 98,99 |
+| **Total** | **44** | **423,30** |
+
+E o dashboard mostra **324** porque o agregador (`getDashboard`) só soma Principal — Orderbump entra em outra coluna (`ob_revenue`), nunca em `revenue`.
+
+### Causa 1 — Conceitual (responsável por ~99% do gap)
+
+`src/lib/celetus/dashboard.functions.ts` linhas 206–214: `a.revenue` só recebe `itemCommission` quando `kind === 'principal'`. Orderbump vai para `a.obRevenue`.
+
+A Celetus, ao mostrar "faturado no dia = 425,41", soma **todos os line items** do checkout (Principal + cada Orderbump como linha própria). Para a paridade que você validou no Mulher Forte/Peso, a métrica "Faturamento" precisa ser **Principal.commission_value + Orderbump.commission_value**, mesmo na visão geral sem filtro de produto.
+
+Hoje, mesmo com o ajuste anterior (orderbump atribuído ao produto-pai via SRC), eu só puxo a linha pra dentro do filtro do produto, mas continuo somando ela em `ob_revenue` e não em `revenue`. Resultado: número total e por produto continuam menores que a Celetus.
+
+### Causa 2 — Dados faltando (~2,10 do gap + 9 orderbumps "perdidos")
+
+10 vendas Principal e ~12 Orderbumps relacionadas estão na planilha mas não no banco:
+
+- `Sondagem Diagnóstica - Alfabetização` (4 vendas)
+- `Kit para Crianças Autistas` (3 vendas)
+- `Kit Estimulação Cognitiva` (3 vendas)
+
+Conferi `products` e `celetus_sales`: esses 3 produtos **nunca foram criados** no workspace. `webhook_events` está vazio (nenhum webhook caiu desde o deploy de logging), e não temos hoje nenhum log da rota `importCeletusReport`, então não dá pra dizer se o upload da planilha agora rodou e falhou no meio, ou se ele nem chegou ao handler.
+
+A função `importCeletusReport` (linhas 98–111) cria produtos novos sob demanda, então a explicação mais provável é que a importação **não foi executada com sucesso** (sem rastro). Precisamos de logging para essa rota.
 
 ---
 
-## Passo 1 — Atribuição "como na Celetus" para orderbumps
+## Plano
 
-Mudar `getDashboard` em `src/lib/celetus/dashboard.functions.ts`:
+### Passo 1 — Faturamento = Principal + Orderbump no dashboard
 
-- Hoje a query filtra `product_id = X` direto. Vai passar a:
-  1. Buscar o `src` do produto selecionado em `products`.
-  2. Buscar vendas onde `product_id = X` **OU** (`kind = Orderbump` E `src = <src do produto>`).
-- Resultado: ao filtrar "O Peso da Cama Feita", aparecem as 13 Principais (122,85) + os 9 orderbumps vendidos no checkout dele (50,44) = **173,29**, igualzinho à Celetus.
+Em `src/lib/celetus/dashboard.functions.ts`, no loop de agregação (linha 206):
+- Manter `a.obQty` / `a.obRevenue` como hoje (para a coluna "OB" e cálculo do `ob_pct`).
+- Adicionar `a.revenue += itemCommission` **também** para `kind === 'orderbump'`.
+- Para `a.sales`, manter contando só Principal (1 venda = 1 checkout, mantém ticket médio fiel).
 
-**Impacto colateral:**
-- Os produtos "Me lembra", "Devocional", "Casado e Sozinho" continuam existindo na tabela `products`, mas no dashboard só vão aparecer com dados se forem **principais** em algum checkout. Como hoje são só orderbumps, vão ficar zerados quando selecionados isoladamente. Se quiser, posso esconder produtos sem vendas Principais no seletor — diga depois.
-- Totais gerais (dia/mês, sem filtro de produto) **não mudam** — só muda a distribuição por produto.
-- Aba de Vendas não muda (continua mostrando cada linha como veio).
+Validação esperada (05/06, sem filtro): `revenue = 423,30`, `sales = 28`, `ob_qty = 16`, `ob_revenue = 98,99`. Depois do Passo 2 (reimportar), `revenue` vai para **425,41**, batendo com a Celetus.
 
----
+Sem mudança no `Sales` (aba Vendas) — a lista por linha continua igual.
 
-## Passo 2 — Visibilidade de falhas de webhook (pra próxima perda)
+### Passo 2 — Reprocessar a planilha e instrumentar a rota de importação
 
-Logs ClickHouse só guardam 1h, então perdemos a janela da venda das 06:17. Criar tabela `webhook_events`:
+a) **Logging da importação:** estender `webhook_events` (ou criar tabela própria `import_events`) com `kind = 'import'`, `received_at`, `rows_read`, `rows_upserted`, `rows_ignored`, `products_created`, `error_message`, `file_name`. Em `importCeletusReport`, gravar uma linha por upload (sucesso ou erro), e mostrar essas linhas no `/webhook-logs` filtradas por tipo.
 
-| campo | uso |
-|---|---|
-| `received_at` | quando o webhook chegou |
-| `transaction_code` | da Celetus |
-| `status` | `ok` / `ignored` / `error` |
-| `error_message` | mensagem se falhou |
-| `payload` (jsonb) | corpo cru (pra reprocessar manualmente se precisar) |
+b) **Reimportar o arquivo agora:** depois do logging no ar, você reenvia o `report_2026-06-05T19_48_01_730Z.xlsx` pela tela **Importar**. O upsert via `(user_id, transaction_code, line_item_code)` ignora o que já existe e cria os 3 produtos novos + as ~22 linhas que faltam.
 
-O endpoint `/api/public/celetus-webhook` passa a inserir uma linha **antes** de tentar o upsert; em caso de erro, grava o erro e ainda responde 200 (pra Celetus não ficar reenviando). Adicionar uma página simples `/(/$companySlug)/webhook-logs` listando os últimos 100, filtrando por status, com botão "Reprocessar" que repassa o `payload` ao handler.
+### Validação final pós-Passos 1 + 2
 
-Isso resolve diagnóstico futuro. **Para a venda perdida de hoje**: a única forma de recuperá-la agora é importar a planilha de hoje da Celetus na aba de Import (o sistema deduplica pelo transaction_code).
+Dashboard de 05/jun, sem filtro de produto:
+- `Faturamento` = **425,41**
+- `Vendas (Principais)` = 38
+- `OB qtde` = 28 / `OB receita` = 100,01
 
----
+Dashboard com filtro "O Peso da Cama Feita" continua **173,29** (já validado).
 
-## Fora deste plano
+### Fora de escopo
 
-- Mudar atribuição global (Vendas, exports) — só dashboard.
-- Reescrever o webhook handler além do log.
-- Esconder produtos "só-orderbump" do seletor (decisão posterior).
+- Mudar o cálculo de `sales` para incluir orderbumps (quebraria ticket médio).
+- Reprocessar webhooks antigos: o `webhook_events` só captura daqui pra frente; o histórico continua dependendo da reimportação de planilha.
+- Tela de gestão dos `import_events` além de aparecer junto com webhooks em `/webhook-logs`.
 
-## Validação
+### Notas técnicas
 
-Depois de aplicar:
-- Dashboard com filtro "O Peso da Cama Feita" em 05/jun → revenue = **173,29**, sales = 13 (Principais), ob_qty = 9, ob_revenue = 50,44.
-- Dashboard sem filtro → totais do dia inalterados.
-- Próximo webhook que chegar gera linha em `webhook_events` (visível em /webhook-logs).
+- Arquivos tocados: `src/lib/celetus/dashboard.functions.ts`, `src/lib/celetus/import.functions.ts`, `src/routes/_authenticated/$companySlug/webhook-logs.tsx`, `src/lib/celetus/webhook-events.functions.ts`.
+- Migração: nova coluna `kind text` (default `'webhook'`) em `webhook_events`, ou criar `import_events` com a mesma forma; prefiro a 1ª opção pra reaproveitar UI.

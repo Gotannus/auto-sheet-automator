@@ -315,11 +315,15 @@ export type Database = {
       webhook_events: {
         Row: {
           error_message: string | null
+          file_name: string | null
           id: string
+          kind: string
           payload: Json | null
+          products_created: number | null
           received_at: string
           reprocessed_at: string | null
           rows_ignored: number | null
+          rows_read: number | null
           rows_upserted: number | null
           status: string
           transaction_code: string | null
@@ -327,11 +331,15 @@ export type Database = {
         }
         Insert: {
           error_message?: string | null
+          file_name?: string | null
           id?: string
+          kind?: string
           payload?: Json | null
+          products_created?: number | null
           received_at?: string
           reprocessed_at?: string | null
           rows_ignored?: number | null
+          rows_read?: number | null
           rows_upserted?: number | null
           status: string
           transaction_code?: string | null
@@ -339,11 +347,15 @@ export type Database = {
         }
         Update: {
           error_message?: string | null
+          file_name?: string | null
           id?: string
+          kind?: string
           payload?: Json | null
+          products_created?: number | null
           received_at?: string
           reprocessed_at?: string | null
           rows_ignored?: number | null
+          rows_read?: number | null
           rows_upserted?: number | null
           status?: string
           transaction_code?: string | null
