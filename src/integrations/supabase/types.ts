@@ -31,6 +31,7 @@ export type Database = {
           id: string
           item_type: string | null
           kind: string
+          line_item_code: string | null
           net_value: number | null
           offer_name: string | null
           payment_method: string | null
@@ -66,6 +67,7 @@ export type Database = {
           id?: string
           item_type?: string | null
           kind: string
+          line_item_code?: string | null
           net_value?: number | null
           offer_name?: string | null
           payment_method?: string | null
@@ -101,6 +103,7 @@ export type Database = {
           id?: string
           item_type?: string | null
           kind?: string
+          line_item_code?: string | null
           net_value?: number | null
           offer_name?: string | null
           payment_method?: string | null
