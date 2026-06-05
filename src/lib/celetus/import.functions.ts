@@ -24,6 +24,7 @@ export const importCeletusReport = createServerFn({ method: "POST" })
         company_slug: z.string().optional(),
         // base64-encoded xlsx
         file_b64: z.string().min(1),
+        file_name: z.string().max(255).optional(),
       })
       .parse(input),
   )
