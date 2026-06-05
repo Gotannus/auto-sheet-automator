@@ -121,7 +121,7 @@ export const importCeletusReport = createServerFn({ method: "POST" })
       const processingFee = pickNumber(row, ["ProcessingFee", "processing_fee"]);
       const sellerName = pickText(row, ["SellerName", "seller_name"]);
       const sellerType = pickText(row, ["SellerType", "seller_type"]);
-      const mainProduct = pickText(row, ["MainProduct", "main_product", "Recipient"]) || "Produtor";
+      const mainProduct = pickText(row, ["MainProduct", "main_product"]);
       const offerName = pickText(row, ["OfferName", "offer_name"]);
 
       const lineItemCode = buildLineItemCode(productName, kind, offerName, storedSrc);
@@ -148,10 +148,10 @@ export const importCeletusReport = createServerFn({ method: "POST" })
         gross_value: totalAmountPaid ?? null,
         net_value: commissionValue ?? null,
         fees: processingFee ?? null,
-        recipient: mainProduct,
+        recipient: "Produtor",
         recipient_company: sellerName || null,
-        recipient_type: sellerType || mainProduct,
-        item_type: kind,
+        recipient_type: sellerType || "Produtor",
+        item_type: mainProduct || kind,
         src_tag: sckCol || null,
         utm_source: utmSource || null,
         utm_status: null,
