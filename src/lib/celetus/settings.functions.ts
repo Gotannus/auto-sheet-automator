@@ -6,10 +6,7 @@ export const getSettings = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    const { data } = await supabase
-      .from("monthly_settings")
-      .select("year, tax_rate")
-      .maybeSingle();
+    const { data } = await supabase.from("monthly_settings").select("year, tax_rate").maybeSingle();
     if (data) return data;
     // self-heal: insert default row if trigger didn't fire (e.g. older user)
     const ins = await supabase
@@ -47,10 +44,7 @@ export const getWebhookConfig = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    const { data } = await supabase
-      .from("webhook_config")
-      .select("webhook_secret")
-      .maybeSingle();
+    const { data } = await supabase.from("webhook_config").select("webhook_secret").maybeSingle();
     if (data) return data;
     const ins = await supabase
       .from("webhook_config")
@@ -59,6 +53,25 @@ export const getWebhookConfig = createServerFn({ method: "GET" })
       .single();
     if (ins.error) throw new Error(ins.error.message);
     return ins.data;
+  });
+
+export const updateWebhookSecret = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        webhook_secret: z.string().trim().min(6).max(128),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const secret = data.webhook_secret.trim();
+    const { error } = await supabase
+      .from("webhook_config")
+      .upsert({ user_id: userId, webhook_secret: secret }, { onConflict: "user_id" });
+    if (error) throw new Error(error.message);
+    return { webhook_secret: secret };
   });
 
 export const rotateWebhookSecret = createServerFn({ method: "POST" })
@@ -73,10 +86,7 @@ export const rotateWebhookSecret = createServerFn({ method: "POST" })
       .join("");
     const { error } = await supabase
       .from("webhook_config")
-      .upsert(
-        { user_id: userId, webhook_secret: secret },
-        { onConflict: "user_id" },
-      );
+      .upsert({ user_id: userId, webhook_secret: secret }, { onConflict: "user_id" });
     if (error) throw new Error(error.message);
     return { webhook_secret: secret };
   });
