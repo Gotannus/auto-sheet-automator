@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { resolveCompany } from "@/lib/celetus/workspaces";
+import { resolveCompanyId } from "@/lib/celetus/companies.server";
 
 export type WebhookEventRow = {
   id: string;
@@ -33,7 +33,7 @@ export const listWebhookEvents = createServerFn({ method: "GET" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const userId = resolveCompany(data.company_slug).userId;
+    const userId = await resolveCompanyId(data.company_slug);
 
     let query = supabase
       .from("webhook_events")
@@ -100,7 +100,7 @@ export const reprocessWebhookEvent = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId: authUserId } = context;
-    const userId = resolveCompany(data.company_slug).userId;
+    const userId = await resolveCompanyId(data.company_slug);
 
     if (authUserId !== userId) {
       throw new Error("Não autorizado para esta conta.");

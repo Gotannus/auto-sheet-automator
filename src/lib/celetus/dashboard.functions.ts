@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { resolveCompany } from "@/lib/celetus/workspaces";
+import { resolveCompanyId } from "@/lib/celetus/companies.server";
 import { hasIndicationMarker, isIndicationText } from "@/lib/celetus/normalize";
 
 const PAID = [
@@ -65,7 +65,7 @@ export const getDashboard = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const userId = resolveCompany(data.company_slug).userId;
+    const userId = await resolveCompanyId(data.company_slug);
 
     const { data: settings, error: settingsError } = await fromUntyped(
       supabase,
@@ -358,7 +358,7 @@ export const upsertDailyInput = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const userId = resolveCompany(data.company_slug).userId;
+    const userId = await resolveCompanyId(data.company_slug);
     const payload: Record<string, unknown> = {
       user_id: userId,
       product_id: data.product_id,
