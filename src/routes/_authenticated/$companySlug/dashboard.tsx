@@ -374,25 +374,26 @@ function DashContent({
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-        <Stat label="Vendas" value={fmtInt(t.sales)} />
-        <Stat label="Faturamento" value={fmtBRL(t.revenue)} />
+        <Stat label="Vendas" value={fmtInt(t.sales)} onChart={() => onChartClick(["sales"])} />
+        <Stat label="Faturamento" value={fmtBRL(t.revenue)} onChart={() => onChartClick(["revenue"])} />
         <Stat label="Imposto fat." value={fmtBRL(t.revenue_tax)} />
-        <Stat label="Investimento" value={fmtBRL(t.invest_final)} />
+        <Stat label="Investimento" value={fmtBRL(t.invest_final)} onChart={() => onChartClick(["invest"])} />
         <Stat
           label={isTotal ? "Lucro liquido" : "Lucro"}
           value={fmtBRL(t.profit)}
           tone={toneProfit(t.profit, t.revenue)}
+          onChart={() => onChartClick(["profit"])}
         />
-        <Stat label="ROI" value={fmtPct(t.roi)} tone={toneROI(t.roi)} />
-        <Stat label="CPA" value={fmtBRL(t.cpa)} />
+        <Stat label="ROI" value={fmtPct(t.roi)} tone={toneROI(t.roi)} onChart={() => onChartClick(["roi"])} />
+        <Stat label="CPA" value={fmtBRL(t.cpa)} onChart={() => onChartClick(["cpa"])} />
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <Stat label="Ticket medio" value={fmtBRL(t.ticket)} />
+        <Stat label="Ticket medio" value={fmtBRL(t.ticket)} onChart={() => onChartClick(["ticket"])} />
         <Stat label="OB qtd / %" value={`${fmtInt(t.ob_qty)} / ${fmtPct(t.ob_pct)}`} />
         <Stat label="OB R$" value={fmtBRL(t.ob_revenue)} />
         <Stat label="CPM medio" value={fmtBRL(t.cpm)} />
-        <Stat label="Conv. clique" value={fmtPct(t.conv_click)} />
-        <Stat label="Conv. checkout" value={fmtPct(t.conv_checkout)} />
+        <Stat label="Conv. clique" value={fmtPct(t.conv_click)} onChart={() => onChartClick(["clicks", "sales"])} />
+        <Stat label="Conv. checkout" value={fmtPct(t.conv_checkout)} onChart={() => onChartClick(["checkouts", "sales"])} />
       </div>
 
       {isTotal && (
