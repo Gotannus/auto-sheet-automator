@@ -551,6 +551,7 @@ function DailyRow({
   const qc = useQueryClient();
   const save = useServerFn(upsertDailyInput);
   const [editing, setEditing] = useState(false);
+  const [investEditing, setInvestEditing] = useState(false);
   const mut = useMutation({
     mutationFn: (patch: Record<string, unknown>) =>
       save({
@@ -564,6 +565,7 @@ function DailyRow({
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["dash", companySlug] });
       setEditing(false);
+      setInvestEditing(false);
     },
   });
 
@@ -711,12 +713,32 @@ function DailyRow({
         {day.revenue_tax ? fmtBRL(day.revenue_tax) : "-"}
       </TableCell>
       <TableCell className="text-right">
-        {editing ? (
-          <NumCell value={invest} onChange={setInvest} onCommit={saveInvest} />
-        ) : day.invest_manual != null ? (
-          fmtBRL(day.invest_manual)
+        {editing || investEditing ? (
+          <NumCell
+            value={invest}
+            onChange={setInvest}
+            onCommit={(v) => {
+              saveInvest(v);
+              setInvestEditing(false);
+            }}
+          />
         ) : (
-          "-"
+          <div className="flex items-center justify-end gap-1">
+            <span>{day.invest_manual != null ? fmtBRL(day.invest_manual) : "-"}</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5 text-muted-foreground/60 hover:text-foreground"
+              onClick={() => {
+                setInvest(day.invest_manual?.toString() ?? "");
+                setInvestEditing(true);
+              }}
+              title="Editar investimento"
+            >
+              <Pencil className="h-3 w-3" />
+            </Button>
+          </div>
         )}
       </TableCell>
       <TableCell className="text-right">
