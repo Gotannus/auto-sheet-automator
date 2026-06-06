@@ -70,6 +70,20 @@ const TOTAL_PRODUCT_ID = "__total__";
 type DashboardData = Awaited<ReturnType<typeof getDashboard>>;
 type DayData = DashboardData["days"][number];
 
+function todayBRT(): { year: number; month: number; day: string } {
+  const s = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+  const [y, m] = s.split("-");
+  return { year: Number(y), month: Number(m), day: s };
+}
+function yesterdayBRT(): { year: number; month: number; day: string } {
+  const d = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const s = d.toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+  const [y, m] = s.split("-");
+  return { year: Number(y), month: Number(m), day: s };
+}
+
+type DayFilter = "all" | "today" | "yesterday";
+
 function DashboardPage() {
   const { companySlug } = Route.useParams();
   const company = { slug: companySlug };
@@ -78,11 +92,44 @@ function DashboardPage() {
   const [productId, setProductId] = useState<string>(TOTAL_PRODUCT_ID);
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
+  const [dayFilter, setDayFilter] = useState<DayFilter>("all");
   const isTotal = productId === TOTAL_PRODUCT_ID;
   const selectedProductId = isTotal ? undefined : productId;
+
+  const targetDay = useMemo(() => {
+    if (dayFilter === "today") return todayBRT().day;
+    if (dayFilter === "yesterday") return yesterdayBRT().day;
+    return null;
+  }, [dayFilter]);
+
+  const applyQuickFilter = (f: DayFilter) => {
+    if (f === "all") {
+      setDayFilter("all");
+      return;
+    }
+    const t = f === "today" ? todayBRT() : yesterdayBRT();
+    setYear(t.year);
+    setMonth(t.month);
+    setDayFilter(f);
+  };
+
+  // If user changes month/year manually, drop the day filter.
+  const setMonthManual = (m: number) => {
+    setMonth(m);
+    setDayFilter("all");
+  };
+  const setYearManual = (y: number) => {
+    setYear(y);
+    setDayFilter("all");
+  };
+
+  const dayLabel = targetDay ? targetDay.split("-").reverse().slice(0, 2).join("/") : null;
   const selectedLabel = isTotal
     ? "Total de todos os produtos"
     : products.find((product: Product) => product.id === productId)?.name || "Produto";
+  const periodLabel = targetDay
+    ? `${dayLabel} (${dayFilter === "today" ? "Hoje" : "Ontem"})`
+    : `${MONTHS[month - 1]} ${year}`;
 
   const fetchDash = useServerFn(getDashboard);
   const dashQuery = useQuery({
@@ -123,10 +170,33 @@ function DashboardPage() {
         <div>
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <p className="text-sm text-muted-foreground">
-            {selectedLabel} - {MONTHS[month - 1]} {year}
+            {selectedLabel} - {periodLabel}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 items-center">
+          <div className="flex gap-1">
+            <Button
+              size="sm"
+              variant={dayFilter === "today" ? "default" : "outline"}
+              onClick={() => applyQuickFilter("today")}
+            >
+              Hoje
+            </Button>
+            <Button
+              size="sm"
+              variant={dayFilter === "yesterday" ? "default" : "outline"}
+              onClick={() => applyQuickFilter("yesterday")}
+            >
+              Ontem
+            </Button>
+            <Button
+              size="sm"
+              variant={dayFilter === "all" ? "default" : "outline"}
+              onClick={() => applyQuickFilter("all")}
+            >
+              Mês inteiro
+            </Button>
+          </div>
           <Select value={productId} onValueChange={setProductId}>
             <SelectTrigger className="w-56">
               <SelectValue placeholder="Produto" />
@@ -140,7 +210,7 @@ function DashboardPage() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
+          <Select value={String(month)} onValueChange={(v) => setMonthManual(Number(v))}>
             <SelectTrigger className="w-36">
               <SelectValue />
             </SelectTrigger>
@@ -152,7 +222,7 @@ function DashboardPage() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
+          <Select value={String(year)} onValueChange={(v) => setYearManual(Number(v))}>
             <SelectTrigger className="w-28">
               <SelectValue />
             </SelectTrigger>
@@ -177,6 +247,7 @@ function DashboardPage() {
           productId={selectedProductId}
           isTotal={isTotal}
           data={dashQuery.data}
+          targetDay={targetDay}
         />
       )}
     </div>
@@ -188,13 +259,91 @@ function DashContent({
   productId,
   isTotal,
   data,
+  targetDay,
 }: {
   companySlug: string;
   productId?: string;
   isTotal: boolean;
   data: DashboardData;
+  targetDay: string | null;
 }) {
-  const t = data.totals;
+  const filteredDays = useMemo(
+    () => (targetDay ? data.days.filter((d) => d.date === targetDay) : data.days),
+    [data.days, targetDay],
+  );
+
+  const t = useMemo(() => {
+    if (!targetDay) return data.totals;
+    const d = data.days.find((x) => x.date === targetDay);
+    const base = data.totals;
+    if (!d) {
+      return {
+        ...base,
+        sales: 0,
+        revenue: 0,
+        revenue_tax: 0,
+        ob_qty: 0,
+        ob_revenue: 0,
+        invest_manual: 0,
+        invest_final: 0,
+        clicks: 0,
+        checkouts: 0,
+        impressions: 0,
+        profit: 0,
+        profit_before_expenses: 0,
+        monthly_expenses: 0,
+        net_profit: 0,
+        company_cash: 0,
+        distributable_profit: 0,
+        partner_1_amount: 0,
+        partner_2_amount: 0,
+        roi: 0,
+        cpa: 0,
+        ticket: 0,
+        ob_pct: 0,
+        cpm: 0,
+        conv_click: 0,
+        conv_checkout: 0,
+      };
+    }
+    const profitBeforeExpenses = d.profit; // já = revenue - revenue_tax - invest_final
+    const netProfit = profitBeforeExpenses; // sem despesas no modo dia
+    const positive = Math.max(0, netProfit);
+    const companyCash = positive * base.company_cash_rate;
+    const distributable = Math.max(0, positive - companyCash);
+    const cpm = (d.impressions ?? 0) > 0 ? (d.invest_final / (d.impressions ?? 1)) * 1000 : 0;
+    const convClick = (d.clicks ?? 0) > 0 ? d.sales / (d.clicks ?? 1) : 0;
+    const convCheckout = (d.checkouts ?? 0) > 0 ? d.sales / (d.checkouts ?? 1) : 0;
+    return {
+      ...base,
+      sales: d.sales,
+      revenue: d.revenue,
+      revenue_tax: d.revenue_tax,
+      ob_qty: d.ob_qty,
+      ob_revenue: d.ob_revenue,
+      invest_manual: d.invest_manual ?? 0,
+      invest_final: d.invest_final,
+      clicks: d.clicks ?? 0,
+      checkouts: d.checkouts ?? 0,
+      impressions: d.impressions ?? 0,
+      profit: netProfit,
+      profit_before_expenses: profitBeforeExpenses,
+      monthly_expenses: 0,
+      net_profit: netProfit,
+      company_cash: companyCash,
+      distributable_profit: distributable,
+      partner_1_amount: distributable * base.partner_1_rate,
+      partner_2_amount: distributable * base.partner_2_rate,
+      roi: d.roi,
+      cpa: d.cpa,
+      ticket: d.ticket,
+      ob_pct: d.ob_pct,
+      cpm,
+      conv_click: convClick,
+      conv_checkout: convCheckout,
+    };
+  }, [data, targetDay]);
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
@@ -225,9 +374,16 @@ function DashContent({
           <Link
             to={companyPath(companySlug, "expenses")}
             className="block hover:opacity-80 transition-opacity"
-            title="Ver detalhes das despesas do mês"
+            title={
+              targetDay
+                ? "Despesas só aparecem na visão Mês inteiro"
+                : "Ver detalhes das despesas do mês"
+            }
           >
-            <Stat label="Despesas (ver)" value={fmtBRL(t.monthly_expenses)} />
+            <Stat
+              label={targetDay ? "Despesas (mês)" : "Despesas (ver)"}
+              value={fmtBRL(t.monthly_expenses)}
+            />
           </Link>
           <Stat
             label="Lucro liquido"
@@ -249,13 +405,19 @@ function DashContent({
         </div>
       )}
 
+      {targetDay && (
+        <p className="text-xs text-muted-foreground -mt-2">
+          Visão de dia único: despesas mensais não são distribuídas por dia.
+        </p>
+      )}
+
       <Card>
         <CardContent className="p-0 overflow-x-auto">
           <DailyTable
             companySlug={companySlug}
             productId={productId}
             isTotal={isTotal}
-            days={data.days}
+            days={filteredDays}
           />
         </CardContent>
       </Card>

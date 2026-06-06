@@ -24,6 +24,7 @@ export const listProducts = createServerFn({ method: "GET" })
       .from("products")
       .select("id, name, src, created_at")
       .eq("user_id", userId)
+      .not("name", "ilike", "sem-src-%")
       .order("created_at", { ascending: true });
     if (error) throw new Error(error.message);
     return (rows ?? []) as Product[];
