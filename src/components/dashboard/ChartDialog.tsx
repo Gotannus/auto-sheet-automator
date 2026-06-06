@@ -441,8 +441,9 @@ export function ChartDialog({
                   }}
                 />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                {activeMetrics.map((m) =>
-                  m.type === "bar" ? (
+                {activeMetrics
+                  .filter((m) => m.type === "bar")
+                  .map((m) => (
                     <Bar
                       key={m.key}
                       yAxisId={m.axis}
@@ -451,19 +452,25 @@ export function ChartDialog({
                       fill={m.color}
                       radius={[3, 3, 0, 0]}
                     />
-                  ) : (
-                    <Line
-                      key={m.key}
-                      yAxisId={m.axis}
-                      type="monotone"
-                      dataKey={m.key}
-                      name={m.label}
-                      stroke={m.color}
-                      strokeWidth={2}
-                      dot={false}
-                    />
-                  ),
-                )}
+                  ))}
+                {activeMetrics
+                  .filter((m) => m.type === "line")
+                  .map((m) => {
+                    const isProfit = m.key === "profit";
+                    return (
+                      <Line
+                        key={m.key}
+                        yAxisId={m.axis}
+                        type="monotone"
+                        dataKey={m.key}
+                        name={m.label}
+                        stroke={m.color}
+                        strokeWidth={isProfit ? 3 : 2}
+                        dot={isProfit ? { r: 3, fill: m.color, strokeWidth: 0 } : false}
+                        activeDot={isProfit ? { r: 5 } : { r: 4 }}
+                      />
+                    );
+                  })}
               </ComposedChart>
             </ResponsiveContainer>
           )}
