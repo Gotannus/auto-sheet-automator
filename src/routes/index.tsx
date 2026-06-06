@@ -1,18 +1,19 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, redirect, isRedirect } from "@tanstack/react-router";
 import { listMyCompanies } from "@/lib/celetus/companies.functions";
 import { companyPath } from "@/lib/celetus/workspaces";
 
 export const Route = createFileRoute("/")({
   ssr: false,
   beforeLoad: async () => {
+    let target = "/tannus";
     try {
       const companies = await listMyCompanies();
       if (companies.length === 1) {
-        throw redirect({ to: companyPath(companies[0].slug, "dashboard"), replace: true });
+        target = companyPath(companies[0].slug, "dashboard");
       }
-    } catch {
-      // ignore and fall through to /tannus
+    } catch (e) {
+      if (isRedirect(e)) throw e;
     }
-    throw redirect({ to: "/tannus", replace: true });
+    throw redirect({ to: target, replace: true });
   },
 });
