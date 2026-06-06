@@ -616,8 +616,23 @@ function DailyRow({
   return (
     <TableRow>
       <TableCell className="font-medium whitespace-nowrap">{currentDateLabel}</TableCell>
-      <TableCell className="text-right">{day.sales || "-"}</TableCell>
-      <TableCell className="text-right">{day.revenue ? fmtBRL(day.revenue) : "-"}</TableCell>
+      <TableCell className="text-right">
+        <NumCell
+          value={salesOv}
+          onChange={setSalesOv}
+          integer
+          onCommit={saveSalesOv}
+          placeholder={day.sales_auto ? String(day.sales_auto) : "0"}
+        />
+      </TableCell>
+      <TableCell className="text-right">
+        <NumCell
+          value={revenueOv}
+          onChange={setRevenueOv}
+          onCommit={saveRevenueOv}
+          placeholder={day.revenue_auto ? day.revenue_auto.toFixed(2) : "0"}
+        />
+      </TableCell>
       <TableCell className="text-right">
         {day.revenue_tax ? fmtBRL(day.revenue_tax) : "-"}
       </TableCell>
