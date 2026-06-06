@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/table";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
+import { Pencil, Check } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/$companySlug/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard - Painel Celetus" }] }),
@@ -613,31 +614,80 @@ function DailyRow({
     mut.mutate({ revenue_override: value });
   };
 
+  const [editing, setEditing] = useState(false);
+
+  const toggleEditing = () => {
+    if (editing) {
+      // cancelar/sair — restaurar estados a partir do day
+      setInvest(day.invest_manual?.toString() ?? "");
+      setClicks(day.clicks?.toString() ?? "");
+      setCheckouts(day.checkouts?.toString() ?? "");
+      setImpressions(day.impressions?.toString() ?? "");
+      setNotes(day.notes ?? "");
+      setSalesOv(day.sales_override?.toString() ?? "");
+      setRevenueOv(day.revenue_override?.toString() ?? "");
+    }
+    setEditing((v) => !v);
+  };
+
+  const salesDisplay = day.sales_override != null ? day.sales_override : day.sales;
+  const revenueDisplay = day.revenue_override != null ? day.revenue_override : day.revenue;
+
   return (
     <TableRow>
-      <TableCell className="font-medium whitespace-nowrap">{currentDateLabel}</TableCell>
-      <TableCell className="text-right">
-        <NumCell
-          value={salesOv}
-          onChange={setSalesOv}
-          integer
-          onCommit={saveSalesOv}
-          placeholder={day.sales_auto ? String(day.sales_auto) : "0"}
-        />
+      <TableCell className="font-medium whitespace-nowrap">
+        <div className="flex items-center gap-1">
+          <span>{currentDateLabel}</span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={toggleEditing}
+            title={editing ? "Concluir edição" : "Editar dia"}
+          >
+            {editing ? <Check className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
+          </Button>
+        </div>
       </TableCell>
       <TableCell className="text-right">
-        <NumCell
-          value={revenueOv}
-          onChange={setRevenueOv}
-          onCommit={saveRevenueOv}
-          placeholder={day.revenue_auto ? day.revenue_auto.toFixed(2) : "0"}
-        />
+        {editing ? (
+          <NumCell
+            value={salesOv}
+            onChange={setSalesOv}
+            integer
+            onCommit={saveSalesOv}
+            placeholder={day.sales_auto ? String(day.sales_auto) : "0"}
+          />
+        ) : (
+          salesDisplay || "-"
+        )}
+      </TableCell>
+      <TableCell className="text-right">
+        {editing ? (
+          <NumCell
+            value={revenueOv}
+            onChange={setRevenueOv}
+            onCommit={saveRevenueOv}
+            placeholder={day.revenue_auto ? day.revenue_auto.toFixed(2) : "0"}
+          />
+        ) : revenueDisplay ? (
+          fmtBRL(revenueDisplay)
+        ) : (
+          "-"
+        )}
       </TableCell>
       <TableCell className="text-right">
         {day.revenue_tax ? fmtBRL(day.revenue_tax) : "-"}
       </TableCell>
       <TableCell className="text-right">
-        <NumCell value={invest} onChange={setInvest} onCommit={saveInvest} />
+        {editing ? (
+          <NumCell value={invest} onChange={setInvest} onCommit={saveInvest} />
+        ) : day.invest_manual != null ? (
+          fmtBRL(day.invest_manual)
+        ) : (
+          "-"
+        )}
       </TableCell>
       <TableCell className="text-right">
         {day.invest_final ? fmtBRL(day.invest_final) : "-"}
@@ -652,37 +702,59 @@ function DailyRow({
       <TableCell className="text-right">{day.sales ? fmtBRL(day.ticket) : "-"}</TableCell>
       <TableCell className="text-right">{day.sales ? fmtPct(day.ob_pct) : "-"}</TableCell>
       <TableCell className="text-right">
-        <NumCell
-          value={clicks}
-          onChange={setClicks}
-          integer
-          onCommit={(v) => mut.mutate({ clicks: v })}
-        />
+        {editing ? (
+          <NumCell
+            value={clicks}
+            onChange={setClicks}
+            integer
+            onCommit={(v) => mut.mutate({ clicks: v })}
+          />
+        ) : day.clicks != null ? (
+          fmtInt(day.clicks)
+        ) : (
+          "-"
+        )}
       </TableCell>
       <TableCell className="text-right">
-        <NumCell
-          value={checkouts}
-          onChange={setCheckouts}
-          integer
-          onCommit={(v) => mut.mutate({ checkouts: v })}
-        />
+        {editing ? (
+          <NumCell
+            value={checkouts}
+            onChange={setCheckouts}
+            integer
+            onCommit={(v) => mut.mutate({ checkouts: v })}
+          />
+        ) : day.checkouts != null ? (
+          fmtInt(day.checkouts)
+        ) : (
+          "-"
+        )}
       </TableCell>
       <TableCell className="text-right">
-        <NumCell
-          value={impressions}
-          onChange={setImpressions}
-          integer
-          onCommit={(v) => mut.mutate({ impressions: v })}
-        />
+        {editing ? (
+          <NumCell
+            value={impressions}
+            onChange={setImpressions}
+            integer
+            onCommit={(v) => mut.mutate({ impressions: v })}
+          />
+        ) : day.impressions != null ? (
+          fmtInt(day.impressions)
+        ) : (
+          "-"
+        )}
       </TableCell>
       <TableCell>
-        <Textarea
-          rows={1}
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          onBlur={() => mut.mutate({ notes: notes || null })}
-          className="min-h-8 h-8 py-1 text-xs"
-        />
+        {editing ? (
+          <Textarea
+            rows={1}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            onBlur={() => mut.mutate({ notes: notes || null })}
+            className="min-h-8 h-8 py-1 text-xs"
+          />
+        ) : (
+          <span className="text-xs">{day.notes || "-"}</span>
+        )}
       </TableCell>
     </TableRow>
   );
