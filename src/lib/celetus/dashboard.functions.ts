@@ -82,7 +82,24 @@ export const getDashboard = createServerFn({ method: "POST" })
 
     const investmentTaxRate = Number(settings?.investment_tax_rate ?? 0.1215);
     const revenueTaxRate = Number(settings?.revenue_tax_rate ?? 0);
-    const monthlyExpenses = data.product_id ? 0 : Number(settings?.monthly_expenses ?? 0);
+
+    // Despesas: soma dos itens lançados no mês.
+    // Se não houver itens, cai no valor único legado de monthly_tax_settings.monthly_expenses.
+    let monthlyExpenses = 0;
+    if (!data.product_id) {
+      const expensesRes = await fromUntyped(supabase, "monthly_expenses_items")
+        .select("amount")
+        .eq("user_id", userId)
+        .eq("year", data.year)
+        .eq("month", data.month);
+      if (expensesRes.error) throw new Error(expensesRes.error.message);
+      const itemsTotal = (expensesRes.data ?? []).reduce(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (sum: number, r: any) => sum + Number(r.amount ?? 0),
+        0,
+      );
+      monthlyExpenses = itemsTotal > 0 ? itemsTotal : Number(settings?.monthly_expenses ?? 0);
+    }
     const companyCashRate = Number(settings?.company_cash_rate ?? 0.1);
     const partner1Name = String(settings?.partner_1_name ?? "Rodrigo");
     const partner1Rate = Number(settings?.partner_1_rate ?? 0.35);
