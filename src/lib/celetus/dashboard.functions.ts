@@ -36,6 +36,10 @@ export type DayRow = {
   checkouts: number | null;
   impressions: number | null;
   notes: string | null;
+  sales_auto: number;
+  revenue_auto: number;
+  sales_override: number | null;
+  revenue_override: number | null;
 };
 
 function daysInMonth(year: number, month: number) {
