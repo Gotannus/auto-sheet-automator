@@ -285,12 +285,14 @@ function DashContent({
   isTotal,
   data,
   targetDay,
+  onChartClick,
 }: {
   companySlug: string;
   productId?: string;
   isTotal: boolean;
   data: DashboardData;
   targetDay: string | null;
+  onChartClick: (metrics?: MetricKey[]) => void;
 }) {
   const filteredDays = useMemo(
     () => (targetDay ? data.days.filter((d) => d.date === targetDay) : data.days),
