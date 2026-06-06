@@ -38,7 +38,56 @@ export const Route = createFileRoute("/tannus")({
   ),
 });
 
+const TANNUS_PASS = "8161";
+const TANNUS_KEY = "tannus_unlocked";
+
 function CompaniesPage() {
+  const [unlocked, setUnlocked] = useState(
+    () => typeof window !== "undefined" && sessionStorage.getItem(TANNUS_KEY) === "1",
+  );
+  const [pw, setPw] = useState("");
+  const [err, setErr] = useState(false);
+
+  if (!unlocked) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center p-6">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (pw === TANNUS_PASS) {
+              sessionStorage.setItem(TANNUS_KEY, "1");
+              setUnlocked(true);
+            } else {
+              setErr(true);
+            }
+          }}
+          className="w-full max-w-sm space-y-4 rounded-lg border bg-card p-6 shadow-sm"
+        >
+          <div className="space-y-1">
+            <h1 className="text-lg font-semibold">Acesso restrito</h1>
+            <p className="text-sm text-muted-foreground">Informe a senha para continuar.</p>
+          </div>
+          <Input
+            type="password"
+            autoFocus
+            value={pw}
+            onChange={(e) => {
+              setPw(e.target.value);
+              if (err) setErr(false);
+            }}
+            placeholder="Senha"
+          />
+          {err && <p className="text-sm text-destructive">Senha incorreta.</p>}
+          <Button type="submit" className="w-full">Entrar</Button>
+        </form>
+      </div>
+    );
+  }
+
+  return <CompaniesPageInner />;
+}
+
+function CompaniesPageInner() {
   const { data: companies } = useSuspenseQuery(companiesQO);
   const navigate = useNavigate();
   const qc = useQueryClient();
