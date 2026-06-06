@@ -242,6 +242,14 @@ function DashboardPage() {
               ))}
             </SelectContent>
           </Select>
+          <Button
+            size="icon"
+            variant="outline"
+            onClick={() => openChart()}
+            title="Ver gráficos"
+          >
+            <BarChart3 className="h-4 w-4" />
+          </Button>
         </div>
       </header>
 
@@ -256,8 +264,17 @@ function DashboardPage() {
           isTotal={isTotal}
           data={dashQuery.data}
           targetDay={targetDay}
+          onChartClick={openChart}
         />
       )}
+
+      <ChartDialog
+        open={chartOpen}
+        onOpenChange={setChartOpen}
+        companySlug={company.slug}
+        productId={selectedProductId}
+        initialMetrics={chartMetrics}
+      />
     </div>
   );
 }
