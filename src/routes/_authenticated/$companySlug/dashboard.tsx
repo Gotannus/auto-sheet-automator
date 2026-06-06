@@ -540,6 +540,8 @@ function DailyRow({
   const [checkouts, setCheckouts] = useState(day.checkouts?.toString() ?? "");
   const [impressions, setImpressions] = useState(day.impressions?.toString() ?? "");
   const [notes, setNotes] = useState(day.notes ?? "");
+  const [salesOv, setSalesOv] = useState(day.sales_override?.toString() ?? "");
+  const [revenueOv, setRevenueOv] = useState(day.revenue_override?.toString() ?? "");
 
   const currentDateLabel = useMemo(() => dateLabel(day.date), [day.date]);
 
@@ -549,6 +551,8 @@ function DailyRow({
     setCheckouts(day.checkouts?.toString() ?? "");
     setImpressions(day.impressions?.toString() ?? "");
     setNotes(day.notes ?? "");
+    setSalesOv(day.sales_override?.toString() ?? "");
+    setRevenueOv(day.revenue_override?.toString() ?? "");
   }, [
     productId,
     day.date,
@@ -557,6 +561,8 @@ function DailyRow({
     day.checkouts,
     day.impressions,
     day.notes,
+    day.sales_override,
+    day.revenue_override,
   ]);
 
   const saveInvest = (value: number | null) => {
@@ -577,11 +583,56 @@ function DailyRow({
     mut.mutate({ invest_manual: value });
   };
 
+  const saveSalesOv = (value: number | null) => {
+    const current = day.sales_override;
+    if (current != null && value != null && current !== value) {
+      const ok = confirm(
+        `Substituir override de vendas do dia ${currentDateLabel}?\n\nAtual: ${current}\nNovo: ${value}`,
+      );
+      if (!ok) {
+        setSalesOv(current.toString());
+        return;
+      }
+    }
+    mut.mutate({ sales_override: value });
+  };
+
+  const saveRevenueOv = (value: number | null) => {
+    const current = day.revenue_override;
+    if (current != null && value != null && !sameMoney(current, value)) {
+      const ok = confirm(
+        `Substituir override de faturamento do dia ${currentDateLabel}?\n\nAtual: ${fmtBRL(
+          current,
+        )}\nNovo: ${fmtBRL(value)}`,
+      );
+      if (!ok) {
+        setRevenueOv(current.toString());
+        return;
+      }
+    }
+    mut.mutate({ revenue_override: value });
+  };
+
   return (
     <TableRow>
       <TableCell className="font-medium whitespace-nowrap">{currentDateLabel}</TableCell>
-      <TableCell className="text-right">{day.sales || "-"}</TableCell>
-      <TableCell className="text-right">{day.revenue ? fmtBRL(day.revenue) : "-"}</TableCell>
+      <TableCell className="text-right">
+        <NumCell
+          value={salesOv}
+          onChange={setSalesOv}
+          integer
+          onCommit={saveSalesOv}
+          placeholder={day.sales_auto ? String(day.sales_auto) : "0"}
+        />
+      </TableCell>
+      <TableCell className="text-right">
+        <NumCell
+          value={revenueOv}
+          onChange={setRevenueOv}
+          onCommit={saveRevenueOv}
+          placeholder={day.revenue_auto ? day.revenue_auto.toFixed(2) : "0"}
+        />
+      </TableCell>
       <TableCell className="text-right">
         {day.revenue_tax ? fmtBRL(day.revenue_tax) : "-"}
       </TableCell>
@@ -642,16 +693,19 @@ function NumCell({
   onChange,
   onCommit,
   integer = false,
+  placeholder,
 }: {
   value: string;
   onChange: (v: string) => void;
   onCommit: (v: number | null) => void;
   integer?: boolean;
+  placeholder?: string;
 }) {
   return (
     <Input
       className="h-8 w-24 text-right text-xs"
       value={value}
+      placeholder={placeholder}
       inputMode={integer ? "numeric" : "decimal"}
       onChange={(e) => onChange(e.target.value)}
       onBlur={() => {

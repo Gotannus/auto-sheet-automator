@@ -206,6 +206,8 @@ export type Database = {
           invest_manual: number | null
           notes: string | null
           product_id: string
+          revenue_override: number | null
+          sales_override: number | null
           updated_at: string
           user_id: string
         }
@@ -219,6 +221,8 @@ export type Database = {
           invest_manual?: number | null
           notes?: string | null
           product_id: string
+          revenue_override?: number | null
+          sales_override?: number | null
           updated_at?: string
           user_id: string
         }
@@ -232,6 +236,8 @@ export type Database = {
           invest_manual?: number | null
           notes?: string | null
           product_id?: string
+          revenue_override?: number | null
+          sales_override?: number | null
           updated_at?: string
           user_id?: string
         }
