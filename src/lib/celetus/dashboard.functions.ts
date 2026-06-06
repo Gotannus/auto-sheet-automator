@@ -143,7 +143,9 @@ export const getDashboard = createServerFn({ method: "POST" })
 
     let dmiQuery = supabase
       .from("daily_manual_inputs")
-      .select("date, invest_manual, clicks, checkouts, impressions, notes")
+      .select(
+        "date, product_id, invest_manual, clicks, checkouts, impressions, notes, sales_override, revenue_override",
+      )
       .eq("user_id", userId)
       .gte("date", firstDay)
       .lte("date", lastDay);
