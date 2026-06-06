@@ -693,16 +693,19 @@ function NumCell({
   onChange,
   onCommit,
   integer = false,
+  placeholder,
 }: {
   value: string;
   onChange: (v: string) => void;
   onCommit: (v: number | null) => void;
   integer?: boolean;
+  placeholder?: string;
 }) {
   return (
     <Input
       className="h-8 w-24 text-right text-xs"
       value={value}
+      placeholder={placeholder}
       inputMode={integer ? "numeric" : "decimal"}
       onChange={(e) => onChange(e.target.value)}
       onBlur={() => {
