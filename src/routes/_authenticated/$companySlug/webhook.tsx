@@ -153,7 +153,7 @@ function WebhookPage() {
             </div>
           </div>
           <div className="rounded-md bg-muted p-3 text-xs font-mono whitespace-pre-wrap break-all">
-            {`curl -X POST "${url}" \\
+            {`curl -X POST "${baseUrl}" \\
   -H "Content-Type: application/json" \\
   -H "Api-Token: ${token}" \\
   -d '{
