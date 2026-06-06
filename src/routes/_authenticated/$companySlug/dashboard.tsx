@@ -31,7 +31,8 @@ import {
 } from "@/components/ui/table";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import { Pencil, Check } from "lucide-react";
+import { Pencil, Check, BarChart3, LineChart as LineChartIcon } from "lucide-react";
+import { ChartDialog, type MetricKey } from "@/components/dashboard/ChartDialog";
 
 export const Route = createFileRoute("/_authenticated/$companySlug/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard - Painel Celetus" }] }),
@@ -94,6 +95,12 @@ function DashboardPage() {
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [dayFilter, setDayFilter] = useState<DayFilter>("all");
+  const [chartOpen, setChartOpen] = useState(false);
+  const [chartMetrics, setChartMetrics] = useState<MetricKey[] | undefined>(undefined);
+  const openChart = (metrics?: MetricKey[]) => {
+    setChartMetrics(metrics);
+    setChartOpen(true);
+  };
   const isTotal = productId === TOTAL_PRODUCT_ID;
   const selectedProductId = isTotal ? undefined : productId;
 
@@ -235,6 +242,14 @@ function DashboardPage() {
               ))}
             </SelectContent>
           </Select>
+          <Button
+            size="icon"
+            variant="outline"
+            onClick={() => openChart()}
+            title="Ver gráficos"
+          >
+            <BarChart3 className="h-4 w-4" />
+          </Button>
         </div>
       </header>
 
@@ -249,8 +264,17 @@ function DashboardPage() {
           isTotal={isTotal}
           data={dashQuery.data}
           targetDay={targetDay}
+          onChartClick={openChart}
         />
       )}
+
+      <ChartDialog
+        open={chartOpen}
+        onOpenChange={setChartOpen}
+        companySlug={company.slug}
+        productId={selectedProductId}
+        initialMetrics={chartMetrics}
+      />
     </div>
   );
 }
@@ -261,12 +285,14 @@ function DashContent({
   isTotal,
   data,
   targetDay,
+  onChartClick,
 }: {
   companySlug: string;
   productId?: string;
   isTotal: boolean;
   data: DashboardData;
   targetDay: string | null;
+  onChartClick: (metrics?: MetricKey[]) => void;
 }) {
   const filteredDays = useMemo(
     () => (targetDay ? data.days.filter((d) => d.date === targetDay) : data.days),
@@ -348,25 +374,26 @@ function DashContent({
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-        <Stat label="Vendas" value={fmtInt(t.sales)} />
-        <Stat label="Faturamento" value={fmtBRL(t.revenue)} />
+        <Stat label="Vendas" value={fmtInt(t.sales)} onChart={() => onChartClick(["sales"])} />
+        <Stat label="Faturamento" value={fmtBRL(t.revenue)} onChart={() => onChartClick(["revenue"])} />
         <Stat label="Imposto fat." value={fmtBRL(t.revenue_tax)} />
-        <Stat label="Investimento" value={fmtBRL(t.invest_final)} />
+        <Stat label="Investimento" value={fmtBRL(t.invest_final)} onChart={() => onChartClick(["invest"])} />
         <Stat
           label={isTotal ? "Lucro liquido" : "Lucro"}
           value={fmtBRL(t.profit)}
           tone={toneProfit(t.profit, t.revenue)}
+          onChart={() => onChartClick(["profit"])}
         />
-        <Stat label="ROI" value={fmtPct(t.roi)} tone={toneROI(t.roi)} />
-        <Stat label="CPA" value={fmtBRL(t.cpa)} />
+        <Stat label="ROI" value={fmtPct(t.roi)} tone={toneROI(t.roi)} onChart={() => onChartClick(["roi"])} />
+        <Stat label="CPA" value={fmtBRL(t.cpa)} onChart={() => onChartClick(["cpa"])} />
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <Stat label="Ticket medio" value={fmtBRL(t.ticket)} />
+        <Stat label="Ticket medio" value={fmtBRL(t.ticket)} onChart={() => onChartClick(["ticket"])} />
         <Stat label="OB qtd / %" value={`${fmtInt(t.ob_qty)} / ${fmtPct(t.ob_pct)}`} />
         <Stat label="OB R$" value={fmtBRL(t.ob_revenue)} />
         <Stat label="CPM medio" value={fmtBRL(t.cpm)} />
-        <Stat label="Conv. clique" value={fmtPct(t.conv_click)} />
-        <Stat label="Conv. checkout" value={fmtPct(t.conv_checkout)} />
+        <Stat label="Conv. clique" value={fmtPct(t.conv_click)} onChart={() => onChartClick(["clicks", "sales"])} />
+        <Stat label="Conv. checkout" value={fmtPct(t.conv_checkout)} onChart={() => onChartClick(["checkouts", "sales"])} />
       </div>
 
       {isTotal && (
@@ -790,12 +817,36 @@ function NumCell({
   );
 }
 
-function Stat({ label, value, tone }: { label: string; value: string; tone?: string }) {
+function Stat({
+  label,
+  value,
+  tone,
+  onChart,
+}: {
+  label: string;
+  value: string;
+  tone?: string;
+  onChart?: () => void;
+}) {
   return (
-    <Card>
+    <Card className="relative">
       <CardContent className="p-3">
         <div className="text-xs text-muted-foreground">{label}</div>
         <div className={`text-lg font-semibold ${tone ?? ""}`}>{value}</div>
+        {onChart && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onChart();
+            }}
+            className="absolute top-1.5 right-1.5 p-1 rounded text-muted-foreground/40 hover:text-foreground hover:bg-muted transition-colors"
+            title={`Ver gráfico de ${label}`}
+          >
+            <LineChartIcon className="h-3 w-3" />
+          </button>
+        )}
       </CardContent>
     </Card>
   );
