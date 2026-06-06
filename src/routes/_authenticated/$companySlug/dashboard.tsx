@@ -817,12 +817,36 @@ function NumCell({
   );
 }
 
-function Stat({ label, value, tone }: { label: string; value: string; tone?: string }) {
+function Stat({
+  label,
+  value,
+  tone,
+  onChart,
+}: {
+  label: string;
+  value: string;
+  tone?: string;
+  onChart?: () => void;
+}) {
   return (
-    <Card>
+    <Card className="relative">
       <CardContent className="p-3">
         <div className="text-xs text-muted-foreground">{label}</div>
         <div className={`text-lg font-semibold ${tone ?? ""}`}>{value}</div>
+        {onChart && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onChart();
+            }}
+            className="absolute top-1.5 right-1.5 p-1 rounded text-muted-foreground/40 hover:text-foreground hover:bg-muted transition-colors"
+            title={`Ver gráfico de ${label}`}
+          >
+            <LineChartIcon className="h-3 w-3" />
+          </button>
+        )}
       </CardContent>
     </Card>
   );
