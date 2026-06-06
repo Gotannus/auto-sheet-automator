@@ -222,7 +222,13 @@ function DashContent({
       {isTotal && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           <Stat label="Lucro antes desp." value={fmtBRL(t.profit_before_expenses)} />
-          <Stat label="Despesas" value={fmtBRL(t.monthly_expenses)} />
+          <Link
+            to={companyPath(companySlug, "expenses")}
+            className="block hover:opacity-80 transition-opacity"
+            title="Ver detalhes das despesas do mês"
+          >
+            <Stat label="Despesas (ver)" value={fmtBRL(t.monthly_expenses)} />
+          </Link>
           <Stat
             label="Lucro liquido"
             value={fmtBRL(t.net_profit)}
