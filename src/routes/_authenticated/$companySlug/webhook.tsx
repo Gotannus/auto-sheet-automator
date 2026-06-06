@@ -65,10 +65,9 @@ function WebhookPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const url =
-    typeof window !== "undefined"
-      ? `${window.location.origin}/api/public/celetus-webhook?company=${company.slug}`
-      : `/api/public/celetus-webhook?company=${company.slug}`;
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const baseUrl = `${origin}/api/public/celetus-webhook?company=${company.slug}`;
+  const fullUrl = `${baseUrl}&secret=${encodeURIComponent(token)}`;
 
   const copy = (s: string) => {
     navigator.clipboard.writeText(s);
@@ -80,27 +79,47 @@ function WebhookPage() {
       <header>
         <h1 className="text-2xl font-bold">Webhook da Celetus</h1>
         <p className="text-sm text-muted-foreground">
-          Cole essa URL nas configuraÃ§Ãµes de webhook do seu painel da Celetus. As vendas vÃ£o entrar
+          Cole essa URL nas configurações de webhook do seu painel da Celetus. As vendas vão entrar
           automaticamente no dashboard do produto correspondente (identificado pelo SRC).
         </p>
       </header>
 
       <Card>
         <CardHeader>
-          <CardTitle>URL</CardTitle>
+          <CardTitle>URL completa (recomendada)</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex gap-2">
-            <Input value={url} readOnly className="font-mono text-xs" />
-            <Button variant="outline" size="icon" onClick={() => copy(url)}>
+            <Input value={fullUrl} readOnly className="font-mono text-xs" />
+            <Button variant="outline" size="icon" onClick={() => copy(fullUrl)}>
               <Copy className="h-4 w-4" />
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Aceita POST com JSON. Na Celetus, cole essa URL no campo URL do webhook.
+            Já contém o token embutido. Cole só ela no campo URL da Celetus — não precisa preencher
+            o campo Token separado.
           </p>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>URL sem token (alternativa)</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex gap-2">
+            <Input value={baseUrl} readOnly className="font-mono text-xs" />
+            <Button variant="outline" size="icon" onClick={() => copy(baseUrl)}>
+              <Copy className="h-4 w-4" />
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Use se a Celetus exigir o token em campo separado — cole o token abaixo no campo Token
+            (a Celetus envia no header <code>Api-Token</code>).
+          </p>
+        </CardContent>
+      </Card>
+
 
       <Card>
         <CardHeader>
