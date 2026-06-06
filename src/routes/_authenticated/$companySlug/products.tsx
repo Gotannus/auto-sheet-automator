@@ -40,7 +40,7 @@ const productsQO = (companySlug: string) =>
   });
 
 export const Route = createFileRoute("/_authenticated/$companySlug/products")({
-  head: () => ({ meta: [{ title: "Produtos â€” Painel Celetus" }] }),
+  head: () => ({ meta: [{ title: "Produtos — Painel Celetus" }] }),
   beforeLoad: ({ params }) => {
     if (!isValidSlug(params.companySlug)) {
       throw redirect({ to: "/tannus", replace: true });
