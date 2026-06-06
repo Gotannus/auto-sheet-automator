@@ -467,6 +467,8 @@ export const upsertDailyInput = createServerFn({ method: "POST" })
         checkouts: z.number().int().nullable().optional(),
         impressions: z.number().int().nullable().optional(),
         notes: z.string().max(1000).nullable().optional(),
+        sales_override: z.number().int().min(0).nullable().optional(),
+        revenue_override: z.number().min(0).nullable().optional(),
       })
       .parse(input),
   )
@@ -483,13 +485,17 @@ export const upsertDailyInput = createServerFn({ method: "POST" })
     if (data.checkouts !== undefined) payload.checkouts = data.checkouts;
     if (data.impressions !== undefined) payload.impressions = data.impressions;
     if (data.notes !== undefined) payload.notes = data.notes;
+    if (data.sales_override !== undefined) payload.sales_override = data.sales_override;
+    if (data.revenue_override !== undefined) payload.revenue_override = data.revenue_override;
     const { data: saved, error } = await supabase
       .from("daily_manual_inputs")
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .upsert(payload as any, { onConflict: "user_id,product_id,date" })
-      .select("product_id, date, invest_manual, clicks, checkouts, impressions, notes, updated_at")
+      .select(
+        "product_id, date, invest_manual, clicks, checkouts, impressions, notes, sales_override, revenue_override, updated_at",
+      )
       .single();
     if (error) throw new Error(error.message);
-    if (!saved) throw new Error("Investimento nao foi confirmado pelo banco de dados.");
+    if (!saved) throw new Error("Edicao nao foi confirmada pelo banco de dados.");
     return { ok: true, saved };
   });
