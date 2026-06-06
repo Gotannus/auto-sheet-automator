@@ -31,7 +31,8 @@ import {
 } from "@/components/ui/table";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import { Pencil, Check } from "lucide-react";
+import { Pencil, Check, BarChart3, LineChart as LineChartIcon } from "lucide-react";
+import { ChartDialog, type MetricKey } from "@/components/dashboard/ChartDialog";
 
 export const Route = createFileRoute("/_authenticated/$companySlug/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard - Painel Celetus" }] }),
