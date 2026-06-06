@@ -95,6 +95,12 @@ function DashboardPage() {
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [dayFilter, setDayFilter] = useState<DayFilter>("all");
+  const [chartOpen, setChartOpen] = useState(false);
+  const [chartMetrics, setChartMetrics] = useState<MetricKey[] | undefined>(undefined);
+  const openChart = (metrics?: MetricKey[]) => {
+    setChartMetrics(metrics);
+    setChartOpen(true);
+  };
   const isTotal = productId === TOTAL_PRODUCT_ID;
   const selectedProductId = isTotal ? undefined : productId;
 
