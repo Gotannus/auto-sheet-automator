@@ -192,6 +192,11 @@ export const getDashboard = createServerFn({ method: "POST" })
       return manual;
     };
 
+    // Overrides per (product_id, date) — only set when user manually edited.
+    type Override = { sales: number | null; revenue: number | null };
+    const overrideByPD = new Map<string, Override>();
+    const pdKey = (pid: string, date: string) => `${pid}::${date}`;
+
     for (const r of dmiRes.data ?? []) {
       const manual = getManualAgg(r.date);
       manual.investManual = nullableSum(manual.investManual, r.invest_manual);
@@ -199,9 +204,15 @@ export const getDashboard = createServerFn({ method: "POST" })
       manual.checkouts = nullableSum(manual.checkouts, r.checkouts);
       manual.impressions = nullableSum(manual.impressions, r.impressions);
       manual.notes = data.product_id ? (r.notes ?? null) : null;
+      if (r.product_id && (r.sales_override != null || r.revenue_override != null)) {
+        overrideByPD.set(pdKey(r.product_id, r.date), {
+          sales: r.sales_override != null ? Number(r.sales_override) : null,
+          revenue: r.revenue_override != null ? Number(r.revenue_override) : null,
+        });
+      }
     }
 
-    // Aggregate sales per day in BRT
+    // Aggregate sales per day in BRT (and per product+day for total override math)
     type Agg = { sales: number; revenue: number; obQty: number; obRevenue: number };
     const agg = new Map<string, Agg>();
     const getAgg = (k: string): Agg => {
@@ -209,6 +220,15 @@ export const getDashboard = createServerFn({ method: "POST" })
       if (!a) {
         a = { sales: 0, revenue: 0, obQty: 0, obRevenue: 0 };
         agg.set(k, a);
+      }
+      return a;
+    };
+    const aggByPD = new Map<string, Agg>();
+    const getAggPD = (k: string): Agg => {
+      let a = aggByPD.get(k);
+      if (!a) {
+        a = { sales: 0, revenue: 0, obQty: 0, obRevenue: 0 };
+        aggByPD.set(k, a);
       }
       return a;
     };
@@ -224,12 +244,18 @@ export const getDashboard = createServerFn({ method: "POST" })
       const brt = new Date(dt.getTime() - 3 * 60 * 60 * 1000);
       const key = brt.toISOString().slice(0, 10);
       const a = getAgg(key);
+      const pid = s.product_id ? String(s.product_id) : null;
+      const aPD = pid ? getAggPD(pdKey(pid, key)) : null;
       const itemCommission = Number(s.commission_value ?? 0);
       const qty = Number(s.quantity ?? 1);
       if (kind === "principal" || kind === "main") {
         if (qty === 1) {
           a.sales += 1;
           a.revenue += itemCommission;
+          if (aPD) {
+            aPD.sales += 1;
+            aPD.revenue += itemCommission;
+          }
         }
       } else if (kind === "orderbump" || kind === "order_bump" || kind === "bump") {
         a.obQty += 1;
@@ -237,6 +263,46 @@ export const getDashboard = createServerFn({ method: "POST" })
         // Match Celetus "faturado no dia" — sum every line item (Principal + Orderbump)
         // into the headline revenue, not only Principal.
         a.revenue += itemCommission;
+        if (aPD) {
+          aPD.obQty += 1;
+          aPD.obRevenue += itemCommission;
+          aPD.revenue += itemCommission;
+        }
+      }
+    }
+
+    // Apply override deltas onto per-day aggregate so totals respect manual edits.
+    // - Product view: only one product; replace its day values directly.
+    // - Total view: for each (product, date) with override, swap that product's
+    //   webhook-aggregated sales/revenue for the override value, then re-sum.
+    const overrideSalesByDate = new Map<string, number>();
+    const overrideRevenueByDate = new Map<string, number>();
+    if (data.product_id) {
+      for (const [k, ov] of overrideByPD) {
+        const [pid, date] = k.split("::");
+        if (pid !== data.product_id) continue;
+        const a = getAgg(date);
+        if (ov.sales != null) {
+          overrideSalesByDate.set(date, ov.sales);
+          a.sales = ov.sales;
+        }
+        if (ov.revenue != null) {
+          // Replace headline revenue (Principal + OB) with override; keep OB columns from webhook.
+          overrideRevenueByDate.set(date, ov.revenue);
+          a.revenue = ov.revenue;
+        }
+      }
+    } else {
+      for (const [k, ov] of overrideByPD) {
+        const [, date] = k.split("::");
+        const aPD = aggByPD.get(k) ?? { sales: 0, revenue: 0, obQty: 0, obRevenue: 0 };
+        const a = getAgg(date);
+        if (ov.sales != null) {
+          a.sales += ov.sales - aPD.sales;
+        }
+        if (ov.revenue != null) {
+          a.revenue += ov.revenue - aPD.revenue;
+        }
       }
     }
 
@@ -253,6 +319,27 @@ export const getDashboard = createServerFn({ method: "POST" })
       const cpa = a.sales > 0 ? investFinal / a.sales : 0;
       const ticket = a.sales > 0 ? a.revenue / a.sales : 0;
       const obPct = a.sales > 0 ? a.obQty / a.sales : 0;
+
+      // Show override input pre-filled only in product view (single product/day row).
+      let salesOverride: number | null = null;
+      let revenueOverride: number | null = null;
+      let salesAuto = a.sales;
+      let revenueAuto = a.revenue;
+      if (data.product_id) {
+        const ov = overrideByPD.get(pdKey(data.product_id, key));
+        salesOverride = ov?.sales ?? null;
+        revenueOverride = ov?.revenue ?? null;
+        if (overrideSalesByDate.has(key)) {
+          // Recover the pre-override webhook value for placeholder display.
+          const aPD = aggByPD.get(pdKey(data.product_id, key));
+          salesAuto = aPD?.sales ?? 0;
+        }
+        if (overrideRevenueByDate.has(key)) {
+          const aPD = aggByPD.get(pdKey(data.product_id, key));
+          revenueAuto = aPD?.revenue ?? 0;
+        }
+      }
+
       days.push({
         date: key,
         sales: a.sales,
@@ -271,6 +358,10 @@ export const getDashboard = createServerFn({ method: "POST" })
         checkouts: dmi?.checkouts ?? null,
         impressions: dmi?.impressions ?? null,
         notes: dmi?.notes ?? null,
+        sales_auto: salesAuto,
+        revenue_auto: revenueAuto,
+        sales_override: salesOverride,
+        revenue_override: revenueOverride,
       });
     }
 
