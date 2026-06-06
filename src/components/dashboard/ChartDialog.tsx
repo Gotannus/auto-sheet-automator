@@ -51,7 +51,7 @@ type MetricDef = {
 const METRICS: MetricDef[] = [
   { key: "revenue", label: "Faturamento", color: "hsl(217 91% 60%)", axis: "left", format: "brl", type: "bar" },
   { key: "invest", label: "Investimento", color: "hsl(25 95% 53%)", axis: "left", format: "brl", type: "bar" },
-  { key: "profit", label: "Lucro", color: "hsl(142 71% 45%)", axis: "left", format: "brl", type: "line" },
+  { key: "profit", label: "Lucro", color: "hsl(142 76% 36%)", axis: "left", format: "brl", type: "line" },
   { key: "cpa", label: "CPA", color: "hsl(280 65% 60%)", axis: "left", format: "brl", type: "line" },
   { key: "ticket", label: "Ticket médio", color: "hsl(199 89% 48%)", axis: "left", format: "brl", type: "line" },
   { key: "sales", label: "Vendas", color: "hsl(340 75% 55%)", axis: "right", format: "int", type: "line" },
