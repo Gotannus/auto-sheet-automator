@@ -245,6 +245,48 @@ export type Database = {
           },
         ]
       }
+      monthly_expenses_items: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          date: string
+          description: string
+          id: string
+          month: number
+          notes: string | null
+          updated_at: string
+          user_id: string
+          year: number
+        }
+        Insert: {
+          amount?: number
+          category?: string
+          created_at?: string
+          date: string
+          description: string
+          id?: string
+          month: number
+          notes?: string | null
+          updated_at?: string
+          user_id: string
+          year: number
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          date?: string
+          description?: string
+          id?: string
+          month?: number
+          notes?: string | null
+          updated_at?: string
+          user_id?: string
+          year?: number
+        }
+        Relationships: []
+      }
       monthly_settings: {
         Row: {
           created_at: string

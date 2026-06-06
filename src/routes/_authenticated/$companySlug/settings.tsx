@@ -185,23 +185,18 @@ function SettingsPage() {
               dashboard.
             </p>
           </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="monthly-expenses">Despesas do mes (R$)</Label>
-              <Input
-                id="monthly-expenses"
-                value={monthlyExpenses}
-                onChange={(e) => setMonthlyExpenses(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="company-cash">Caixa Empresa (%)</Label>
-              <Input
-                id="company-cash"
-                value={companyCashPct}
-                onChange={(e) => setCompanyCashPct(e.target.value)}
-              />
-            </div>
+          <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+            Despesas do mês agora são cadastradas item-a-item na aba{" "}
+            <strong>Despesas</strong> no menu lateral. O total é somado automaticamente
+            no dashboard.
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="company-cash">Caixa Empresa (%)</Label>
+            <Input
+              id="company-cash"
+              value={companyCashPct}
+              onChange={(e) => setCompanyCashPct(e.target.value)}
+            />
           </div>
           <div className="space-y-2 rounded-md border p-3">
             <div>

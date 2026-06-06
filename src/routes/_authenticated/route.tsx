@@ -9,6 +9,7 @@ import {
   Webhook,
   Activity,
   Building2,
+  Wallet,
 } from "lucide-react";
 import {
   companyPath,
@@ -53,6 +54,9 @@ function AuthedLayout() {
             </NavItem>
             <NavItem to={companyPath(slug, "products")} icon={<Package className="h-4 w-4" />}>
               Produtos
+            </NavItem>
+            <NavItem to={companyPath(slug, "expenses")} icon={<Wallet className="h-4 w-4" />}>
+              Despesas
             </NavItem>
             <NavItem to={companyPath(slug, "webhook")} icon={<Webhook className="h-4 w-4" />}>
               Webhook
