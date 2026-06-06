@@ -51,7 +51,7 @@ type MetricDef = {
 const METRICS: MetricDef[] = [
   { key: "revenue", label: "Faturamento", color: "hsl(217 91% 60%)", axis: "left", format: "brl", type: "bar" },
   { key: "invest", label: "Investimento", color: "hsl(25 95% 53%)", axis: "left", format: "brl", type: "bar" },
-  { key: "profit", label: "Lucro", color: "hsl(142 71% 45%)", axis: "left", format: "brl", type: "line" },
+  { key: "profit", label: "Lucro", color: "hsl(142 76% 36%)", axis: "left", format: "brl", type: "line" },
   { key: "cpa", label: "CPA", color: "hsl(280 65% 60%)", axis: "left", format: "brl", type: "line" },
   { key: "ticket", label: "Ticket médio", color: "hsl(199 89% 48%)", axis: "left", format: "brl", type: "line" },
   { key: "sales", label: "Vendas", color: "hsl(340 75% 55%)", axis: "right", format: "int", type: "line" },
@@ -441,8 +441,9 @@ export function ChartDialog({
                   }}
                 />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                {activeMetrics.map((m) =>
-                  m.type === "bar" ? (
+                {activeMetrics
+                  .filter((m) => m.type === "bar")
+                  .map((m) => (
                     <Bar
                       key={m.key}
                       yAxisId={m.axis}
@@ -451,19 +452,25 @@ export function ChartDialog({
                       fill={m.color}
                       radius={[3, 3, 0, 0]}
                     />
-                  ) : (
-                    <Line
-                      key={m.key}
-                      yAxisId={m.axis}
-                      type="monotone"
-                      dataKey={m.key}
-                      name={m.label}
-                      stroke={m.color}
-                      strokeWidth={2}
-                      dot={false}
-                    />
-                  ),
-                )}
+                  ))}
+                {activeMetrics
+                  .filter((m) => m.type === "line")
+                  .map((m) => {
+                    const isProfit = m.key === "profit";
+                    return (
+                      <Line
+                        key={m.key}
+                        yAxisId={m.axis}
+                        type="monotone"
+                        dataKey={m.key}
+                        name={m.label}
+                        stroke={m.color}
+                        strokeWidth={isProfit ? 3 : 2}
+                        dot={isProfit ? { r: 3, fill: m.color, strokeWidth: 0 } : false}
+                        activeDot={isProfit ? { r: 5 } : { r: 4 }}
+                      />
+                    );
+                  })}
               </ComposedChart>
             </ResponsiveContainer>
           )}
