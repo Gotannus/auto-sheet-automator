@@ -550,6 +550,7 @@ function DailyRow({
 }) {
   const qc = useQueryClient();
   const save = useServerFn(upsertDailyInput);
+  const [editing, setEditing] = useState(false);
   const mut = useMutation({
     mutationFn: (patch: Record<string, unknown>) =>
       save({
@@ -560,7 +561,10 @@ function DailyRow({
           ...patch,
         } as never,
       }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["dash", companySlug] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["dash", companySlug] });
+      setEditing(false);
+    },
   });
 
   const [invest, setInvest] = useState(day.invest_manual?.toString() ?? "");
@@ -641,7 +645,6 @@ function DailyRow({
     mut.mutate({ revenue_override: value });
   };
 
-  const [editing, setEditing] = useState(false);
 
   const toggleEditing = () => {
     if (editing) {
