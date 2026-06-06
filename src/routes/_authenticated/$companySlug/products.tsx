@@ -40,7 +40,7 @@ const productsQO = (companySlug: string) =>
   });
 
 export const Route = createFileRoute("/_authenticated/$companySlug/products")({
-  head: () => ({ meta: [{ title: "Produtos â€” Painel Celetus" }] }),
+  head: () => ({ meta: [{ title: "Produtos — Painel Celetus" }] }),
   beforeLoad: ({ params }) => {
     if (!isValidSlug(params.companySlug)) {
       throw redirect({ to: "/tannus", replace: true });
@@ -94,7 +94,7 @@ function ProductsPage() {
         <div>
           <h1 className="text-2xl font-bold">Produtos</h1>
           <p className="text-sm text-muted-foreground">
-            Cada produto Ã© identificado pelo SRC que vem no webhook da Celetus. Produtos sem SRC
+            Cada produto é identificado pelo SRC que vem no webhook da Celetus. Produtos sem SRC
             podem ser corrigidos depois.
           </p>
         </div>

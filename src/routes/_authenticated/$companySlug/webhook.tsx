@@ -22,7 +22,7 @@ const webhookQO = (companySlug: string) =>
   });
 
 export const Route = createFileRoute("/_authenticated/$companySlug/webhook")({
-  head: () => ({ meta: [{ title: "Webhook â€” Painel Celetus" }] }),
+  head: () => ({ meta: [{ title: "Webhook — Painel Celetus" }] }),
   beforeLoad: ({ params }) => {
     if (!isValidSlug(params.companySlug)) {
       throw redirect({ to: "/tannus", replace: true });
