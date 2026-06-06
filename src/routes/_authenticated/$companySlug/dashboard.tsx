@@ -645,7 +645,6 @@ function DailyRow({
     mut.mutate({ revenue_override: value });
   };
 
-  const [editing, setEditing] = useState(false);
 
   const toggleEditing = () => {
     if (editing) {
