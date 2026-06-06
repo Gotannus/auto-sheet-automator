@@ -551,6 +551,7 @@ function DailyRow({
   const qc = useQueryClient();
   const save = useServerFn(upsertDailyInput);
   const [editing, setEditing] = useState(false);
+  const [investEditing, setInvestEditing] = useState(false);
   const mut = useMutation({
     mutationFn: (patch: Record<string, unknown>) =>
       save({
@@ -564,6 +565,7 @@ function DailyRow({
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["dash", companySlug] });
       setEditing(false);
+      setInvestEditing(false);
     },
   });
 
