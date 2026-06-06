@@ -259,13 +259,91 @@ function DashContent({
   productId,
   isTotal,
   data,
+  targetDay,
 }: {
   companySlug: string;
   productId?: string;
   isTotal: boolean;
   data: DashboardData;
+  targetDay: string | null;
 }) {
-  const t = data.totals;
+  const filteredDays = useMemo(
+    () => (targetDay ? data.days.filter((d) => d.date === targetDay) : data.days),
+    [data.days, targetDay],
+  );
+
+  const t = useMemo(() => {
+    if (!targetDay) return data.totals;
+    const d = data.days.find((x) => x.date === targetDay);
+    const base = data.totals;
+    if (!d) {
+      return {
+        ...base,
+        sales: 0,
+        revenue: 0,
+        revenue_tax: 0,
+        ob_qty: 0,
+        ob_revenue: 0,
+        invest_manual: 0,
+        invest_final: 0,
+        clicks: 0,
+        checkouts: 0,
+        impressions: 0,
+        profit: 0,
+        profit_before_expenses: 0,
+        monthly_expenses: 0,
+        net_profit: 0,
+        company_cash: 0,
+        distributable_profit: 0,
+        partner_1_amount: 0,
+        partner_2_amount: 0,
+        roi: 0,
+        cpa: 0,
+        ticket: 0,
+        ob_pct: 0,
+        cpm: 0,
+        conv_click: 0,
+        conv_checkout: 0,
+      };
+    }
+    const profitBeforeExpenses = d.profit; // já = revenue - revenue_tax - invest_final
+    const netProfit = profitBeforeExpenses; // sem despesas no modo dia
+    const positive = Math.max(0, netProfit);
+    const companyCash = positive * base.company_cash_rate;
+    const distributable = Math.max(0, positive - companyCash);
+    const cpm = (d.impressions ?? 0) > 0 ? (d.invest_final / (d.impressions ?? 1)) * 1000 : 0;
+    const convClick = (d.clicks ?? 0) > 0 ? d.sales / (d.clicks ?? 1) : 0;
+    const convCheckout = (d.checkouts ?? 0) > 0 ? d.sales / (d.checkouts ?? 1) : 0;
+    return {
+      ...base,
+      sales: d.sales,
+      revenue: d.revenue,
+      revenue_tax: d.revenue_tax,
+      ob_qty: d.ob_qty,
+      ob_revenue: d.ob_revenue,
+      invest_manual: d.invest_manual ?? 0,
+      invest_final: d.invest_final,
+      clicks: d.clicks ?? 0,
+      checkouts: d.checkouts ?? 0,
+      impressions: d.impressions ?? 0,
+      profit: netProfit,
+      profit_before_expenses: profitBeforeExpenses,
+      monthly_expenses: 0,
+      net_profit: netProfit,
+      company_cash: companyCash,
+      distributable_profit: distributable,
+      partner_1_amount: distributable * base.partner_1_rate,
+      partner_2_amount: distributable * base.partner_2_rate,
+      roi: d.roi,
+      cpa: d.cpa,
+      ticket: d.ticket,
+      ob_pct: d.ob_pct,
+      cpm,
+      conv_click: convClick,
+      conv_checkout: convCheckout,
+    };
+  }, [data, targetDay]);
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
@@ -296,9 +374,16 @@ function DashContent({
           <Link
             to={companyPath(companySlug, "expenses")}
             className="block hover:opacity-80 transition-opacity"
-            title="Ver detalhes das despesas do mês"
+            title={
+              targetDay
+                ? "Despesas só aparecem na visão Mês inteiro"
+                : "Ver detalhes das despesas do mês"
+            }
           >
-            <Stat label="Despesas (ver)" value={fmtBRL(t.monthly_expenses)} />
+            <Stat
+              label={targetDay ? "Despesas (mês)" : "Despesas (ver)"}
+              value={fmtBRL(t.monthly_expenses)}
+            />
           </Link>
           <Stat
             label="Lucro liquido"
@@ -320,13 +405,19 @@ function DashContent({
         </div>
       )}
 
+      {targetDay && (
+        <p className="text-xs text-muted-foreground -mt-2">
+          Visão de dia único: despesas mensais não são distribuídas por dia.
+        </p>
+      )}
+
       <Card>
         <CardContent className="p-0 overflow-x-auto">
           <DailyTable
             companySlug={companySlug}
             productId={productId}
             isTotal={isTotal}
-            days={data.days}
+            days={filteredDays}
           />
         </CardContent>
       </Card>
