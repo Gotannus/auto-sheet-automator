@@ -187,8 +187,18 @@ export async function processWebhookPayload(
   let autoCreatedProducts = 0;
   const rows: AnyRecord[] = [];
 
-  for (const candidate of sellableCandidates) {
+  // Process Principal items first so a new product is named after the principal,
+  // not after whichever orderbump happens to come first in the payload.
+  const orderedCandidates = [...sellableCandidates].sort((a, b) => {
+    const aPrincipal = norm(a.row.kind) === "principal" || norm(a.row.kind) === "main" ? 0 : 1;
+    const bPrincipal = norm(b.row.kind) === "principal" || norm(b.row.kind) === "main" ? 0 : 1;
+    return aPrincipal - bPrincipal;
+  });
+
+  for (const candidate of orderedCandidates) {
     let product = findProduct(productRows, candidate);
+    const isPrincipal =
+      norm(candidate.row.kind) === "principal" || norm(candidate.row.kind) === "main";
 
     if (!product) {
       try {
@@ -203,6 +213,22 @@ export async function processWebhookPayload(
       }
       productRows.push(product);
       autoCreatedProducts += 1;
+    } else if (
+      isPrincipal &&
+      candidate.productName &&
+      norm(product.name) !== norm(candidate.productName)
+    ) {
+      // Existing product was likely created from an Orderbump first. Correct
+      // the name now that the Principal arrived.
+      const { data: updated, error: updateError } = await supabaseAdmin
+        .from("products")
+        .update({ name: candidate.productName })
+        .eq("id", product.id)
+        .select("id, src, name")
+        .single();
+      if (!updateError && updated) {
+        product.name = (updated as ProductRow).name;
+      }
     }
 
     rows.push({
