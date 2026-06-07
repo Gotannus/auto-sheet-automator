@@ -213,23 +213,8 @@ export async function processWebhookPayload(
       }
       productRows.push(product);
       autoCreatedProducts += 1;
-    } else if (
-      isPrincipal &&
-      candidate.productName &&
-      norm(product.name) !== norm(candidate.productName)
-    ) {
-      // Existing product was likely created from an Orderbump first. Correct
-      // the name now that the Principal arrived.
-      const { data: updated, error: updateError } = await supabaseAdmin
-        .from("products")
-        .update({ name: candidate.productName })
-        .eq("id", product.id)
-        .select("id, src, name")
-        .single();
-      if (!updateError && updated) {
-        product.name = (updated as ProductRow).name;
-      }
     }
+    // Do not auto-rename existing products — users may have customized the name.
 
     rows.push({
       ...candidate.row,
