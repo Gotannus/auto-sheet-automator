@@ -165,7 +165,7 @@ export function parseHotmartPayload(rawBody: unknown): HotmartParseResult {
       net_value: producerCommission || null,
       fees: Math.max(0, Math.round((grossValue - producerCommission) * 100) / 100) || null,
       recipient: "Produtor",
-      recipient_company: txt(data.producer?.["name"]) || null,
+      recipient_company: txt(record(data.producer)?.name) || null,
       recipient_type: "Produtor",
       item_type: kindLabel,
       src_tag: txt(origin.sck) || null,
