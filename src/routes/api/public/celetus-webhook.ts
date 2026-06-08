@@ -18,7 +18,7 @@ type ProductRow = {
   name: string;
 };
 
-type SaleCandidate = {
+export type SaleCandidate = {
   productCandidates: string[];
   storedSrc: string;
   transactionCode: string;
