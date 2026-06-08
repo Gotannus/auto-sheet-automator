@@ -332,6 +332,25 @@ export const getDashboard = createServerFn({ method: "POST" })
       }
     }
 
+    // Resolve product names for by-product breakdown (Total view only).
+    const productNameById = new Map<string, string>();
+    if (!data.product_id) {
+      const pidSet = new Set<string>();
+      for (const k of aggByPD.keys()) pidSet.add(k.split("::")[0]);
+      for (const k of investManualByPD.keys()) pidSet.add(k.split("::")[0]);
+      for (const k of overrideByPD.keys()) pidSet.add(k.split("::")[0]);
+      const pids = Array.from(pidSet);
+      if (pids.length > 0) {
+        const { data: prods, error: prodErr } = await supabase
+          .from("products")
+          .select("id, name")
+          .eq("user_id", userId)
+          .in("id", pids);
+        if (prodErr) throw new Error(prodErr.message);
+        for (const p of prods ?? []) productNameById.set(String(p.id), String(p.name ?? ""));
+      }
+    }
+
     const days: DayRow[] = [];
     for (let d = 1; d <= dim; d++) {
       const key = fmtDate(data.year, data.month, d);
@@ -366,6 +385,71 @@ export const getDashboard = createServerFn({ method: "POST" })
         }
       }
 
+      // Per-product breakdown for this day (Total view).
+      let byProduct: ByProductRow[] | undefined;
+      if (!data.product_id) {
+        const pidsForDay = new Set<string>();
+        for (const k of aggByPD.keys()) {
+          const [pid, date] = k.split("::");
+          if (date === key) pidsForDay.add(pid);
+        }
+        for (const k of investManualByPD.keys()) {
+          const [pid, date] = k.split("::");
+          if (date === key) pidsForDay.add(pid);
+        }
+        for (const k of overrideByPD.keys()) {
+          const [pid, date] = k.split("::");
+          if (date === key) pidsForDay.add(pid);
+        }
+        const rows: ByProductRow[] = [];
+        for (const pid of pidsForDay) {
+          const aPD = aggByPD.get(pdKey(pid, key)) ?? {
+            sales: 0,
+            revenue: 0,
+            obQty: 0,
+            obRevenue: 0,
+          };
+          const ov = overrideByPD.get(pdKey(pid, key));
+          const pSales = ov?.sales != null ? ov.sales : aPD.sales;
+          const pRevenue = ov?.revenue != null ? ov.revenue : aPD.revenue;
+          const pInvestManual = investManualByPD.get(pdKey(pid, key)) ?? null;
+          const pInvestFinal =
+            pInvestManual != null ? pInvestManual * (1 + investmentTaxRate) : 0;
+          const pRevenueTax = pRevenue * revenueTaxRate;
+          const pProfit = pRevenue - pRevenueTax - pInvestFinal;
+          const pRoi = pInvestFinal > 0 ? pProfit / pInvestFinal : 0;
+          const pCpa = pSales > 0 ? pInvestFinal / pSales : 0;
+          const pTicket = pSales > 0 ? pRevenue / pSales : 0;
+          const pObPct = pSales > 0 ? aPD.obQty / pSales : 0;
+          if (
+            pSales === 0 &&
+            pRevenue === 0 &&
+            pInvestManual == null &&
+            aPD.obQty === 0
+          ) {
+            continue;
+          }
+          rows.push({
+            product_id: pid,
+            product_name: productNameById.get(pid) ?? "(produto removido)",
+            sales: pSales,
+            revenue: pRevenue,
+            revenue_tax: pRevenueTax,
+            ob_qty: aPD.obQty,
+            ob_revenue: aPD.obRevenue,
+            invest_manual: pInvestManual,
+            invest_final: pInvestFinal,
+            profit: pProfit,
+            roi: pRoi,
+            cpa: pCpa,
+            ticket: pTicket,
+            ob_pct: pObPct,
+          });
+        }
+        rows.sort((x, y) => y.revenue - x.revenue || y.sales - x.sales);
+        byProduct = rows;
+      }
+
       days.push({
         date: key,
         sales: a.sales,
@@ -388,8 +472,10 @@ export const getDashboard = createServerFn({ method: "POST" })
         revenue_auto: revenueAuto,
         sales_override: salesOverride,
         revenue_override: revenueOverride,
+        by_product: byProduct,
       });
     }
+
 
     // Totals
     const totals = days.reduce(
