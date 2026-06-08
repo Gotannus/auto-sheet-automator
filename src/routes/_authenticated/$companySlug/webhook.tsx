@@ -18,17 +18,6 @@ import { toast } from "sonner";
 import { Copy, RefreshCw, Save } from "lucide-react";
 import { isValidSlug } from "@/lib/celetus/workspaces";
 
-const webhookQO = (companySlug: string) =>
-  queryOptions({
-    queryKey: ["webhook", companySlug],
-    queryFn: () => getWebhookConfig({ data: { company_slug: companySlug } }),
-  });
-
-const hotmartQO = (companySlug: string) =>
-  queryOptions({
-    queryKey: ["hotmart-webhook", companySlug],
-    queryFn: () => getHotmartConfig({ data: { company_slug: companySlug } }),
-  });
 
 
 export const Route = createFileRoute("/_authenticated/$companySlug/webhook")({
