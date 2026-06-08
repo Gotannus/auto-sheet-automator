@@ -249,7 +249,7 @@ export async function persistSaleCandidates(
 }
 
 
-async function logWebhookEvent(
+export async function logWebhookEvent(
   supabaseAdmin: SupabaseAdminClient,
   data: {
     user_id: string;
