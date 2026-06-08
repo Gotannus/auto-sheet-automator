@@ -203,6 +203,128 @@ function WebhookPage() {
           </p>
         </CardContent>
       </Card>
+
+      <HotmartSection companySlug={company.slug} origin={origin} />
     </div>
   );
 }
+
+function HotmartSection({ companySlug, origin }: { companySlug: string; origin: string }) {
+  const { data } = useSuspenseQuery(hotmartQO(companySlug));
+  const qc = useQueryClient();
+  const save = useServerFn(updateHotmartHottok);
+  const rot = useServerFn(rotateHotmartHottok);
+  const [hottok, setHottok] = useState(data.hotmart_hottok);
+
+  useEffect(() => {
+    setHottok(data.hotmart_hottok);
+  }, [data.hotmart_hottok]);
+
+  const saveMut = useMutation({
+    mutationFn: () =>
+      save({ data: { company_slug: companySlug, hotmart_hottok: hottok.trim() } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["hotmart-webhook", companySlug] });
+      toast.success("Hottok salvo");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const rotMut = useMutation({
+    mutationFn: () => rot({ data: { company_slug: companySlug } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["hotmart-webhook", companySlug] });
+      toast.success("Novo Hottok gerado");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const baseUrl = `${origin}/api/public/hotmart-webhook?company=${companySlug}`;
+  const fullUrl = `${baseUrl}&hottok=${encodeURIComponent(hottok)}`;
+
+  const copy = (s: string) => {
+    navigator.clipboard.writeText(s);
+    toast.success("Copiado");
+  };
+
+  return (
+    <>
+      <header className="pt-6">
+        <h2 className="text-2xl font-bold">Webhook da Hotmart</h2>
+        <p className="text-sm text-muted-foreground">
+          Configure este endpoint nas Ferramentas → Notificações Webhook da Hotmart. Eventos
+          aceitos: <code>PURCHASE_APPROVED</code>, <code>PURCHASE_REFUNDED</code>,{" "}
+          <code>PURCHASE_CHARGEBACK</code>, <code>PURCHASE_CANCELED</code>.
+        </p>
+      </header>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>URL do webhook (Hotmart)</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex gap-2">
+            <Input value={baseUrl} readOnly className="font-mono text-xs" />
+            <Button variant="outline" size="icon" onClick={() => copy(baseUrl)}>
+              <Copy className="h-4 w-4" />
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Cole essa URL no campo "URL" da Hotmart e o Hottok abaixo no campo "Hottok". A
+            Hotmart envia o Hottok no header <code>X-Hotmart-Hottok</code> (também aceitamos no
+            corpo da requisição).
+          </p>
+          <div className="flex gap-2">
+            <Input value={fullUrl} readOnly className="font-mono text-xs" />
+            <Button variant="outline" size="icon" onClick={() => copy(fullUrl)}>
+              <Copy className="h-4 w-4" />
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Alternativa: URL com o Hottok embutido (para testes).
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Hottok</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="hotmart-hottok">Hottok cadastrado na Hotmart</Label>
+            <div className="flex gap-2">
+              <Input
+                id="hotmart-hottok"
+                value={hottok}
+                onChange={(e) => setHottok(e.target.value)}
+                className="font-mono text-xs"
+                placeholder="Cole aqui ou gere um novo"
+              />
+              <Button variant="outline" size="icon" onClick={() => copy(hottok)}>
+                <Copy className="h-4 w-4" />
+              </Button>
+              <Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending || !hottok.trim()}>
+                <Save className="h-4 w-4 mr-1" /> Salvar
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (confirm("Gerar novo Hottok? O anterior deixa de funcionar.")) rotMut.mutate();
+                }}
+                disabled={rotMut.isPending}
+              >
+                <RefreshCw className="h-4 w-4 mr-1" /> Rotacionar
+              </Button>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Cada empresa precisa de um Hottok único. Se você usa o mesmo Hottok em várias
+            empresas, o webhook não saberá para qual direcionar a venda.
+          </p>
+        </CardContent>
+      </Card>
+    </>
+  );
+}
+
