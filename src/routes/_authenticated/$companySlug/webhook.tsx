@@ -18,17 +18,6 @@ import { toast } from "sonner";
 import { Copy, RefreshCw, Save } from "lucide-react";
 import { isValidSlug } from "@/lib/celetus/workspaces";
 
-const webhookQO = (companySlug: string) =>
-  queryOptions({
-    queryKey: ["webhook", companySlug],
-    queryFn: () => getWebhookConfig({ data: { company_slug: companySlug } }),
-  });
-
-const hotmartQO = (companySlug: string) =>
-  queryOptions({
-    queryKey: ["hotmart-webhook", companySlug],
-    queryFn: () => getHotmartConfig({ data: { company_slug: companySlug } }),
-  });
 
 
 export const Route = createFileRoute("/_authenticated/$companySlug/webhook")({
@@ -39,7 +28,12 @@ export const Route = createFileRoute("/_authenticated/$companySlug/webhook")({
     }
   },
   loader: ({ context, params }) =>
-    context.queryClient.ensureQueryData(webhookQO(params.companySlug)),
+    context.queryClient.ensureQueryData(
+      queryOptions({
+        queryKey: ["webhook", params.companySlug],
+        queryFn: () => getWebhookConfig({ data: { company_slug: params.companySlug } }),
+      }),
+    ),
   component: WebhookPage,
   errorComponent: ({ error }) => <div className="p-6">Erro: {error.message}</div>,
 });
@@ -47,7 +41,12 @@ export const Route = createFileRoute("/_authenticated/$companySlug/webhook")({
 function WebhookPage() {
   const { companySlug } = Route.useParams();
   const company = { slug: companySlug };
-  const { data } = useSuspenseQuery(webhookQO(company.slug));
+  const { data } = useSuspenseQuery(
+    queryOptions({
+      queryKey: ["webhook", company.slug],
+      queryFn: () => getWebhookConfig({ data: { company_slug: company.slug } }),
+    }),
+  );
   const qc = useQueryClient();
   const rot = useServerFn(rotateWebhookSecret);
   const save = useServerFn(updateWebhookSecret);
@@ -210,7 +209,12 @@ function WebhookPage() {
 }
 
 function HotmartSection({ companySlug, origin }: { companySlug: string; origin: string }) {
-  const { data } = useSuspenseQuery(hotmartQO(companySlug));
+  const { data } = useSuspenseQuery(
+    queryOptions({
+      queryKey: ["hotmart-webhook", companySlug],
+      queryFn: () => getHotmartConfig({ data: { company_slug: companySlug } }),
+    }),
+  );
   const qc = useQueryClient();
   const save = useServerFn(updateHotmartHottok);
   const rot = useServerFn(rotateHotmartHottok);
