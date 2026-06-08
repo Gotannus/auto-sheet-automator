@@ -547,16 +547,25 @@ async function createProductFromCandidate(
   userId: string,
   candidate: SaleCandidate,
 ) {
+  // Check if a product already exists for this user+src to preserve any
+  // manual name edits the user has made.
+  const { data: existing, error: selectError } = await supabaseAdmin
+    .from("products")
+    .select("id, src, name")
+    .eq("user_id", userId)
+    .eq("src", candidate.storedSrc)
+    .maybeSingle();
+
+  if (selectError) throw new Error(selectError.message);
+  if (existing) return existing as ProductRow;
+
   const { data, error } = await supabaseAdmin
     .from("products")
-    .upsert(
-      {
-        user_id: userId,
-        src: candidate.storedSrc,
-        name: candidate.productName || candidate.storedSrc,
-      },
-      { onConflict: "user_id,src" },
-    )
+    .insert({
+      user_id: userId,
+      src: candidate.storedSrc,
+      name: candidate.productName || candidate.storedSrc,
+    })
     .select("id, src, name")
     .single();
 
