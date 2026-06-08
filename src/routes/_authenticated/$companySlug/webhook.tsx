@@ -30,11 +30,6 @@ const hotmartQO = (companySlug: string) =>
     queryFn: () => getHotmartConfig({ data: { company_slug: companySlug } }),
   });
 
-const webhookQO = (companySlug: string) =>
-  queryOptions({
-    queryKey: ["webhook", companySlug],
-    queryFn: () => getWebhookConfig({ data: { company_slug: companySlug } }),
-  });
 
 export const Route = createFileRoute("/_authenticated/$companySlug/webhook")({
   head: () => ({ meta: [{ title: "Webhook — Painel Celetus" }] }),
