@@ -206,3 +206,57 @@ export const rotateWebhookSecret = createServerFn({ method: "POST" })
     return { webhook_secret: secret };
   });
 
+export const getHotmartConfig = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => CompanyInput.parse(input ?? {}))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const companyId = await resolveCompanyId(context.supabase, data.company_slug);
+    const { data: row, error } = await fromUntyped(supabase, "companies")
+      .select("hotmart_hottok")
+      .eq("id", companyId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    return { hotmart_hottok: (row?.hotmart_hottok as string) ?? "" };
+  });
+
+export const updateHotmartHottok = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        company_slug: z.string().optional(),
+        hotmart_hottok: z.string().trim().min(6).max(128),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const companyId = await resolveCompanyId(context.supabase, data.company_slug);
+    const hottok = data.hotmart_hottok.trim();
+    const { error } = await fromUntyped(supabase, "companies")
+      .update({ hotmart_hottok: hottok })
+      .eq("id", companyId);
+    if (error) throw new Error(error.message);
+    return { hotmart_hottok: hottok };
+  });
+
+export const rotateHotmartHottok = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => CompanyInput.parse(input ?? {}))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const companyId = await resolveCompanyId(context.supabase, data.company_slug);
+    const bytes = new Uint8Array(24);
+    crypto.getRandomValues(bytes);
+    const hottok = Array.from(bytes)
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    const { error } = await fromUntyped(supabase, "companies")
+      .update({ hotmart_hottok: hottok })
+      .eq("id", companyId);
+    if (error) throw new Error(error.message);
+    return { hotmart_hottok: hottok };
+  });
+
+
