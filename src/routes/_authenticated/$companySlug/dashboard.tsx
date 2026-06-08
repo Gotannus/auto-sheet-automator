@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/table";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import { Pencil, Check, BarChart3, LineChart as LineChartIcon } from "lucide-react";
+import { Pencil, Check, BarChart3, LineChart as LineChartIcon, ChevronRight, ChevronDown } from "lucide-react";
 import { ChartDialog, type MetricKey } from "@/components/dashboard/ChartDialog";
 
 export const Route = createFileRoute("/_authenticated/$companySlug/dashboard")({
@@ -464,6 +464,15 @@ function DailyTable({
   isTotal: boolean;
   days: DashboardData["days"];
 }) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggle = (date: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(date)) next.delete(date);
+      else next.add(date);
+      return next;
+    });
+
   return (
     <Table>
       <TableHeader>
@@ -488,7 +497,12 @@ function DailyTable({
       <TableBody>
         {days.map((d) =>
           isTotal ? (
-            <ReadOnlyDailyRow key={`total:${d.date}`} day={d} />
+            <ReadOnlyDailyRow
+              key={`total:${d.date}`}
+              day={d}
+              expanded={expanded.has(d.date)}
+              onToggle={() => toggle(d.date)}
+            />
           ) : (
             <DailyRow
               key={`${productId}:${d.date}`}
@@ -503,41 +517,135 @@ function DailyTable({
   );
 }
 
-function ReadOnlyDailyRow({ day }: { day: DayData }) {
+function ReadOnlyDailyRow({
+  day,
+  expanded,
+  onToggle,
+}: {
+  day: DayData;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const hasBreakdown = (day.by_product?.length ?? 0) > 0;
   return (
-    <TableRow>
-      <TableCell className="font-medium whitespace-nowrap">{dateLabel(day.date)}</TableCell>
-      <TableCell className="text-right">{day.sales || "-"}</TableCell>
-      <TableCell className="text-right">{day.revenue ? fmtBRL(day.revenue) : "-"}</TableCell>
-      <TableCell className="text-right">
-        {day.revenue_tax ? fmtBRL(day.revenue_tax) : "-"}
-      </TableCell>
-      <TableCell className="text-right">
-        {day.invest_manual != null ? fmtBRL(day.invest_manual) : "-"}
-      </TableCell>
-      <TableCell className="text-right">
-        {day.invest_final ? fmtBRL(day.invest_final) : "-"}
-      </TableCell>
-      <TableCell className={`text-right ${toneProfit(day.profit, day.revenue)}`}>
-        {day.revenue || day.invest_final ? fmtBRL(day.profit) : "-"}
-      </TableCell>
-      <TableCell className={`text-right ${toneROI(day.roi)}`}>
-        {day.invest_final ? fmtPct(day.roi) : "-"}
-      </TableCell>
-      <TableCell className="text-right">{day.sales ? fmtBRL(day.cpa) : "-"}</TableCell>
-      <TableCell className="text-right">{day.sales ? fmtBRL(day.ticket) : "-"}</TableCell>
-      <TableCell className="text-right">{day.sales ? fmtPct(day.ob_pct) : "-"}</TableCell>
-      <TableCell className="text-right">{day.clicks != null ? fmtInt(day.clicks) : "-"}</TableCell>
-      <TableCell className="text-right">
-        {day.checkouts != null ? fmtInt(day.checkouts) : "-"}
-      </TableCell>
-      <TableCell className="text-right">
-        {day.impressions != null ? fmtInt(day.impressions) : "-"}
-      </TableCell>
-      <TableCell>-</TableCell>
-    </TableRow>
+    <>
+      <TableRow>
+        <TableCell className="font-medium whitespace-nowrap">
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={onToggle}
+              disabled={!hasBreakdown}
+              title={hasBreakdown ? (expanded ? "Recolher" : "Ver produtos do dia") : "Sem dados"}
+            >
+              {expanded ? (
+                <ChevronDown className="h-3.5 w-3.5" />
+              ) : (
+                <ChevronRight className={`h-3.5 w-3.5 ${hasBreakdown ? "" : "opacity-30"}`} />
+              )}
+            </Button>
+            <span>{dateLabel(day.date)}</span>
+          </div>
+        </TableCell>
+        <TableCell className="text-right">{day.sales || "-"}</TableCell>
+        <TableCell className="text-right">{day.revenue ? fmtBRL(day.revenue) : "-"}</TableCell>
+        <TableCell className="text-right">
+          {day.revenue_tax ? fmtBRL(day.revenue_tax) : "-"}
+        </TableCell>
+        <TableCell className="text-right">
+          {day.invest_manual != null ? fmtBRL(day.invest_manual) : "-"}
+        </TableCell>
+        <TableCell className="text-right">
+          {day.invest_final ? fmtBRL(day.invest_final) : "-"}
+        </TableCell>
+        <TableCell className={`text-right ${toneProfit(day.profit, day.revenue)}`}>
+          {day.revenue || day.invest_final ? fmtBRL(day.profit) : "-"}
+        </TableCell>
+        <TableCell className={`text-right ${toneROI(day.roi)}`}>
+          {day.invest_final ? fmtPct(day.roi) : "-"}
+        </TableCell>
+        <TableCell className="text-right">{day.sales ? fmtBRL(day.cpa) : "-"}</TableCell>
+        <TableCell className="text-right">{day.sales ? fmtBRL(day.ticket) : "-"}</TableCell>
+        <TableCell className="text-right">{day.sales ? fmtPct(day.ob_pct) : "-"}</TableCell>
+        <TableCell className="text-right">{day.clicks != null ? fmtInt(day.clicks) : "-"}</TableCell>
+        <TableCell className="text-right">
+          {day.checkouts != null ? fmtInt(day.checkouts) : "-"}
+        </TableCell>
+        <TableCell className="text-right">
+          {day.impressions != null ? fmtInt(day.impressions) : "-"}
+        </TableCell>
+        <TableCell>-</TableCell>
+      </TableRow>
+      {expanded && hasBreakdown && (
+        <TableRow className="bg-muted/30 hover:bg-muted/30">
+          <TableCell colSpan={15} className="p-0">
+            <div className="p-3">
+              <p className="text-xs text-muted-foreground mb-2">
+                Detalhe por produto — {dateLabel(day.date)}
+              </p>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Produto</TableHead>
+                    <TableHead className="text-right">Vendas</TableHead>
+                    <TableHead className="text-right">Faturamento</TableHead>
+                    <TableHead className="text-right">Imposto fat.</TableHead>
+                    <TableHead className="text-right">Invest. manual</TableHead>
+                    <TableHead className="text-right">Invest. final</TableHead>
+                    <TableHead className="text-right">Lucro</TableHead>
+                    <TableHead className="text-right">ROI</TableHead>
+                    <TableHead className="text-right">CPA</TableHead>
+                    <TableHead className="text-right">Ticket</TableHead>
+                    <TableHead className="text-right">OB%</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {day.by_product!.map((p) => (
+                    <TableRow key={p.product_id}>
+                      <TableCell className="font-medium">{p.product_name}</TableCell>
+                      <TableCell className="text-right">{p.sales || "-"}</TableCell>
+                      <TableCell className="text-right">
+                        {p.revenue ? fmtBRL(p.revenue) : "-"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {p.revenue_tax ? fmtBRL(p.revenue_tax) : "-"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {p.invest_manual != null ? fmtBRL(p.invest_manual) : "-"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {p.invest_final ? fmtBRL(p.invest_final) : "-"}
+                      </TableCell>
+                      <TableCell className={`text-right ${toneProfit(p.profit, p.revenue)}`}>
+                        {p.revenue || p.invest_final ? fmtBRL(p.profit) : "-"}
+                      </TableCell>
+                      <TableCell className={`text-right ${toneROI(p.roi)}`}>
+                        {p.invest_final ? fmtPct(p.roi) : "-"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {p.sales ? fmtBRL(p.cpa) : "-"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {p.sales ? fmtBRL(p.ticket) : "-"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {p.sales ? fmtPct(p.ob_pct) : "-"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </TableCell>
+        </TableRow>
+      )}
+    </>
   );
 }
+
 
 function DailyRow({
   companySlug,
