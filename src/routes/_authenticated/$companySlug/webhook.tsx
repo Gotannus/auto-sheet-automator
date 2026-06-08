@@ -28,7 +28,12 @@ export const Route = createFileRoute("/_authenticated/$companySlug/webhook")({
     }
   },
   loader: ({ context, params }) =>
-    context.queryClient.ensureQueryData(webhookQO(params.companySlug)),
+    context.queryClient.ensureQueryData(
+      queryOptions({
+        queryKey: ["webhook", params.companySlug],
+        queryFn: () => getWebhookConfig({ data: { company_slug: params.companySlug } }),
+      }),
+    ),
   component: WebhookPage,
   errorComponent: ({ error }) => <div className="p-6">Erro: {error.message}</div>,
 });
