@@ -18,6 +18,23 @@ const PAID = [
   "SubscriptionCompleted",
 ];
 
+export type ByProductRow = {
+  product_id: string;
+  product_name: string;
+  sales: number;
+  revenue: number;
+  revenue_tax: number;
+  ob_qty: number;
+  ob_revenue: number;
+  invest_manual: number | null;
+  invest_final: number;
+  profit: number;
+  roi: number;
+  cpa: number;
+  ticket: number;
+  ob_pct: number;
+};
+
 export type DayRow = {
   date: string; // YYYY-MM-DD
   sales: number;
@@ -40,7 +57,9 @@ export type DayRow = {
   revenue_auto: number;
   sales_override: number | null;
   revenue_override: number | null;
+  by_product?: ByProductRow[];
 };
+
 
 function daysInMonth(year: number, month: number) {
   return new Date(year, month, 0).getDate();
