@@ -6,6 +6,9 @@ import {
   getWebhookConfig,
   rotateWebhookSecret,
   updateWebhookSecret,
+  getHotmartConfig,
+  rotateHotmartHottok,
+  updateHotmartHottok,
 } from "@/lib/celetus/settings.functions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,7 +16,19 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Copy, RefreshCw, Save } from "lucide-react";
-import { companyPath, isValidSlug } from "@/lib/celetus/workspaces";
+import { isValidSlug } from "@/lib/celetus/workspaces";
+
+const webhookQO = (companySlug: string) =>
+  queryOptions({
+    queryKey: ["webhook", companySlug],
+    queryFn: () => getWebhookConfig({ data: { company_slug: companySlug } }),
+  });
+
+const hotmartQO = (companySlug: string) =>
+  queryOptions({
+    queryKey: ["hotmart-webhook", companySlug],
+    queryFn: () => getHotmartConfig({ data: { company_slug: companySlug } }),
+  });
 
 const webhookQO = (companySlug: string) =>
   queryOptions({
