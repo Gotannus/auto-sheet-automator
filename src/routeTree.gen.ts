@@ -14,6 +14,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedCompanySlugIndexRouteImport } from './routes/_authenticated/$companySlug/index'
+import { Route as ApiPublicHotmartWebhookRouteImport } from './routes/api/public/hotmart-webhook'
 import { Route as ApiPublicCeletusWebhookRouteImport } from './routes/api/public/celetus-webhook'
 import { Route as AuthenticatedCompanySlugWebhookLogsRouteImport } from './routes/_authenticated/$companySlug/webhook-logs'
 import { Route as AuthenticatedCompanySlugWebhookRouteImport } from './routes/_authenticated/$companySlug/webhook'
@@ -49,6 +50,11 @@ const AuthenticatedCompanySlugIndexRoute =
     path: '/$companySlug/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiPublicHotmartWebhookRoute = ApiPublicHotmartWebhookRouteImport.update({
+  id: '/api/public/hotmart-webhook',
+  path: '/api/public/hotmart-webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicCeletusWebhookRoute = ApiPublicCeletusWebhookRouteImport.update({
   id: '/api/public/celetus-webhook',
   path: '/api/public/celetus-webhook',
@@ -116,6 +122,7 @@ export interface FileRoutesByFullPath {
   '/$companySlug/webhook': typeof AuthenticatedCompanySlugWebhookRoute
   '/$companySlug/webhook-logs': typeof AuthenticatedCompanySlugWebhookLogsRoute
   '/api/public/celetus-webhook': typeof ApiPublicCeletusWebhookRoute
+  '/api/public/hotmart-webhook': typeof ApiPublicHotmartWebhookRoute
   '/$companySlug/': typeof AuthenticatedCompanySlugIndexRoute
 }
 export interface FileRoutesByTo {
@@ -131,6 +138,7 @@ export interface FileRoutesByTo {
   '/$companySlug/webhook': typeof AuthenticatedCompanySlugWebhookRoute
   '/$companySlug/webhook-logs': typeof AuthenticatedCompanySlugWebhookLogsRoute
   '/api/public/celetus-webhook': typeof ApiPublicCeletusWebhookRoute
+  '/api/public/hotmart-webhook': typeof ApiPublicHotmartWebhookRoute
   '/$companySlug': typeof AuthenticatedCompanySlugIndexRoute
 }
 export interface FileRoutesById {
@@ -148,6 +156,7 @@ export interface FileRoutesById {
   '/_authenticated/$companySlug/webhook': typeof AuthenticatedCompanySlugWebhookRoute
   '/_authenticated/$companySlug/webhook-logs': typeof AuthenticatedCompanySlugWebhookLogsRoute
   '/api/public/celetus-webhook': typeof ApiPublicCeletusWebhookRoute
+  '/api/public/hotmart-webhook': typeof ApiPublicHotmartWebhookRoute
   '/_authenticated/$companySlug/': typeof AuthenticatedCompanySlugIndexRoute
 }
 export interface FileRouteTypes {
@@ -165,6 +174,7 @@ export interface FileRouteTypes {
     | '/$companySlug/webhook'
     | '/$companySlug/webhook-logs'
     | '/api/public/celetus-webhook'
+    | '/api/public/hotmart-webhook'
     | '/$companySlug/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -180,6 +190,7 @@ export interface FileRouteTypes {
     | '/$companySlug/webhook'
     | '/$companySlug/webhook-logs'
     | '/api/public/celetus-webhook'
+    | '/api/public/hotmart-webhook'
     | '/$companySlug'
   id:
     | '__root__'
@@ -196,6 +207,7 @@ export interface FileRouteTypes {
     | '/_authenticated/$companySlug/webhook'
     | '/_authenticated/$companySlug/webhook-logs'
     | '/api/public/celetus-webhook'
+    | '/api/public/hotmart-webhook'
     | '/_authenticated/$companySlug/'
   fileRoutesById: FileRoutesById
 }
@@ -205,6 +217,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   TannusRoute: typeof TannusRoute
   ApiPublicCeletusWebhookRoute: typeof ApiPublicCeletusWebhookRoute
+  ApiPublicHotmartWebhookRoute: typeof ApiPublicHotmartWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -243,6 +256,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/$companySlug/'
       preLoaderRoute: typeof AuthenticatedCompanySlugIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/api/public/hotmart-webhook': {
+      id: '/api/public/hotmart-webhook'
+      path: '/api/public/hotmart-webhook'
+      fullPath: '/api/public/hotmart-webhook'
+      preLoaderRoute: typeof ApiPublicHotmartWebhookRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/public/celetus-webhook': {
       id: '/api/public/celetus-webhook'
@@ -345,6 +365,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   TannusRoute: TannusRoute,
   ApiPublicCeletusWebhookRoute: ApiPublicCeletusWebhookRoute,
+  ApiPublicHotmartWebhookRoute: ApiPublicHotmartWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
