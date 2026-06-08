@@ -1,0 +1,2 @@
+ALTER TABLE public.companies ADD COLUMN IF NOT EXISTS hotmart_hottok TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS companies_hotmart_hottok_key ON public.companies(hotmart_hottok) WHERE hotmart_hottok IS NOT NULL;
