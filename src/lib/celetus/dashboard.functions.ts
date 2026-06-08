@@ -214,6 +214,8 @@ export const getDashboard = createServerFn({ method: "POST" })
     // Overrides per (product_id, date) — only set when user manually edited.
     type Override = { sales: number | null; revenue: number | null };
     const overrideByPD = new Map<string, Override>();
+    // Manual invest per (product_id, date) — used for by-product breakdown in Total view.
+    const investManualByPD = new Map<string, number>();
     const pdKey = (pid: string, date: string) => `${pid}::${date}`;
 
     for (const r of dmiRes.data ?? []) {
@@ -223,6 +225,10 @@ export const getDashboard = createServerFn({ method: "POST" })
       manual.checkouts = nullableSum(manual.checkouts, r.checkouts);
       manual.impressions = nullableSum(manual.impressions, r.impressions);
       manual.notes = data.product_id ? (r.notes ?? null) : null;
+      if (r.product_id && r.invest_manual != null) {
+        const key = pdKey(r.product_id, r.date);
+        investManualByPD.set(key, (investManualByPD.get(key) ?? 0) + Number(r.invest_manual));
+      }
       if (r.product_id && (r.sales_override != null || r.revenue_override != null)) {
         overrideByPD.set(pdKey(r.product_id, r.date), {
           sales: r.sales_override != null ? Number(r.sales_override) : null,
@@ -230,6 +236,7 @@ export const getDashboard = createServerFn({ method: "POST" })
         });
       }
     }
+
 
     // Aggregate sales per day in BRT (and per product+day for total override math)
     type Agg = { sales: number; revenue: number; obQty: number; obRevenue: number };
