@@ -110,7 +110,7 @@ export function parseHotmartPayload(rawBody: unknown): HotmartParseResult {
     purchase.approved_date ?? purchase.order_date ?? purchase.date_next_charge,
   );
 
-  const grossValue = num(price.value ?? purchase.full_price?.["value"]);
+  const grossValue = num(price.value ?? (record(purchase.full_price)?.value));
   // Producer commission: prefer source === PRODUCER
   let producerCommission = 0;
   for (const c of commissions) {
