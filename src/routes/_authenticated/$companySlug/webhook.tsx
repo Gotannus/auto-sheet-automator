@@ -331,6 +331,20 @@ function HotmartSection({ companySlug, origin }: { companySlug: string; origin: 
               >
                 <RefreshCw className="h-4 w-4 mr-1" /> Rotacionar
               </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  if (
+                    confirm(
+                      "Remover o Hottok desta empresa? Você poderá colar em outra empresa depois.",
+                    )
+                  )
+                    clearMut.mutate();
+                }}
+                disabled={clearMut.isPending || !data.hotmart_hottok}
+              >
+                <Trash2 className="h-4 w-4 mr-1" /> Remover
+              </Button>
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
