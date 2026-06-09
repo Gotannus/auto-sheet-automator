@@ -351,6 +351,11 @@ function HotmartSection({ companySlug, origin }: { companySlug: string; origin: 
             Cada empresa precisa de um Hottok único. Se você usa o mesmo Hottok em várias
             empresas, o webhook não saberá para qual direcionar a venda.
           </p>
+          {!data.hotmart_hottok && (
+            <p className="text-xs text-muted-foreground italic">
+              Nenhum Hottok configurado nesta empresa.
+            </p>
+          )}
         </CardContent>
       </Card>
     </>
