@@ -226,7 +226,11 @@ export const updateHotmartHottok = createServerFn({ method: "POST" })
     z
       .object({
         company_slug: z.string().optional(),
-        hotmart_hottok: z.string().trim().min(6).max(128),
+        hotmart_hottok: z
+          .string()
+          .trim()
+          .max(128)
+          .refine((v) => v === "" || v.length >= 6, "Hottok deve ter ao menos 6 caracteres"),
       })
       .parse(input),
   )
@@ -235,10 +239,23 @@ export const updateHotmartHottok = createServerFn({ method: "POST" })
     const companyId = await resolveCompanyId(context.supabase, data.company_slug);
     const hottok = data.hotmart_hottok.trim();
     const { error } = await fromUntyped(supabase, "companies")
-      .update({ hotmart_hottok: hottok })
+      .update({ hotmart_hottok: hottok === "" ? null : hottok })
       .eq("id", companyId);
     if (error) throw new Error(error.message);
     return { hotmart_hottok: hottok };
+  });
+
+export const clearHotmartHottok = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => CompanyInput.parse(input ?? {}))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const companyId = await resolveCompanyId(context.supabase, data.company_slug);
+    const { error } = await fromUntyped(supabase, "companies")
+      .update({ hotmart_hottok: null })
+      .eq("id", companyId);
+    if (error) throw new Error(error.message);
+    return { hotmart_hottok: "" };
   });
 
 export const rotateHotmartHottok = createServerFn({ method: "POST" })
