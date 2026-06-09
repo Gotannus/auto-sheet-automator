@@ -219,6 +219,7 @@ function HotmartSection({ companySlug, origin }: { companySlug: string; origin: 
   const qc = useQueryClient();
   const save = useServerFn(updateHotmartHottok);
   const rot = useServerFn(rotateHotmartHottok);
+  const clear = useServerFn(clearHotmartHottok);
   const [hottok, setHottok] = useState(data.hotmart_hottok);
 
   useEffect(() => {
@@ -240,6 +241,15 @@ function HotmartSection({ companySlug, origin }: { companySlug: string; origin: 
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["hotmart-webhook", companySlug] });
       toast.success("Novo Hottok gerado");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const clearMut = useMutation({
+    mutationFn: () => clear({ data: { company_slug: companySlug } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["hotmart-webhook", companySlug] });
+      toast.success("Hottok removido");
     },
     onError: (e: Error) => toast.error(e.message),
   });
