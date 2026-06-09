@@ -9,13 +9,14 @@ import {
   getHotmartConfig,
   rotateHotmartHottok,
   updateHotmartHottok,
+  clearHotmartHottok,
 } from "@/lib/celetus/settings.functions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Copy, RefreshCw, Save } from "lucide-react";
+import { Copy, RefreshCw, Save, Trash2 } from "lucide-react";
 import { isValidSlug } from "@/lib/celetus/workspaces";
 
 
@@ -218,6 +219,7 @@ function HotmartSection({ companySlug, origin }: { companySlug: string; origin: 
   const qc = useQueryClient();
   const save = useServerFn(updateHotmartHottok);
   const rot = useServerFn(rotateHotmartHottok);
+  const clear = useServerFn(clearHotmartHottok);
   const [hottok, setHottok] = useState(data.hotmart_hottok);
 
   useEffect(() => {
@@ -239,6 +241,15 @@ function HotmartSection({ companySlug, origin }: { companySlug: string; origin: 
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["hotmart-webhook", companySlug] });
       toast.success("Novo Hottok gerado");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const clearMut = useMutation({
+    mutationFn: () => clear({ data: { company_slug: companySlug } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["hotmart-webhook", companySlug] });
+      toast.success("Hottok removido");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -320,12 +331,31 @@ function HotmartSection({ companySlug, origin }: { companySlug: string; origin: 
               >
                 <RefreshCw className="h-4 w-4 mr-1" /> Rotacionar
               </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  if (
+                    confirm(
+                      "Remover o Hottok desta empresa? Você poderá colar em outra empresa depois.",
+                    )
+                  )
+                    clearMut.mutate();
+                }}
+                disabled={clearMut.isPending || !data.hotmart_hottok}
+              >
+                <Trash2 className="h-4 w-4 mr-1" /> Remover
+              </Button>
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
             Cada empresa precisa de um Hottok único. Se você usa o mesmo Hottok em várias
             empresas, o webhook não saberá para qual direcionar a venda.
           </p>
+          {!data.hotmart_hottok && (
+            <p className="text-xs text-muted-foreground italic">
+              Nenhum Hottok configurado nesta empresa.
+            </p>
+          )}
         </CardContent>
       </Card>
     </>
