@@ -72,7 +72,12 @@ function toISODate(v: unknown): string {
 
 export type HotmartParseResult =
   | { kind: "ignored"; reason: string; transactionCode: string | null }
-  | { kind: "ok"; candidates: SaleCandidate[]; transactionCode: string };
+  | {
+      kind: "ok";
+      candidates: SaleCandidate[];
+      transactionCode: string;
+      parentTransactionCode: string | null;
+    };
 
 export function parseHotmartPayload(rawBody: unknown): HotmartParseResult {
   const payload = record(rawBody);
@@ -129,11 +134,15 @@ export function parseHotmartPayload(rawBody: unknown): HotmartParseResult {
     producerCommission = totalCommission || grossValue;
   }
 
+  const orderBump = record(purchase.order_bump) ?? {};
+  const parentTransactionCode = txt(orderBump.parent_purchase_transaction) || null;
+  const isOrderBump = Boolean(parentTransactionCode);
+  const kindLabel: "Principal" | "Orderbump" = isOrderBump ? "Orderbump" : "Principal";
+
   const productId = txt(product.id, product.ucode, product.code);
   const storedSrc = productId ? `hotmart-${productId}` : `hotmart-${transactionCode}`;
   const productName = txt(product.name);
   const offerName = txt(offer.code, offer.key);
-  const kindLabel = "Principal";
   const lineItemCode = [kindLabel, productName || storedSrc, offerName]
     .filter(Boolean)
     .join(":")
@@ -178,5 +187,5 @@ export function parseHotmartPayload(rawBody: unknown): HotmartParseResult {
     },
   };
 
-  return { kind: "ok", candidates: [candidate], transactionCode };
+  return { kind: "ok", candidates: [candidate], transactionCode, parentTransactionCode };
 }

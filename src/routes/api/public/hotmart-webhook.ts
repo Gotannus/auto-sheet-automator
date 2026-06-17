@@ -61,6 +61,26 @@ export const Route = createFileRoute("/api/public/hotmart-webhook")({
           return json({ ok: true, ignored: true, reason: parsed.reason });
         }
 
+        // For Orderbumps, resolve the principal's src from the parent
+        // transaction so the bump gets grouped under the principal product.
+        if (parsed.parentTransactionCode) {
+          const { data: parentRow } = await supabaseAdmin
+            .from("celetus_sales")
+            .select("src")
+            .eq("user_id", userId)
+            .eq("transaction_code", parsed.parentTransactionCode)
+            .neq("kind", "Orderbump")
+            .maybeSingle();
+
+          if (parentRow?.src) {
+            for (const c of parsed.candidates) {
+              c.storedSrc = parentRow.src;
+              c.row.src = parentRow.src;
+              c.productCandidates = [parentRow.src, ...c.productCandidates];
+            }
+          }
+        }
+
         const result = await persistSaleCandidates(supabaseAdmin, userId, parsed.candidates);
 
         if (result.status === "error") {
