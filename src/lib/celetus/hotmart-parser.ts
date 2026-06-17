@@ -72,7 +72,12 @@ function toISODate(v: unknown): string {
 
 export type HotmartParseResult =
   | { kind: "ignored"; reason: string; transactionCode: string | null }
-  | { kind: "ok"; candidates: SaleCandidate[]; transactionCode: string };
+  | {
+      kind: "ok";
+      candidates: SaleCandidate[];
+      transactionCode: string;
+      parentTransactionCode: string | null;
+    };
 
 export function parseHotmartPayload(rawBody: unknown): HotmartParseResult {
   const payload = record(rawBody);
