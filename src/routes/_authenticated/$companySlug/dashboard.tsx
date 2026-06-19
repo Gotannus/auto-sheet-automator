@@ -91,6 +91,48 @@ function yesterdayBRT(): { year: number; month: number; day: string } {
 }
 
 type DayFilter = "all" | "today" | "yesterday";
+type Range = { from: string; to: string };
+
+function monthsBetween(from: string, to: string): { year: number; month: number }[] {
+  const [fy, fm] = from.split("-").map(Number);
+  const [ty, tm] = to.split("-").map(Number);
+  const out: { year: number; month: number }[] = [];
+  let y = fy;
+  let m = fm;
+  while (y < ty || (y === ty && m <= tm)) {
+    out.push({ year: y, month: m });
+    m += 1;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+  }
+  return out;
+}
+
+function brtFromDate(d: Date): string {
+  return d.toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+}
+
+function parseLocal(d: string): Date {
+  const [y, m, day] = d.split("-").map(Number);
+  return new Date(y, m - 1, day);
+}
+
+function shiftDays(d: string, delta: number): string {
+  const base = parseLocal(d);
+  base.setDate(base.getDate() + delta);
+  return brtFromDate(base);
+}
+
+function isFullMonth(range: Range): boolean {
+  const [fy, fm, fd] = range.from.split("-").map(Number);
+  const [ty, tm, td] = range.to.split("-").map(Number);
+  if (fy !== ty || fm !== tm) return false;
+  if (fd !== 1) return false;
+  const lastDay = new Date(ty, tm, 0).getDate();
+  return td === lastDay;
+}
 
 function DashboardPage() {
   const { companySlug } = Route.useParams();
@@ -101,6 +143,9 @@ function DashboardPage() {
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [dayFilter, setDayFilter] = useState<DayFilter>("all");
+  const [range, setRange] = useState<Range | null>(null);
+  const [rangeOpen, setRangeOpen] = useState(false);
+  const [pickerRange, setPickerRange] = useState<DateRange | undefined>(undefined);
   const [chartOpen, setChartOpen] = useState(false);
   const [chartMetrics, setChartMetrics] = useState<MetricKey[] | undefined>(undefined);
   const openChart = (metrics?: MetricKey[]) => {
@@ -111,12 +156,15 @@ function DashboardPage() {
   const selectedProductId = isTotal ? undefined : productId;
 
   const targetDay = useMemo(() => {
+    if (range) return null;
     if (dayFilter === "today") return todayBRT().day;
     if (dayFilter === "yesterday") return yesterdayBRT().day;
     return null;
-  }, [dayFilter]);
+  }, [dayFilter, range]);
 
   const applyQuickFilter = (f: DayFilter) => {
+    setRange(null);
+    setPickerRange(undefined);
     if (f === "all") {
       setDayFilter("all");
       return;
@@ -127,38 +175,85 @@ function DashboardPage() {
     setDayFilter(f);
   };
 
-  // If user changes month/year manually, drop the day filter.
   const setMonthManual = (m: number) => {
+    setRange(null);
+    setPickerRange(undefined);
     setMonth(m);
     setDayFilter("all");
   };
   const setYearManual = (y: number) => {
+    setRange(null);
+    setPickerRange(undefined);
     setYear(y);
     setDayFilter("all");
+  };
+
+  const applyRange = (from: string, to: string) => {
+    setDayFilter("all");
+    setRange({ from, to });
+    setPickerRange({ from: parseLocal(from), to: parseLocal(to) });
+    // align month/year selectors to the range start
+    const [ry, rm] = from.split("-").map(Number);
+    setYear(ry);
+    setMonth(rm);
+    setRangeOpen(false);
+  };
+
+  const applyPreset = (days: number) => {
+    const today = todayBRT().day;
+    const from = shiftDays(today, -(days - 1));
+    applyRange(from, today);
   };
 
   const dayLabel = targetDay ? targetDay.split("-").reverse().slice(0, 2).join("/") : null;
   const selectedLabel = isTotal
     ? "Total de todos os produtos"
     : products.find((product: Product) => product.id === productId)?.name || "Produto";
-  const periodLabel = targetDay
+  const rangeLabel = range
+    ? `${range.from.split("-").reverse().slice(0, 2).join("/")} → ${range.to
+        .split("-")
+        .reverse()
+        .slice(0, 2)
+        .join("/")}`
+    : null;
+  const periodLabel = rangeLabel
+    ? rangeLabel
+    : targetDay
     ? `${dayLabel} (${dayFilter === "today" ? "Hoje" : "Ontem"})`
     : `${MONTHS[month - 1]} ${year}`;
 
+  const months = useMemo(
+    () => (range ? monthsBetween(range.from, range.to) : [{ year, month }]),
+    [range, year, month],
+  );
+
   const fetchDash = useServerFn(getDashboard);
-  const dashQuery = useQuery({
-    queryKey: ["dash", company.slug, productId, year, month],
-    queryFn: () =>
-      fetchDash({
-        data: {
-          company_slug: company.slug,
-          ...(selectedProductId ? { product_id: selectedProductId } : {}),
-          year,
-          month,
-        },
-      }),
-    enabled: isTotal || !!selectedProductId,
+  const queries = useQueries({
+    queries: months.map((mo) => ({
+      queryKey: ["dash", company.slug, productId, mo.year, mo.month],
+      queryFn: () =>
+        fetchDash({
+          data: {
+            company_slug: company.slug,
+            ...(selectedProductId ? { product_id: selectedProductId } : {}),
+            year: mo.year,
+            month: mo.month,
+          },
+        }),
+      enabled: isTotal || !!selectedProductId,
+    })),
   });
+
+  const isLoading = queries.some((q) => q.isLoading);
+  const primary = queries[0]?.data ?? null;
+
+  const mergedDays = useMemo<DayData[]>(() => {
+    const all: DayData[] = [];
+    for (const q of queries) if (q.data) all.push(...q.data.days);
+    if (range) return all.filter((d) => d.date >= range.from && d.date <= range.to);
+    return all;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queries.map((q) => q.dataUpdatedAt).join(","), range]);
 
   if (!products.length) {
     return (
@@ -191,25 +286,83 @@ function DashboardPage() {
           <div className="flex gap-1">
             <Button
               size="sm"
-              variant={dayFilter === "today" ? "default" : "outline"}
+              variant={!range && dayFilter === "today" ? "default" : "outline"}
               onClick={() => applyQuickFilter("today")}
             >
               Hoje
             </Button>
             <Button
               size="sm"
-              variant={dayFilter === "yesterday" ? "default" : "outline"}
+              variant={!range && dayFilter === "yesterday" ? "default" : "outline"}
               onClick={() => applyQuickFilter("yesterday")}
             >
               Ontem
             </Button>
             <Button
               size="sm"
-              variant={dayFilter === "all" ? "default" : "outline"}
+              variant={!range && dayFilter === "all" ? "default" : "outline"}
               onClick={() => applyQuickFilter("all")}
             >
               Mês inteiro
             </Button>
+            <Popover open={rangeOpen} onOpenChange={setRangeOpen}>
+              <PopoverTrigger asChild>
+                <Button size="sm" variant={range ? "default" : "outline"}>
+                  <CalendarIcon className="h-4 w-4 mr-1" />
+                  {range ? rangeLabel : "Personalizado"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-3 pointer-events-auto" align="end">
+                <div className="flex flex-wrap gap-1 mb-2">
+                  <Button size="sm" variant="ghost" onClick={() => applyPreset(7)}>
+                    Últimos 7d
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => applyPreset(14)}>
+                    Últimos 14d
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => applyPreset(30)}>
+                    Últimos 30d
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      const today = todayBRT();
+                      const from = `${today.year}-${String(today.month).padStart(2, "0")}-01`;
+                      applyRange(from, today.day);
+                    }}
+                  >
+                    Este mês
+                  </Button>
+                  {range && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setRange(null);
+                        setPickerRange(undefined);
+                        setRangeOpen(false);
+                      }}
+                    >
+                      Limpar
+                    </Button>
+                  )}
+                </div>
+                <Calendar
+                  mode="range"
+                  numberOfMonths={2}
+                  selected={pickerRange}
+                  onSelect={(r) => {
+                    setPickerRange(r);
+                    if (r?.from && r?.to) {
+                      applyRange(brtFromDate(r.from), brtFromDate(r.to));
+                    }
+                  }}
+                  initialFocus
+                  className="pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
           </div>
           <Select value={productId} onValueChange={setProductId}>
             <SelectTrigger className="w-56">
@@ -259,7 +412,7 @@ function DashboardPage() {
         </div>
       </header>
 
-      {dashQuery.isLoading || !dashQuery.data ? (
+      {isLoading || !primary ? (
         <Card>
           <CardContent className="p-6 text-sm text-muted-foreground">Carregando...</CardContent>
         </Card>
@@ -268,8 +421,10 @@ function DashboardPage() {
           companySlug={company.slug}
           productId={selectedProductId}
           isTotal={isTotal}
-          data={dashQuery.data}
+          data={primary}
           targetDay={targetDay}
+          rangeDays={range ? mergedDays : null}
+          rangeFullMonth={range ? isFullMonth(range) : false}
           onChartClick={openChart}
         />
       )}
@@ -284,6 +439,7 @@ function DashboardPage() {
     </div>
   );
 }
+
 
 function DashContent({
   companySlug,
