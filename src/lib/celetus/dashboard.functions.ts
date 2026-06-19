@@ -183,9 +183,23 @@ export const getDashboard = createServerFn({ method: "POST" })
       dmiQuery = dmiQuery.eq("product_id", data.product_id);
     }
 
-    const [salesRes, dmiRes] = await Promise.all([salesQuery, dmiQuery]);
+    // Paginate sales (PostgREST caps a single response at 1000 rows). Busy
+    // months can exceed that and silently truncate the dashboard totals.
+    async function fetchAllSales() {
+      const pageSize = 1000;
+      const all: any[] = [];
+      for (let offset = 0; ; offset += pageSize) {
+        const { data: page, error } = await salesQuery.range(offset, offset + pageSize - 1);
+        if (error) throw new Error(error.message);
+        if (!page || page.length === 0) break;
+        all.push(...page);
+        if (page.length < pageSize) break;
+      }
+      return { data: all, error: null as null };
+    }
 
-    if (salesRes.error) throw new Error(salesRes.error.message);
+    const [salesRes, dmiRes] = await Promise.all([fetchAllSales(), dmiQuery]);
+
     if (dmiRes.error) throw new Error(dmiRes.error.message);
 
     type ManualAgg = {
