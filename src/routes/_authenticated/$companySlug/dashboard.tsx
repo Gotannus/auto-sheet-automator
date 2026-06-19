@@ -3,7 +3,6 @@ import {
   queryOptions,
   useMutation,
   useQueries,
-  useQuery,
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query";
