@@ -447,6 +447,8 @@ function DashContent({
   isTotal,
   data,
   targetDay,
+  rangeDays,
+  rangeFullMonth,
   onChartClick,
 }: {
   companySlug: string;
@@ -454,17 +456,84 @@ function DashContent({
   isTotal: boolean;
   data: DashboardData;
   targetDay: string | null;
+  rangeDays: DayData[] | null;
+  rangeFullMonth: boolean;
   onChartClick: (metrics?: MetricKey[]) => void;
 }) {
   const filteredDays = useMemo(
-    () => (targetDay ? data.days.filter((d) => d.date === targetDay) : data.days),
-    [data.days, targetDay],
+    () =>
+      rangeDays
+        ? rangeDays
+        : targetDay
+        ? data.days.filter((d) => d.date === targetDay)
+        : data.days,
+    [data.days, targetDay, rangeDays],
   );
 
   const t = useMemo(() => {
-    if (!targetDay) return data.totals;
-    const d = data.days.find((x) => x.date === targetDay);
     const base = data.totals;
+    // Range mode: aggregate the provided days
+    if (rangeDays) {
+      let sales = 0;
+      let revenue = 0;
+      let revenue_tax = 0;
+      let ob_qty = 0;
+      let ob_revenue = 0;
+      let invest_manual = 0;
+      let invest_final = 0;
+      let clicks = 0;
+      let checkouts = 0;
+      let impressions = 0;
+      for (const d of rangeDays) {
+        sales += d.sales;
+        revenue += d.revenue;
+        revenue_tax += d.revenue_tax;
+        ob_qty += d.ob_qty;
+        ob_revenue += d.ob_revenue;
+        invest_manual += d.invest_manual ?? 0;
+        invest_final += d.invest_final;
+        clicks += d.clicks ?? 0;
+        checkouts += d.checkouts ?? 0;
+        impressions += d.impressions ?? 0;
+      }
+      const profitBeforeExpenses = revenue - revenue_tax - invest_final;
+      const monthlyExpenses = rangeFullMonth ? base.monthly_expenses : 0;
+      const netProfit = profitBeforeExpenses - monthlyExpenses;
+      const positive = Math.max(0, netProfit);
+      const companyCash = positive * base.company_cash_rate;
+      const distributable = Math.max(0, positive - companyCash);
+      const cpm = impressions > 0 ? (invest_final / impressions) * 1000 : 0;
+      return {
+        ...base,
+        sales,
+        revenue,
+        revenue_tax,
+        ob_qty,
+        ob_revenue,
+        invest_manual,
+        invest_final,
+        clicks,
+        checkouts,
+        impressions,
+        profit: netProfit,
+        profit_before_expenses: profitBeforeExpenses,
+        monthly_expenses: monthlyExpenses,
+        net_profit: netProfit,
+        company_cash: companyCash,
+        distributable_profit: distributable,
+        partner_1_amount: distributable * base.partner_1_rate,
+        partner_2_amount: distributable * base.partner_2_rate,
+        roi: invest_final > 0 ? netProfit / invest_final : 0,
+        cpa: sales > 0 ? invest_final / sales : 0,
+        ticket: sales > 0 ? revenue / sales : 0,
+        ob_pct: sales > 0 ? ob_qty / sales : 0,
+        cpm,
+        conv_click: clicks > 0 ? sales / clicks : 0,
+        conv_checkout: checkouts > 0 ? sales / checkouts : 0,
+      };
+    }
+    if (!targetDay) return base;
+    const d = data.days.find((x) => x.date === targetDay);
     if (!d) {
       return {
         ...base,
@@ -531,7 +600,9 @@ function DashContent({
       conv_click: convClick,
       conv_checkout: convCheckout,
     };
-  }, [data, targetDay]);
+  }, [data, targetDay, rangeDays, rangeFullMonth]);
+
+  const isPartialRange = !!rangeDays && !rangeFullMonth;
 
   return (
     <div className="space-y-4">
@@ -565,13 +636,13 @@ function DashContent({
             to={companyPath(companySlug, "expenses")}
             className="block hover:opacity-80 transition-opacity"
             title={
-              targetDay
+              targetDay || isPartialRange
                 ? "Despesas só aparecem na visão Mês inteiro"
                 : "Ver detalhes das despesas do mês"
             }
           >
             <Stat
-              label={targetDay ? "Despesas (mês)" : "Despesas (ver)"}
+              label={targetDay || isPartialRange ? "Despesas (mês)" : "Despesas (ver)"}
               value={fmtBRL(t.monthly_expenses)}
             />
           </Link>
@@ -595,9 +666,11 @@ function DashContent({
         </div>
       )}
 
-      {targetDay && (
+      {(targetDay || isPartialRange) && (
         <p className="text-xs text-muted-foreground -mt-2">
-          Visão de dia único: despesas mensais não são distribuídas por dia.
+          {targetDay
+            ? "Visão de dia único: despesas mensais não são distribuídas por dia."
+            : "Período parcial: despesas mensais não são distribuídas no range."}
         </p>
       )}
 
@@ -613,6 +686,7 @@ function DashContent({
       </Card>
     </div>
   );
+
 }
 
 function DailyTable({
