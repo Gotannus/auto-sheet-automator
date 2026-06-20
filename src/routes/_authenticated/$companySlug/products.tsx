@@ -62,8 +62,8 @@ function ProductsPage() {
   const del = useServerFn(deleteProduct);
 
   const createMut = useMutation({
-    mutationFn: (v: { name: string; src: string }) =>
-      create({ data: { ...v, company_slug: company.slug } }),
+    mutationFn: (v: { name: string; src: string; display_name: string | null }) =>
+      create({ data: { name: v.name, src: v.src, company_slug: company.slug } }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["products", company.slug] });
       toast.success("Produto cadastrado");
@@ -71,7 +71,7 @@ function ProductsPage() {
     onError: (e: Error) => toast.error(e.message),
   });
   const updateMut = useMutation({
-    mutationFn: (v: { id: string; name: string; src: string }) =>
+    mutationFn: (v: { id: string; name: string; src: string; display_name: string | null }) =>
       update({ data: { ...v, company_slug: company.slug } }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["products", company.slug] });
