@@ -6,6 +6,7 @@ import { resolveCompanyId } from "@/lib/celetus/companies-resolve";
 export type Product = {
   id: string;
   name: string;
+  display_name: string | null;
   src: string;
   created_at: string;
 };
