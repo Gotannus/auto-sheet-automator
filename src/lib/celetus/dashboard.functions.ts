@@ -566,6 +566,266 @@ export const getDashboard = createServerFn({ method: "POST" })
     };
   });
 
+// ---------------------------------------------------------------------------
+// Daily summary — visão "Resumo do dia" por empresa (ex: Hoje vs Ontem).
+// Agrega vendas + inputs manuais num intervalo arbitrário [from, to], com a
+// mesma lógica de Principal/Orderbump/overrides usada em getDashboard.
+// ---------------------------------------------------------------------------
+
+export type DailySummaryProductRow = {
+  product_id: string;
+  product_name: string;
+  sales: number;
+  revenue: number;
+  ob_qty: number;
+  ob_revenue: number;
+  invest_manual: number;
+  invest_final: number;
+  profit: number;
+  roi: number;
+  cpa: number;
+  ticket: number;
+};
+
+export type DailySummaryTotals = {
+  sales: number;
+  revenue: number;
+  revenue_tax: number;
+  ob_qty: number;
+  ob_revenue: number;
+  ob_pct: number;
+  invest_manual: number;
+  invest_final: number;
+  profit: number;
+  roi: number;
+  cpa: number;
+  ticket: number;
+};
+
+export type DailySummaryResult = {
+  from: string;
+  to: string;
+  totals: DailySummaryTotals;
+  by_product: DailySummaryProductRow[];
+};
+
+export const getDailySummary = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        company_slug: z.string().optional(),
+        from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }): Promise<DailySummaryResult> => {
+    const { supabase } = context;
+    const userId = await resolveCompanyId(context.supabase, data.company_slug);
+
+    // Use os tax rates do mês de `to` (referência mais recente do período).
+    const [refY, refM] = data.to.split("-").map(Number);
+    const { data: settings } = await fromUntyped(supabase, "monthly_tax_settings")
+      .select("investment_tax_rate, revenue_tax_rate")
+      .eq("user_id", userId)
+      .eq("year", refY)
+      .eq("month", refM)
+      .maybeSingle();
+    const investmentTaxRate = Number(settings?.investment_tax_rate ?? 0.1215);
+    const revenueTaxRate = Number(settings?.revenue_tax_rate ?? 0);
+
+    const fromIso = `${data.from}T00:00:00-03:00`;
+    const toIso = `${data.to}T23:59:59-03:00`;
+
+    const salesQuery = supabase
+      .from("celetus_sales")
+      .select(
+        "kind, status, recipient, commission_value, sale_date, quantity, src, src_tag, utm_source, campaign_id, adset_id, ad_id, raw, product_id",
+      )
+      .eq("user_id", userId)
+      .gte("sale_date", fromIso)
+      .lte("sale_date", toIso)
+      .in("status", PAID);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const allSales: any[] = [];
+    const pageSize = 1000;
+    for (let offset = 0; ; offset += pageSize) {
+      const { data: page, error } = await salesQuery.range(offset, offset + pageSize - 1);
+      if (error) throw new Error(error.message);
+      if (!page || page.length === 0) break;
+      allSales.push(...page);
+      if (page.length < pageSize) break;
+    }
+
+    const { data: dmiRows, error: dmiErr } = await fromUntyped(supabase, "daily_manual_inputs")
+      .select("date, product_id, invest_manual, sales_override, revenue_override")
+      .eq("user_id", userId)
+      .gte("date", data.from)
+      .lte("date", data.to);
+    if (dmiErr) throw new Error(dmiErr.message);
+
+    type Agg = { sales: number; revenue: number; obQty: number; obRevenue: number };
+    const aggByPD = new Map<string, Agg>();
+    const pdKey = (pid: string, date: string) => `${pid}::${date}`;
+    const getPD = (k: string): Agg => {
+      let a = aggByPD.get(k);
+      if (!a) {
+        a = { sales: 0, revenue: 0, obQty: 0, obRevenue: 0 };
+        aggByPD.set(k, a);
+      }
+      return a;
+    };
+
+    for (const s of allSales) {
+      if (isIgnoredIndicationSale(s)) continue;
+      const rec = String(s.recipient ?? "").toLowerCase();
+      if (rec !== "produtor" && rec !== "producer") continue;
+      if (!s.product_id) continue;
+      const kind = String(s.kind ?? "").toLowerCase();
+      const dt = new Date(s.sale_date);
+      const brt = new Date(dt.getTime() - 3 * 60 * 60 * 1000);
+      const key = brt.toISOString().slice(0, 10);
+      const a = getPD(pdKey(String(s.product_id), key));
+      const itemCommission = Number(s.commission_value ?? 0);
+      const qty = Number(s.quantity ?? 1);
+      if (kind === "principal" || kind === "main") {
+        if (qty === 1) {
+          a.sales += 1;
+          a.revenue += itemCommission;
+        }
+      } else if (kind === "orderbump" || kind === "order_bump" || kind === "bump") {
+        a.obQty += 1;
+        a.obRevenue += itemCommission;
+        a.revenue += itemCommission;
+      }
+    }
+
+    // Overrides + invest_manual por (produto, dia).
+    const investByPD = new Map<string, number>();
+    const overrideByPD = new Map<string, { sales: number | null; revenue: number | null }>();
+    for (const r of dmiRows ?? []) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const row = r as any;
+      if (!row.product_id) continue;
+      const k = pdKey(row.product_id, row.date);
+      if (row.invest_manual != null) {
+        investByPD.set(k, (investByPD.get(k) ?? 0) + Number(row.invest_manual));
+      }
+      if (row.sales_override != null || row.revenue_override != null) {
+        overrideByPD.set(k, {
+          sales: row.sales_override != null ? Number(row.sales_override) : null,
+          revenue: row.revenue_override != null ? Number(row.revenue_override) : null,
+        });
+      }
+    }
+
+    // Aplica overrides somando deltas por (produto, dia).
+    for (const [k, ov] of overrideByPD) {
+      const a = getPD(k);
+      if (ov.sales != null) a.sales = ov.sales;
+      if (ov.revenue != null) a.revenue = ov.revenue;
+    }
+
+    // Agrega por produto (somando todos os dias do período).
+    type PAgg = Agg & { invest: number };
+    const byProductMap = new Map<string, PAgg>();
+    const getP = (pid: string): PAgg => {
+      let a = byProductMap.get(pid);
+      if (!a) {
+        a = { sales: 0, revenue: 0, obQty: 0, obRevenue: 0, invest: 0 };
+        byProductMap.set(pid, a);
+      }
+      return a;
+    };
+    for (const [k, a] of aggByPD) {
+      const pid = k.split("::")[0];
+      const p = getP(pid);
+      p.sales += a.sales;
+      p.revenue += a.revenue;
+      p.obQty += a.obQty;
+      p.obRevenue += a.obRevenue;
+    }
+    for (const [k, v] of investByPD) {
+      const pid = k.split("::")[0];
+      getP(pid).invest += v;
+    }
+
+    // Resolve nomes de produtos.
+    const pids = Array.from(byProductMap.keys());
+    const nameById = new Map<string, string>();
+    if (pids.length > 0) {
+      const { data: prods, error: prodErr } = await supabase
+        .from("products")
+        .select("id, name")
+        .eq("user_id", userId)
+        .in("id", pids);
+      if (prodErr) throw new Error(prodErr.message);
+      for (const p of prods ?? []) nameById.set(String(p.id), String(p.name ?? ""));
+    }
+
+    const byProduct: DailySummaryProductRow[] = [];
+    for (const [pid, a] of byProductMap) {
+      if (a.sales === 0 && a.revenue === 0 && a.invest === 0 && a.obQty === 0) continue;
+      const investFinal = a.invest * (1 + investmentTaxRate);
+      const revenueTax = a.revenue * revenueTaxRate;
+      const profit = a.revenue - revenueTax - investFinal;
+      byProduct.push({
+        product_id: pid,
+        product_name: nameById.get(pid) ?? "(produto removido)",
+        sales: a.sales,
+        revenue: a.revenue,
+        ob_qty: a.obQty,
+        ob_revenue: a.obRevenue,
+        invest_manual: a.invest,
+        invest_final: investFinal,
+        profit,
+        roi: investFinal > 0 ? profit / investFinal : 0,
+        cpa: a.sales > 0 ? investFinal / a.sales : 0,
+        ticket: a.sales > 0 ? a.revenue / a.sales : 0,
+      });
+    }
+    byProduct.sort((x, y) => y.revenue - x.revenue || y.sales - x.sales);
+
+    // Totais.
+    const t = byProduct.reduce(
+      (acc, r) => {
+        acc.sales += r.sales;
+        acc.revenue += r.revenue;
+        acc.ob_qty += r.ob_qty;
+        acc.ob_revenue += r.ob_revenue;
+        acc.invest_manual += r.invest_manual;
+        acc.invest_final += r.invest_final;
+        return acc;
+      },
+      { sales: 0, revenue: 0, ob_qty: 0, ob_revenue: 0, invest_manual: 0, invest_final: 0 },
+    );
+    const revenueTax = t.revenue * revenueTaxRate;
+    const profit = t.revenue - revenueTax - t.invest_final;
+
+    return {
+      from: data.from,
+      to: data.to,
+      totals: {
+        sales: t.sales,
+        revenue: t.revenue,
+        revenue_tax: revenueTax,
+        ob_qty: t.ob_qty,
+        ob_revenue: t.ob_revenue,
+        ob_pct: t.sales > 0 ? t.ob_qty / t.sales : 0,
+        invest_manual: t.invest_manual,
+        invest_final: t.invest_final,
+        profit,
+        roi: t.invest_final > 0 ? profit / t.invest_final : 0,
+        cpa: t.sales > 0 ? t.invest_final / t.sales : 0,
+        ticket: t.sales > 0 ? t.revenue / t.sales : 0,
+      },
+      by_product: byProduct,
+    };
+  });
+
+
 function nullableSum(current: number | null, value: unknown) {
   if (value === null || value === undefined) return current;
   return (current ?? 0) + Number(value ?? 0);
