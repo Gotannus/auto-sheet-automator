@@ -313,7 +313,7 @@ function SummaryCards({
       <MetricCard
         label="Lucro"
         value={fmtBRL(t.profit)}
-        accent="profit"
+        accent={t.profit >= 0 ? "profit" : "loss"}
         delta={<Delta cur={t.profit} prev={p.profit} />}
       />
       <MetricCard
