@@ -413,5 +413,5 @@ function ProductsTable({
   );
 }
 
-// Silence unused
-void useEffect;
+
+
