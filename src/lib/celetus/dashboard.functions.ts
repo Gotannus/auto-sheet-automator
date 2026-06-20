@@ -357,11 +357,15 @@ export const getDashboard = createServerFn({ method: "POST" })
       if (pids.length > 0) {
         const { data: prods, error: prodErr } = await supabase
           .from("products")
-          .select("id, name")
+          .select("id, name, display_name")
           .eq("user_id", userId)
           .in("id", pids);
         if (prodErr) throw new Error(prodErr.message);
-        for (const p of prods ?? []) productNameById.set(String(p.id), String(p.name ?? ""));
+        for (const p of prods ?? [])
+          productNameById.set(
+            String(p.id),
+            String((p as { display_name?: string | null }).display_name || p.name || ""),
+          );
       }
     }
 
@@ -786,11 +790,15 @@ export const getDailySummary = createServerFn({ method: "POST" })
     if (pids.length > 0) {
       const { data: prods, error: prodErr } = await supabase
         .from("products")
-        .select("id, name")
+        .select("id, name, display_name")
         .eq("user_id", userId)
         .in("id", pids);
       if (prodErr) throw new Error(prodErr.message);
-      for (const p of prods ?? []) nameById.set(String(p.id), String(p.name ?? ""));
+      for (const p of prods ?? [])
+        nameById.set(
+          String(p.id),
+          String((p as { display_name?: string | null }).display_name || p.name || ""),
+        );
     }
 
     const byProduct: DailySummaryProductRow[] = [];

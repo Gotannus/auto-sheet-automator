@@ -62,8 +62,8 @@ function ProductsPage() {
   const del = useServerFn(deleteProduct);
 
   const createMut = useMutation({
-    mutationFn: (v: { name: string; src: string }) =>
-      create({ data: { ...v, company_slug: company.slug } }),
+    mutationFn: (v: { name: string; src: string; display_name: string | null }) =>
+      create({ data: { name: v.name, src: v.src, company_slug: company.slug } }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["products", company.slug] });
       toast.success("Produto cadastrado");
@@ -71,7 +71,7 @@ function ProductsPage() {
     onError: (e: Error) => toast.error(e.message),
   });
   const updateMut = useMutation({
-    mutationFn: (v: { id: string; name: string; src: string }) =>
+    mutationFn: (v: { id: string; name: string; src: string; display_name: string | null }) =>
       update({ data: { ...v, company_slug: company.slug } }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["products", company.slug] });
@@ -114,22 +114,26 @@ function ProductsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Nome</TableHead>
+                <TableHead>Nome visível</TableHead>
+                <TableHead>Nome interno (Celetus)</TableHead>
                 <TableHead>SRC</TableHead>
-                <TableHead className="w-32 text-right">AÃ§Ãµes</TableHead>
+                <TableHead className="w-32 text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {products.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
                     Nenhum produto. Crie o primeiro acima.
                   </TableCell>
                 </TableRow>
               )}
               {products.map((p: Product) => (
                 <TableRow key={p.id}>
-                  <TableCell className="font-medium">{p.name}</TableCell>
+                  <TableCell className="font-medium">
+                    {p.display_name || <span className="text-muted-foreground">{p.name}</span>}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-sm">{p.name}</TableCell>
                   <TableCell className="font-mono text-xs">{p.src}</TableCell>
                   <TableCell className="text-right space-x-1">
                     <ProductDialog
@@ -139,7 +143,7 @@ function ProductsPage() {
                         </Button>
                       }
                       title="Editar produto"
-                      initial={{ name: p.name, src: p.src }}
+                      initial={{ name: p.name, src: p.src, display_name: p.display_name ?? "" }}
                       onSubmit={(v) => updateMut.mutateAsync({ id: p.id, ...v })}
                     />
                     <Button
@@ -172,12 +176,13 @@ function ProductDialog({
 }: {
   trigger: React.ReactNode;
   title: string;
-  initial?: { name: string; src: string };
-  onSubmit: (v: { name: string; src: string }) => Promise<unknown>;
+  initial?: { name: string; src: string; display_name?: string };
+  onSubmit: (v: { name: string; src: string; display_name: string | null }) => Promise<unknown>;
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(initial?.name ?? "");
   const [src, setSrc] = useState(initial?.src ?? "");
+  const [displayName, setDisplayName] = useState(initial?.display_name ?? "");
 
   return (
     <Dialog
@@ -187,6 +192,7 @@ function ProductDialog({
         if (o) {
           setName(initial?.name ?? "");
           setSrc(initial?.src ?? "");
+          setDisplayName(initial?.display_name ?? "");
         }
       }}
     >
@@ -197,7 +203,20 @@ function ProductDialog({
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <Label htmlFor="pname">Nome</Label>
+            <Label htmlFor="pdisplay">Nome visível</Label>
+            <Input
+              id="pdisplay"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="Opcional — usado em todas as telas"
+            />
+            <p className="text-xs text-muted-foreground">
+              Se preenchido, é o nome que aparece em todos os relatórios. Útil para esconder o
+              nome original ao compartilhar a tela.
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="pname">Nome interno (Celetus)</Label>
             <Input
               id="pname"
               value={name}
@@ -215,7 +234,7 @@ function ProductDialog({
             />
             <p className="text-xs text-muted-foreground">
               Campo <code>trackingParameters.src</code> que vem em cada venda da Celetus. Se o
-              produto foi criado automaticamente, substitua o identificador temporÃ¡rio pelo SRC
+              produto foi criado automaticamente, substitua o identificador temporário pelo SRC
               correto.
             </p>
           </div>
@@ -227,7 +246,11 @@ function ProductDialog({
           <Button
             onClick={async () => {
               if (!name.trim() || !src.trim()) return;
-              await onSubmit({ name: name.trim(), src: src.trim() });
+              await onSubmit({
+                name: name.trim(),
+                src: src.trim(),
+                display_name: displayName.trim() ? displayName.trim() : null,
+              });
               setOpen(false);
             }}
           >

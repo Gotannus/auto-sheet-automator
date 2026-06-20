@@ -167,7 +167,7 @@ function SalesPage() {
                 <SelectItem value={ALL}>Todos os produtos</SelectItem>
                 {(productsQ.data ?? []).map((p) => (
                   <SelectItem key={p.id} value={p.id}>
-                    {p.name}
+                    {p.display_name || p.name}
                   </SelectItem>
                 ))}
               </SelectContent>

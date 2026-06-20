@@ -6,6 +6,7 @@ import { resolveCompanyId } from "@/lib/celetus/companies-resolve";
 export type Product = {
   id: string;
   name: string;
+  display_name: string | null;
   src: string;
   created_at: string;
 };
@@ -22,7 +23,7 @@ export const listProducts = createServerFn({ method: "GET" })
     const userId = await resolveCompanyId(context.supabase, data.company_slug);
     const { data: rows, error } = await supabase
       .from("products")
-      .select("id, name, src, created_at")
+      .select("id, name, display_name, src, created_at")
       .eq("user_id", userId)
       .not("name", "ilike", "sem-src-%")
       .order("created_at", { ascending: true });
@@ -62,15 +63,21 @@ export const updateProduct = createServerFn({ method: "POST" })
         id: z.string().uuid(),
         name: z.string().min(1).max(120),
         src: z.string().min(1).max(120),
+        display_name: z.string().max(120).nullable().optional(),
       })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
     const userId = await resolveCompanyId(context.supabase, data.company_slug);
+    const patch: Record<string, unknown> = { name: data.name, src: data.src.trim() };
+    if (data.display_name !== undefined) {
+      const v = data.display_name?.trim() ?? "";
+      patch.display_name = v.length > 0 ? v : null;
+    }
     const { error } = await supabase
       .from("products")
-      .update({ name: data.name, src: data.src.trim() })
+      .update(patch)
       .eq("id", data.id)
       .eq("user_id", userId);
     if (error) throw new Error(error.message);
