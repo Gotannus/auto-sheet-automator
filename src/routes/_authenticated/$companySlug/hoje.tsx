@@ -2,6 +2,7 @@ import { createFileRoute, redirect, Link } from "@tanstack/react-router";
 import { queryOptions, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { getDailySummary, type DailySummaryResult } from "@/lib/celetus/dashboard.functions";
+import { listProducts } from "@/lib/celetus/products.functions";
 import { companyPath, isValidSlug } from "@/lib/celetus/workspaces";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
