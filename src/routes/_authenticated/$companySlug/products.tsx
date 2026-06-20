@@ -176,12 +176,13 @@ function ProductDialog({
 }: {
   trigger: React.ReactNode;
   title: string;
-  initial?: { name: string; src: string };
-  onSubmit: (v: { name: string; src: string }) => Promise<unknown>;
+  initial?: { name: string; src: string; display_name?: string };
+  onSubmit: (v: { name: string; src: string; display_name: string | null }) => Promise<unknown>;
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(initial?.name ?? "");
   const [src, setSrc] = useState(initial?.src ?? "");
+  const [displayName, setDisplayName] = useState(initial?.display_name ?? "");
 
   return (
     <Dialog
@@ -191,6 +192,7 @@ function ProductDialog({
         if (o) {
           setName(initial?.name ?? "");
           setSrc(initial?.src ?? "");
+          setDisplayName(initial?.display_name ?? "");
         }
       }}
     >
@@ -201,7 +203,20 @@ function ProductDialog({
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <Label htmlFor="pname">Nome</Label>
+            <Label htmlFor="pdisplay">Nome visível</Label>
+            <Input
+              id="pdisplay"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="Opcional — usado em todas as telas"
+            />
+            <p className="text-xs text-muted-foreground">
+              Se preenchido, é o nome que aparece em todos os relatórios. Útil para esconder o
+              nome original ao compartilhar a tela.
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="pname">Nome interno (Celetus)</Label>
             <Input
               id="pname"
               value={name}
@@ -219,7 +234,7 @@ function ProductDialog({
             />
             <p className="text-xs text-muted-foreground">
               Campo <code>trackingParameters.src</code> que vem em cada venda da Celetus. Se o
-              produto foi criado automaticamente, substitua o identificador temporÃ¡rio pelo SRC
+              produto foi criado automaticamente, substitua o identificador temporário pelo SRC
               correto.
             </p>
           </div>
@@ -231,7 +246,11 @@ function ProductDialog({
           <Button
             onClick={async () => {
               if (!name.trim() || !src.trim()) return;
-              await onSubmit({ name: name.trim(), src: src.trim() });
+              await onSubmit({
+                name: name.trim(),
+                src: src.trim(),
+                display_name: displayName.trim() ? displayName.trim() : null,
+              });
               setOpen(false);
             }}
           >
