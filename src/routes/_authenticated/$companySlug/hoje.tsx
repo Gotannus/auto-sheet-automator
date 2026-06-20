@@ -89,12 +89,26 @@ function rangeForPreset(preset: Preset): { from: string; to: string; prevFrom: s
   };
 }
 
-const summaryQO = (companySlug: string, from: string, to: string) =>
+const summaryQO = (companySlug: string, from: string, to: string, productId: string | null) =>
   queryOptions({
-    queryKey: ["daily-summary", companySlug, from, to],
-    queryFn: () => getDailySummary({ data: { company_slug: companySlug, from, to } }),
+    queryKey: ["daily-summary", companySlug, from, to, productId ?? "all"],
+    queryFn: () =>
+      getDailySummary({
+        data: {
+          company_slug: companySlug,
+          from,
+          to,
+          ...(productId ? { product_id: productId } : {}),
+        },
+      }),
     refetchInterval: 60_000,
     refetchOnWindowFocus: true,
+  });
+
+const productsQO = (companySlug: string) =>
+  queryOptions({
+    queryKey: ["products", companySlug],
+    queryFn: () => listProducts({ data: { company_slug: companySlug } }),
   });
 
 function DailyPage() {
