@@ -713,7 +713,9 @@ export const getDailySummary = createServerFn({ method: "POST" })
       const dt = new Date(s.sale_date);
       const brt = new Date(dt.getTime() - 3 * 60 * 60 * 1000);
       const key = brt.toISOString().slice(0, 10);
-      const a = getPD(pdKey(String(s.product_id), key));
+      // Quando filtrando por produto, atribui orderbumps do checkout ao produto filtrado.
+      const pid = data.product_id ?? String(s.product_id);
+      const a = getPD(pdKey(pid, key));
       const itemCommission = Number(s.commission_value ?? 0);
       const qty = Number(s.quantity ?? 1);
       if (kind === "principal" || kind === "main") {
