@@ -114,22 +114,26 @@ function ProductsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Nome</TableHead>
+                <TableHead>Nome visível</TableHead>
+                <TableHead>Nome interno (Celetus)</TableHead>
                 <TableHead>SRC</TableHead>
-                <TableHead className="w-32 text-right">AÃ§Ãµes</TableHead>
+                <TableHead className="w-32 text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {products.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
                     Nenhum produto. Crie o primeiro acima.
                   </TableCell>
                 </TableRow>
               )}
               {products.map((p: Product) => (
                 <TableRow key={p.id}>
-                  <TableCell className="font-medium">{p.name}</TableCell>
+                  <TableCell className="font-medium">
+                    {p.display_name || <span className="text-muted-foreground">{p.name}</span>}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-sm">{p.name}</TableCell>
                   <TableCell className="font-mono text-xs">{p.src}</TableCell>
                   <TableCell className="text-right space-x-1">
                     <ProductDialog
@@ -139,7 +143,7 @@ function ProductsPage() {
                         </Button>
                       }
                       title="Editar produto"
-                      initial={{ name: p.name, src: p.src }}
+                      initial={{ name: p.name, src: p.src, display_name: p.display_name ?? "" }}
                       onSubmit={(v) => updateMut.mutateAsync({ id: p.id, ...v })}
                     />
                     <Button
