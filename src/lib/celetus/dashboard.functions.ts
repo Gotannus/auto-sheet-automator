@@ -615,6 +615,7 @@ export const getDailySummary = createServerFn({ method: "POST" })
     z
       .object({
         company_slug: z.string().optional(),
+        product_id: z.string().uuid().optional(),
         from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
         to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
       })
@@ -638,7 +639,20 @@ export const getDailySummary = createServerFn({ method: "POST" })
     const fromIso = `${data.from}T00:00:00-03:00`;
     const toIso = `${data.to}T23:59:59-03:00`;
 
-    const salesQuery = supabase
+    // Resolve productSrc para agrupar orderbumps do checkout (estilo Celetus).
+    let productSrc: string | null = null;
+    if (data.product_id) {
+      const { data: prod, error: prodError } = await supabase
+        .from("products")
+        .select("src")
+        .eq("user_id", userId)
+        .eq("id", data.product_id)
+        .maybeSingle();
+      if (prodError) throw new Error(prodError.message);
+      productSrc = prod?.src ?? null;
+    }
+
+    let salesQuery = supabase
       .from("celetus_sales")
       .select(
         "kind, status, recipient, commission_value, sale_date, quantity, src, src_tag, utm_source, campaign_id, adset_id, ad_id, raw, product_id",
@@ -647,6 +661,16 @@ export const getDailySummary = createServerFn({ method: "POST" })
       .gte("sale_date", fromIso)
       .lte("sale_date", toIso)
       .in("status", PAID);
+
+    if (data.product_id) {
+      if (productSrc) {
+        salesQuery = salesQuery.or(
+          `product_id.eq.${data.product_id},and(kind.eq.Orderbump,src.eq.${productSrc})`,
+        );
+      } else {
+        salesQuery = salesQuery.eq("product_id", data.product_id);
+      }
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const allSales: any[] = [];
@@ -659,11 +683,13 @@ export const getDailySummary = createServerFn({ method: "POST" })
       if (page.length < pageSize) break;
     }
 
-    const { data: dmiRows, error: dmiErr } = await fromUntyped(supabase, "daily_manual_inputs")
+    let dmiQuery = fromUntyped(supabase, "daily_manual_inputs")
       .select("date, product_id, invest_manual, sales_override, revenue_override")
       .eq("user_id", userId)
       .gte("date", data.from)
       .lte("date", data.to);
+    if (data.product_id) dmiQuery = dmiQuery.eq("product_id", data.product_id);
+    const { data: dmiRows, error: dmiErr } = await dmiQuery;
     if (dmiErr) throw new Error(dmiErr.message);
 
     type Agg = { sales: number; revenue: number; obQty: number; obRevenue: number };
