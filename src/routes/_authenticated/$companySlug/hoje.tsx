@@ -229,8 +229,30 @@ function DailyPage() {
               <SelectItem value="today">Hoje</SelectItem>
               <SelectItem value="yesterday">Ontem</SelectItem>
               <SelectItem value="last7">Últimos 7 dias</SelectItem>
+              <SelectItem value="thisMonth">Este mês</SelectItem>
+              <SelectItem value="lastMonth">Mês passado</SelectItem>
+              <SelectItem value="custom">Personalizado</SelectItem>
             </SelectContent>
           </Select>
+          {preset === "custom" && (
+            <div className="flex items-center gap-2">
+              <Input
+                type="date"
+                value={customFrom}
+                max={customTo}
+                onChange={(e) => setCustomFrom(e.target.value)}
+                className="w-[160px]"
+              />
+              <span className="text-muted-foreground text-sm">→</span>
+              <Input
+                type="date"
+                value={customTo}
+                min={customFrom}
+                onChange={(e) => setCustomTo(e.target.value)}
+                className="w-[160px]"
+              />
+            </div>
+          )}
           <Button
             variant="outline"
             size="icon"
