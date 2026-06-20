@@ -10,7 +10,9 @@ import {
   Activity,
   Building2,
   Wallet,
+  Zap,
 } from "lucide-react";
+
 import {
   companyPath,
   getCompanySlugFromPath,
