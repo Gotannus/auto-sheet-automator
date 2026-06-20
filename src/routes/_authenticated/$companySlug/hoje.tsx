@@ -242,16 +242,18 @@ function MetricCard({
   label: string;
   value: string;
   delta?: React.ReactNode;
-  accent?: "default" | "profit" | "roi" | "invest";
+  accent?: "default" | "profit" | "loss" | "roi" | "invest";
 }) {
   const accentClass =
     accent === "profit"
       ? "text-emerald-600"
-      : accent === "roi"
-        ? "text-amber-600"
-        : accent === "invest"
-          ? "text-sky-600"
-          : "text-foreground";
+      : accent === "loss"
+        ? "text-rose-600"
+        : accent === "roi"
+          ? "text-amber-600"
+          : accent === "invest"
+            ? "text-sky-600"
+            : "text-foreground";
   return (
     <Card>
       <CardContent className="p-4">
