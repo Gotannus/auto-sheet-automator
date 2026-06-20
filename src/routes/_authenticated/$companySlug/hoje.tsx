@@ -35,7 +35,7 @@ export const Route = createFileRoute("/_authenticated/$companySlug/hoje")({
   errorComponent: ({ error }) => <div className="p-6">Erro: {error.message}</div>,
 });
 
-type Preset = "today" | "yesterday" | "last7";
+type Preset = "today" | "yesterday" | "last7" | "thisMonth" | "lastMonth" | "custom";
 
 // BRT helpers
 function brtNow(): Date {
@@ -52,12 +52,36 @@ function addDays(ymd: string, delta: number): string {
   dt.setUTCDate(dt.getUTCDate() + delta);
   return dt.toISOString().slice(0, 10);
 }
+function daysBetween(fromYmd: string, toYmd: string): number {
+  const [fy, fm, fd] = fromYmd.split("-").map(Number);
+  const [ty, tm, td] = toYmd.split("-").map(Number);
+  const a = Date.UTC(fy, fm - 1, fd);
+  const b = Date.UTC(ty, tm - 1, td);
+  return Math.round((b - a) / 86400000);
+}
+function firstDayOfMonth(ymd: string): string {
+  const [y, m] = ymd.split("-");
+  return `${y}-${m}-01`;
+}
+function lastDayOfMonth(ymd: string): string {
+  const [y, m] = ymd.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m, 0)); // day 0 of next month = last day of current
+  return dt.toISOString().slice(0, 10);
+}
+function addMonths(ymd: string, delta: number): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1 + delta, d));
+  return dt.toISOString().slice(0, 10);
+}
 function fmtBR(ymd: string): string {
   const [y, m, d] = ymd.split("-");
   return `${d}/${m}/${y}`;
 }
 
-function rangeForPreset(preset: Preset): { from: string; to: string; prevFrom: string; prevTo: string; label: string; prevLabel: string } {
+function rangeForPreset(
+  preset: Preset,
+  custom?: { from: string; to: string },
+): { from: string; to: string; prevFrom: string; prevTo: string; label: string; prevLabel: string } {
   const today = toYMD(brtNow());
   if (preset === "today") {
     const y = addDays(today, -1);
@@ -76,6 +100,41 @@ function rangeForPreset(preset: Preset): { from: string; to: string; prevFrom: s
       prevFrom: yy, prevTo: yy,
       label: `Ontem · ${fmtBR(y)}`,
       prevLabel: `vs Anteontem (${fmtBR(yy)})`,
+    };
+  }
+  if (preset === "thisMonth") {
+    const from = firstDayOfMonth(today);
+    const to = today;
+    const prevFrom = addMonths(from, -1);
+    const prevTo = addMonths(to, -1);
+    return {
+      from, to, prevFrom, prevTo,
+      label: `Este mês · ${fmtBR(from)} → ${fmtBR(to)}`,
+      prevLabel: `vs mesmo período do mês passado (${fmtBR(prevFrom)} → ${fmtBR(prevTo)})`,
+    };
+  }
+  if (preset === "lastMonth") {
+    const firstThis = firstDayOfMonth(today);
+    const from = addMonths(firstThis, -1);
+    const to = lastDayOfMonth(from);
+    const prevFrom = addMonths(from, -1);
+    const prevTo = lastDayOfMonth(prevFrom);
+    return {
+      from, to, prevFrom, prevTo,
+      label: `Mês passado · ${fmtBR(from)} → ${fmtBR(to)}`,
+      prevLabel: `vs mês retrasado (${fmtBR(prevFrom)} → ${fmtBR(prevTo)})`,
+    };
+  }
+  if (preset === "custom" && custom) {
+    const from = custom.from;
+    const to = custom.to;
+    const span = daysBetween(from, to);
+    const prevTo = addDays(from, -1);
+    const prevFrom = addDays(prevTo, -span);
+    return {
+      from, to, prevFrom, prevTo,
+      label: `Personalizado · ${fmtBR(from)} → ${fmtBR(to)}`,
+      prevLabel: `vs período anterior (${fmtBR(prevFrom)} → ${fmtBR(prevTo)})`,
     };
   }
   // last7
