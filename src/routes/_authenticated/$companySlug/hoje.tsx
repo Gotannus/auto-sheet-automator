@@ -2,6 +2,7 @@ import { createFileRoute, redirect, Link } from "@tanstack/react-router";
 import { queryOptions, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { getDailySummary, type DailySummaryResult } from "@/lib/celetus/dashboard.functions";
+import { listProducts } from "@/lib/celetus/products.functions";
 import { companyPath, isValidSlug } from "@/lib/celetus/workspaces";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -88,21 +89,40 @@ function rangeForPreset(preset: Preset): { from: string; to: string; prevFrom: s
   };
 }
 
-const summaryQO = (companySlug: string, from: string, to: string) =>
+const summaryQO = (companySlug: string, from: string, to: string, productId: string | null) =>
   queryOptions({
-    queryKey: ["daily-summary", companySlug, from, to],
-    queryFn: () => getDailySummary({ data: { company_slug: companySlug, from, to } }),
+    queryKey: ["daily-summary", companySlug, from, to, productId ?? "all"],
+    queryFn: () =>
+      getDailySummary({
+        data: {
+          company_slug: companySlug,
+          from,
+          to,
+          ...(productId ? { product_id: productId } : {}),
+        },
+      }),
     refetchInterval: 60_000,
     refetchOnWindowFocus: true,
+  });
+
+const productsQO = (companySlug: string) =>
+  queryOptions({
+    queryKey: ["products", companySlug],
+    queryFn: () => listProducts({ data: { company_slug: companySlug } }),
   });
 
 function DailyPage() {
   const { companySlug } = Route.useParams();
   const [preset, setPreset] = useState<Preset>("today");
+  const [productId, setProductId] = useState<string>("all");
   const r = useMemo(() => rangeForPreset(preset), [preset]);
 
-  const curQuery = useQuery(summaryQO(companySlug, r.from, r.to));
-  const prevQuery = useQuery(summaryQO(companySlug, r.prevFrom, r.prevTo));
+  const productsQuery = useQuery(productsQO(companySlug));
+  const products = productsQuery.data ?? [];
+  const pid = productId === "all" ? null : productId;
+
+  const curQuery = useQuery(summaryQO(companySlug, r.from, r.to, pid));
+  const prevQuery = useQuery(summaryQO(companySlug, r.prevFrom, r.prevTo, pid));
 
   // Refetch when preset changes -> queries re-key automatically.
   const cur = curQuery.data;
@@ -121,9 +141,22 @@ function DailyPage() {
             <span>{r.prevLabel}</span>
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Select value={productId} onValueChange={setProductId}>
+            <SelectTrigger className="w-[240px]">
+              <SelectValue placeholder="Todos os produtos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os produtos</SelectItem>
+              {products.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select value={preset} onValueChange={(v) => setPreset(v as Preset)}>
-            <SelectTrigger className="w-[220px]">
+            <SelectTrigger className="w-[200px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -145,6 +178,7 @@ function DailyPage() {
           </Button>
         </div>
       </header>
+
 
       {curQuery.error || prevQuery.error ? (
         <Card>
@@ -208,16 +242,18 @@ function MetricCard({
   label: string;
   value: string;
   delta?: React.ReactNode;
-  accent?: "default" | "profit" | "roi" | "invest";
+  accent?: "default" | "profit" | "loss" | "roi" | "invest";
 }) {
   const accentClass =
     accent === "profit"
       ? "text-emerald-600"
-      : accent === "roi"
-        ? "text-amber-600"
-        : accent === "invest"
-          ? "text-sky-600"
-          : "text-foreground";
+      : accent === "loss"
+        ? "text-rose-600"
+        : accent === "roi"
+          ? "text-amber-600"
+          : accent === "invest"
+            ? "text-sky-600"
+            : "text-foreground";
   return (
     <Card>
       <CardContent className="p-4">
@@ -277,7 +313,7 @@ function SummaryCards({
       <MetricCard
         label="Lucro"
         value={fmtBRL(t.profit)}
-        accent="profit"
+        accent={t.profit >= 0 ? "profit" : "loss"}
         delta={<Delta cur={t.profit} prev={p.profit} />}
       />
       <MetricCard
