@@ -114,10 +114,15 @@ const productsQO = (companySlug: string) =>
 function DailyPage() {
   const { companySlug } = Route.useParams();
   const [preset, setPreset] = useState<Preset>("today");
+  const [productId, setProductId] = useState<string>("all");
   const r = useMemo(() => rangeForPreset(preset), [preset]);
 
-  const curQuery = useQuery(summaryQO(companySlug, r.from, r.to));
-  const prevQuery = useQuery(summaryQO(companySlug, r.prevFrom, r.prevTo));
+  const productsQuery = useQuery(productsQO(companySlug));
+  const products = productsQuery.data ?? [];
+  const pid = productId === "all" ? null : productId;
+
+  const curQuery = useQuery(summaryQO(companySlug, r.from, r.to, pid));
+  const prevQuery = useQuery(summaryQO(companySlug, r.prevFrom, r.prevTo, pid));
 
   // Refetch when preset changes -> queries re-key automatically.
   const cur = curQuery.data;
@@ -136,9 +141,22 @@ function DailyPage() {
             <span>{r.prevLabel}</span>
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Select value={productId} onValueChange={setProductId}>
+            <SelectTrigger className="w-[240px]">
+              <SelectValue placeholder="Todos os produtos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os produtos</SelectItem>
+              {products.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select value={preset} onValueChange={(v) => setPreset(v as Preset)}>
-            <SelectTrigger className="w-[220px]">
+            <SelectTrigger className="w-[200px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -160,6 +178,7 @@ function DailyPage() {
           </Button>
         </div>
       </header>
+
 
       {curQuery.error || prevQuery.error ? (
         <Card>
