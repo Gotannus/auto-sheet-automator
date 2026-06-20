@@ -48,9 +48,13 @@ function AuthedLayout() {
         </div>
         {slug ? (
           <nav className="flex-1 p-2 space-y-1 text-sm">
+            <NavItem to={companyPath(slug, "hoje")} icon={<Zap className="h-4 w-4" />}>
+              Resumo do dia
+            </NavItem>
             <NavItem to={companyPath(slug, "dashboard")} icon={<LayoutDashboard className="h-4 w-4" />}>
               Dashboard
             </NavItem>
+
             <NavItem to={companyPath(slug, "sales")} icon={<Receipt className="h-4 w-4" />}>
               Vendas
             </NavItem>
