@@ -175,7 +175,13 @@ function DailyPage() {
   const { companySlug } = Route.useParams();
   const [preset, setPreset] = useState<Preset>("today");
   const [productId, setProductId] = useState<string>("all");
-  const r = useMemo(() => rangeForPreset(preset), [preset]);
+  const todayYmd = useMemo(() => toYMD(brtNow()), []);
+  const [customFrom, setCustomFrom] = useState<string>(firstDayOfMonth(todayYmd));
+  const [customTo, setCustomTo] = useState<string>(todayYmd);
+  const r = useMemo(
+    () => rangeForPreset(preset, { from: customFrom, to: customTo }),
+    [preset, customFrom, customTo],
+  );
 
   const productsQuery = useQuery(productsQO(companySlug));
   const products = productsQuery.data ?? [];
