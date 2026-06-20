@@ -1,6 +1,6 @@
 import { createFileRoute, redirect, Link } from "@tanstack/react-router";
 import { queryOptions, useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { getDailySummary, type DailySummaryResult } from "@/lib/celetus/dashboard.functions";
 import { companyPath, isValidSlug } from "@/lib/celetus/workspaces";
 import { Card, CardContent } from "@/components/ui/card";
