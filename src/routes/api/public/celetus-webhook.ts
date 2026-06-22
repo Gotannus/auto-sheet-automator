@@ -592,12 +592,21 @@ async function createProductFromCandidate(
   if (selectError) throw new Error(selectError.message);
   if (existing) return existing as ProductRow;
 
+  // If the first event for a new SRC is not a Principal (e.g. Orderbump-only
+  // cross-checkout), avoid baking the orderbump name into the product. Use the
+  // SRC as the placeholder name; it will be promoted when a Principal arrives.
+  const isPrincipal =
+    norm(candidate.row.kind) === "principal" || norm(candidate.row.kind) === "main";
+  const initialName = isPrincipal
+    ? candidate.productName || candidate.storedSrc
+    : candidate.storedSrc;
+
   const { data, error } = await supabaseAdmin
     .from("products")
     .insert({
       user_id: userId,
       src: candidate.storedSrc,
-      name: candidate.productName || candidate.storedSrc,
+      name: initialName,
     })
     .select("id, src, name")
     .single();
