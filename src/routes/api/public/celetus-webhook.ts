@@ -226,6 +226,33 @@ export async function persistSaleCandidates(
       autoCreatedProducts += 1;
     }
 
+    // Promote product name when a Principal arrives for a product that was
+    // auto-created from an Orderbump (name == src placeholder) or any other
+    // non-Principal candidate. Never overrides a user-customized display_name.
+    const isPrincipal = norm(candidate.row.kind) === "principal" || norm(candidate.row.kind) === "main";
+    if (
+      isPrincipal &&
+      candidate.productName &&
+      norm(product.name) !== norm(candidate.productName)
+    ) {
+      try {
+        const { data: updated, error: updErr } = await supabaseAdmin
+          .from("products")
+          .update({ name: candidate.productName })
+          .eq("id", product.id)
+          .is("display_name", null)
+          .select("id, src, name")
+          .maybeSingle();
+        if (!updErr && updated) {
+          product = updated as ProductRow;
+          const idx = productRows.findIndex((p) => p.id === product.id);
+          if (idx >= 0) productRows[idx] = product;
+        }
+      } catch {
+        // Non-fatal: keep the existing product name if rename fails.
+      }
+    }
+
     rows.push({
       ...candidate.row,
       user_id: userId,
