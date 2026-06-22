@@ -244,9 +244,10 @@ export async function persistSaleCandidates(
           .select("id, src, name")
           .maybeSingle();
         if (!updErr && updated) {
-          product = updated as ProductRow;
-          const idx = productRows.findIndex((p) => p.id === product.id);
-          if (idx >= 0) productRows[idx] = product;
+          const next = updated as ProductRow;
+          product = next;
+          const idx = productRows.findIndex((p) => p.id === next.id);
+          if (idx >= 0) productRows[idx] = next;
         }
       } catch {
         // Non-fatal: keep the existing product name if rename fails.
