@@ -687,6 +687,20 @@ export const getDailySummary = createServerFn({ method: "POST" })
       if (page.length < pageSize) break;
     }
 
+    // DIAG
+    console.log("[getDailySummary] DIAG", JSON.stringify({
+      from: data.from, to: data.to,
+      product_id: data.product_id ?? null,
+      productSrc,
+      fromIso, toIso,
+      fetched_sales: allSales.length,
+      sample: allSales.slice(0, 3).map((s) => ({
+        id: s.id, kind: s.kind, status: s.status, recipient: s.recipient,
+        product_id: s.product_id, src: s.src, sale_date: s.sale_date,
+        commission_value: s.commission_value, quantity: s.quantity,
+      })),
+    }));
+
     let dmiQuery = fromUntyped(supabase, "daily_manual_inputs")
       .select("date, product_id, invest_manual, sales_override, revenue_override")
       .eq("user_id", userId)

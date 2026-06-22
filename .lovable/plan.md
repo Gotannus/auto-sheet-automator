@@ -1,25 +1,32 @@
-## Bug
+## Contexto
 
-Importei a coluna errada do CSV do Facebook: peguei **"Valor de conversão da compra"** (receita atribuída) em vez de **"Valor usado (BRL)"** (gasto real). Por isso 19/06 ficou 84,70 em vez dos 51,47 corretos.
+Confirmei no banco que existem 7 linhas hoje (3 Principais + 4 Orderbumps) para o produto **A mulher forte ta cansada** (`product_id` correto, `recipient='Produtor'`, `status='Pago'`, `sale_date` dentro do range BRT). Sem filtro de produto a página Hoje mostra os totais; **somente** quando você seleciona "Mulher Forte" no filtro e "Hoje" no período, fica tudo zerado.
 
-## Valores corretos (Valor usado, somando todas as campanhas Apolo)
+A função `getDailySummary` em `src/lib/celetus/dashboard.functions.ts` usa um ramo especial quando há `product_id` (linhas 669-677):
 
-| Dia | Atual no banco | Correto | Ação |
-|---|---|---|---|
-| 11/06 | 27,00 | **53,06** | atualizar |
-| 12/06 | 70,96 | **77,33** | atualizar |
-| 13/06 | — | **23,69** | inserir |
-| 14/06 | 57,56 | **76,71** | atualizar |
-| 15/06 | 32,97 | **52,91** | atualizar |
-| 16/06 | 173,60 | **99,51** | atualizar |
-| 17/06 | 10,99 | **78,04** | atualizar |
-| 18/06 | 35,58 | **49,53** | atualizar |
-| 19/06 | 84,70 | **51,47** | atualizar |
-| 20/06 | 45,00 (você setou) | 45,63 | **manter 45,00** |
+```ts
+salesQuery = salesQuery.or(
+  `product_id.eq.${data.product_id},and(kind.eq.Orderbump,src.eq.${productSrc})`,
+)
+```
 
-## Execução
+Como o `productSrc` do produto é `mulher-forte` (com hífen) e o `or()` do PostgREST tem uma sintaxe sensível a vírgulas/parênteses, suspeito que essa query esteja silenciosamente retornando 0 linhas em alguns cenários. O `getDashboard` (mensal) também usa essa mesma construção, então o mistério é por que mensal funciona e diário não — preciso ver a resposta real.
 
-- `UPDATE daily_manual_inputs SET invest_manual=<correto>` para 11, 12, 14, 15, 16, 17, 18, 19/06.
-- `INSERT` para 13/06 (23,69).
-- Não mexer no 20/06.
-- Vendas não são afetadas — só o investimento estava errado.
+## Plano
+
+1. **Diagnosticar** — adicionar `console.log` temporário em `getDailySummary` no ramo `if (data.product_id)` registrando: `productSrc`, número de linhas retornadas pela query de vendas, e o conteúdo agregado por `(produto, dia)`. Você reabre a página com filtro Mulher Forte + Hoje, eu leio os logs do servidor e identifico se:
+   - a query trouxe 0 linhas (problema no PostgREST `.or()`),
+   - trouxe as 7 linhas mas o agregador descartou (problema na lógica),
+   - ou `productSrc` veio como algo inesperado.
+
+2. **Corrigir** — provavelmente uma das duas correções:
+   - **Caso a query retorne 0 linhas**: trocar o `.or()` por dois caminhos: primeiro busca direto por `product_id`, depois uma segunda busca de orderbumps `src=productSrc AND product_id != X`, e funde os resultados (mais simples e robusto a edge cases do PostgREST).
+   - **Caso a query traga as 7 linhas mas o agg zere**: ajustar a condição no loop (provavelmente algo relacionado a `if (!s.product_id) continue` quando o filtro de produto está ativo).
+
+3. **Validar** — reproduzir Hoje + Mulher Forte (e também Ontem, Este mês com filtro) e conferir os números contra o banco. Remover os `console.log` antes de finalizar.
+
+## Detalhes técnicos
+
+- Arquivo afetado: `src/lib/celetus/dashboard.functions.ts` (apenas o handler `getDailySummary`, linhas 616-810).
+- Nenhuma mudança de schema, nenhuma migração, nenhum impacto em webhook.
+- O fix final deve preservar o comportamento de "atribuir orderbumps de outro produto comprados no checkout deste produto" (regra do Celetus que você já validou).
