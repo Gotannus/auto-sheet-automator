@@ -226,6 +226,34 @@ export async function persistSaleCandidates(
       autoCreatedProducts += 1;
     }
 
+    // Promote product name when a Principal arrives for a product that was
+    // auto-created from an Orderbump (name == src placeholder) or any other
+    // non-Principal candidate. Never overrides a user-customized display_name.
+    const isPrincipal = norm(candidate.row.kind) === "principal" || norm(candidate.row.kind) === "main";
+    if (
+      isPrincipal &&
+      candidate.productName &&
+      norm(product.name) !== norm(candidate.productName)
+    ) {
+      try {
+        const { data: updated, error: updErr } = await supabaseAdmin
+          .from("products")
+          .update({ name: candidate.productName })
+          .eq("id", product.id)
+          .is("display_name", null)
+          .select("id, src, name")
+          .maybeSingle();
+        if (!updErr && updated) {
+          const next = updated as ProductRow;
+          product = next;
+          const idx = productRows.findIndex((p) => p.id === next.id);
+          if (idx >= 0) productRows[idx] = next;
+        }
+      } catch {
+        // Non-fatal: keep the existing product name if rename fails.
+      }
+    }
+
     rows.push({
       ...candidate.row,
       user_id: userId,
@@ -564,12 +592,21 @@ async function createProductFromCandidate(
   if (selectError) throw new Error(selectError.message);
   if (existing) return existing as ProductRow;
 
+  // If the first event for a new SRC is not a Principal (e.g. Orderbump-only
+  // cross-checkout), avoid baking the orderbump name into the product. Use the
+  // SRC as the placeholder name; it will be promoted when a Principal arrives.
+  const isPrincipal =
+    norm(candidate.row.kind) === "principal" || norm(candidate.row.kind) === "main";
+  const initialName = isPrincipal
+    ? candidate.productName || candidate.storedSrc
+    : candidate.storedSrc;
+
   const { data, error } = await supabaseAdmin
     .from("products")
     .insert({
       user_id: userId,
       src: candidate.storedSrc,
-      name: candidate.productName || candidate.storedSrc,
+      name: initialName,
     })
     .select("id, src, name")
     .single();
