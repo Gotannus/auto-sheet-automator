@@ -150,15 +150,17 @@ export const getDashboard = createServerFn({ method: "POST" })
       productSrc = prod?.src ?? null;
     }
 
-    let salesQuery = supabase
-      .from("celetus_sales")
-      .select(
-        "kind, status, recipient, commission_value, net_value, sale_date, quantity, src, src_tag, utm_source, campaign_id, adset_id, ad_id, raw, product_id",
-      )
-      .eq("user_id", userId)
-      .gte("sale_date", fromIso)
-      .lte("sale_date", toIso)
-      .in("status", PAID);
+    const salesSelect =
+      "kind, status, recipient, commission_value, net_value, sale_date, quantity, src, src_tag, utm_source, campaign_id, adset_id, ad_id, raw, product_id";
+
+    const baseSalesQuery = () =>
+      supabase
+        .from("celetus_sales")
+        .select(salesSelect)
+        .eq("user_id", userId)
+        .gte("sale_date", fromIso)
+        .lte("sale_date", toIso)
+        .in("status", PAID);
 
     let dmiQuery = supabase
       .from("daily_manual_inputs")
@@ -170,35 +172,46 @@ export const getDashboard = createServerFn({ method: "POST" })
       .lte("date", lastDay);
 
     if (data.product_id) {
-      // Match Celetus checkout-level grouping:
-      //   sales whose product_id is this product (Principal + own Orderbumps)
-      //   OR orderbumps purchased on this product's checkout (src = product.src)
-      if (productSrc) {
-        salesQuery = salesQuery.or(
-          `product_id.eq.${data.product_id},and(kind.eq.Orderbump,src.eq.${productSrc})`,
-        );
-      } else {
-        salesQuery = salesQuery.eq("product_id", data.product_id);
-      }
       dmiQuery = dmiQuery.eq("product_id", data.product_id);
     }
 
     // Paginate sales (PostgREST caps a single response at 1000 rows). Busy
     // months can exceed that and silently truncate the dashboard totals.
-    async function fetchAllSales() {
+    async function fetchAllPages(builder: ReturnType<typeof baseSalesQuery>) {
       const pageSize = 1000;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const all: any[] = [];
       for (let offset = 0; ; offset += pageSize) {
-        const { data: page, error } = await salesQuery.range(offset, offset + pageSize - 1);
+        const { data: page, error } = await builder.range(offset, offset + pageSize - 1);
         if (error) throw new Error(error.message);
         if (!page || page.length === 0) break;
         all.push(...page);
         if (page.length < pageSize) break;
       }
-      return { data: all, error: null as null };
+      return all;
+    }
+
+    async function fetchAllSales() {
+      // Total view: single query, all sales.
+      if (!data.product_id) {
+        return { data: await fetchAllPages(baseSalesQuery()), error: null as null };
+      }
+      // Product view: split into two queries instead of a single .or() with src,
+      // which can silently return zero rows on some PostgREST input combinations.
+      // 1) all rows matching product_id (Principal + own Orderbumps)
+      const own = await fetchAllPages(baseSalesQuery().eq("product_id", data.product_id));
+      // 2) cross-checkout Orderbumps: same checkout src, but a different product_id
+      let cross: typeof own = [];
+      if (productSrc) {
+        cross = await fetchAllPages(
+          baseSalesQuery().eq("kind", "Orderbump").eq("src", productSrc).neq("product_id", data.product_id),
+        );
+      }
+      return { data: [...own, ...cross], error: null as null };
     }
 
     const [salesRes, dmiRes] = await Promise.all([fetchAllSales(), dmiQuery]);
+
 
     if (dmiRes.error) throw new Error(dmiRes.error.message);
 
@@ -656,50 +669,46 @@ export const getDailySummary = createServerFn({ method: "POST" })
       productSrc = prod?.src ?? null;
     }
 
-    let salesQuery = supabase
-      .from("celetus_sales")
-      .select(
-        "kind, status, recipient, commission_value, sale_date, quantity, src, src_tag, utm_source, campaign_id, adset_id, ad_id, raw, product_id",
-      )
-      .eq("user_id", userId)
-      .gte("sale_date", fromIso)
-      .lte("sale_date", toIso)
-      .in("status", PAID);
+    const dailySalesSelect =
+      "kind, status, recipient, commission_value, sale_date, quantity, src, src_tag, utm_source, campaign_id, adset_id, ad_id, raw, product_id";
+    const baseDailySales = () =>
+      supabase
+        .from("celetus_sales")
+        .select(dailySalesSelect)
+        .eq("user_id", userId)
+        .gte("sale_date", fromIso)
+        .lte("sale_date", toIso)
+        .in("status", PAID);
 
-    if (data.product_id) {
-      if (productSrc) {
-        salesQuery = salesQuery.or(
-          `product_id.eq.${data.product_id},and(kind.eq.Orderbump,src.eq.${productSrc})`,
-        );
-      } else {
-        salesQuery = salesQuery.eq("product_id", data.product_id);
+    async function fetchDailyPages(builder: ReturnType<typeof baseDailySales>) {
+      const pageSize = 1000;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const out: any[] = [];
+      for (let offset = 0; ; offset += pageSize) {
+        const { data: page, error } = await builder.range(offset, offset + pageSize - 1);
+        if (error) throw new Error(error.message);
+        if (!page || page.length === 0) break;
+        out.push(...page);
+        if (page.length < pageSize) break;
       }
+      return out;
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const allSales: any[] = [];
-    const pageSize = 1000;
-    for (let offset = 0; ; offset += pageSize) {
-      const { data: page, error } = await salesQuery.range(offset, offset + pageSize - 1);
-      if (error) throw new Error(error.message);
-      if (!page || page.length === 0) break;
-      allSales.push(...page);
-      if (page.length < pageSize) break;
+    let allSales: any[] = [];
+    if (!data.product_id) {
+      allSales = await fetchDailyPages(baseDailySales());
+    } else {
+      const own = await fetchDailyPages(baseDailySales().eq("product_id", data.product_id));
+      let cross: typeof own = [];
+      if (productSrc) {
+        cross = await fetchDailyPages(
+          baseDailySales().eq("kind", "Orderbump").eq("src", productSrc).neq("product_id", data.product_id),
+        );
+      }
+      allSales = [...own, ...cross];
     }
 
-    // DIAG
-    console.log("[getDailySummary] DIAG", JSON.stringify({
-      from: data.from, to: data.to,
-      product_id: data.product_id ?? null,
-      productSrc,
-      fromIso, toIso,
-      fetched_sales: allSales.length,
-      sample: allSales.slice(0, 3).map((s) => ({
-        id: s.id, kind: s.kind, status: s.status, recipient: s.recipient,
-        product_id: s.product_id, src: s.src, sale_date: s.sale_date,
-        commission_value: s.commission_value, quantity: s.quantity,
-      })),
-    }));
 
     let dmiQuery = fromUntyped(supabase, "daily_manual_inputs")
       .select("date, product_id, invest_manual, sales_override, revenue_override")
