@@ -532,7 +532,13 @@ function findProduct(products: ProductRow[], candidate: SaleCandidate) {
   const bySrc = findProductBySrc(products, candidate.productCandidates);
   if (bySrc) return bySrc;
 
+  // Only fall back to name matching when the SRC is temporary (no real SRC came
+  // in the payload). For real SRCs, a different SRC always means a different
+  // product, even if the product name is the same (e.g. same offer running in
+  // a separate ad account: "gatilhos-marcos" vs "gatilhos-marcos-2").
   if (!candidate.productName) return null;
+  const hasRealSrc = !candidate.storedSrc.startsWith("sem-src-");
+  if (hasRealSrc) return null;
   return products.find((product) => norm(product.name) === norm(candidate.productName)) ?? null;
 }
 
