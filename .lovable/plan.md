@@ -1,31 +1,29 @@
-## Problema observado em Tannus Labs (hoje)
+## Objetivo
 
-Hoje na empresa Tannus Labs há 2 campanhas do mesmo produto principal "Gatilhos Sexuais Proibidos":
+Unificar os dois produtos "O Peso da Cama Feita" da Cecilia Labs em um único produto, com SRC `peso`.
 
-- src `gatilhos-marcos` — produto antigo (id `84bbe7d8`), nome correto.
-- src `gatilhos2` — produto novo criado pelo webhook, MAS gravado com o nome `Reconquista Proibida: O Protocolo de Ataque` (que é um Orderbump), id `224c2ec1`.
+## Situação atual
 
-Resultado no Hoje:
-1. Aparece "Gatilhos Sexuais Proibidos" (gatilhos-marcos) corretamente.
-2. Aparece "Reconquista Proibida" como se fosse um produto principal separado — quando na verdade é o produto `gatilhos2` mal nomeado. Os Principais e Orderbumps do checkout `gatilhos2` estão todos agrupados nesse produto, mas o usuário não reconhece porque o nome ficou o do orderbump.
-3. Falta também 1 venda Principal `gatilhos2` (registrada antes do deploy da correção anterior) que ainda está pendurada no produto antigo `gatilhos-marcos`.
+- **Produto A** (`3e4f6c83…`) — SRC: `peso-cama-cecilia02` — 31 vendas (3–7/jun + 1 venda com SRC `peso-cama-cecilialivros`)
+- **Produto B** (`86eec0ac…`) — SRC: `peso` — 6 vendas (22–23/jun, incluindo 2 orderbumps)
+- 2 vendas com SRC `peso` foram parar no Produto A por engano (14:55 e 15:48 de 22/jun), antes do Produto B existir.
 
-## Causa raiz
+## O que vai ser feito
 
-Em `src/routes/api/public/celetus-webhook.ts`, `createProductFromCandidate` usa `candidate.productName` para nomear o produto novo. Já existe um sort que processa Principais antes (linhas 207-212), mas isso só vale **dentro do mesmo webhook event**. Se o primeiro evento que chega com `src=gatilhos2` é um checkout cruzado contendo só Orderbump (cliente comprou só o orderbump, ou orderbump de outro funil que herda o `src`), o produto é criado com o nome do Orderbump e fica assim para sempre — mesmo quando depois chegam Principais com o mesmo `src`.
+Apenas correção de dados (sem mudança de schema, sem mudança de código):
 
-## Correção
+1. Mover as **6 vendas** do Produto B (`86eec0ac…`) para o Produto A (`3e4f6c83…`).
+2. Atualizar o SRC cadastrado do Produto A: de `peso-cama-cecilia02` para `peso`.
+3. Apagar o Produto B (`86eec0ac…`), que ficará sem vendas.
 
-1. **`createProductFromCandidate`** — quando o candidato é Orderbump (`kind !== Principal`), criar o produto com `name = candidate.storedSrc` (slug do src) em vez do nome do orderbump. Assim evita "marcar" o produto novo com o nome de um item secundário.
+Resultado: um único produto "O Peso da Cama Feita" com SRC `peso`, contendo todas as 37 vendas históricas. As vendas antigas mantêm o SRC original delas (`peso-cama-cecilia02`, `peso-cama-cecilialivros`) no histórico — apenas o produto passa a casar com SRC `peso` para vendas futuras.
 
-2. **`processWebhook` (loop dos candidates)** — após `findProduct`/`createProductFromCandidate`, se o candidate atual é **Principal** e o produto existente tem `display_name` vazio E o `name` atual difere do `candidate.productName`, atualizar `products.name = candidate.productName`. Isso "promove" o nome assim que chega o primeiro Principal daquele src, sem sobrescrever renomeações manuais (que vivem em `display_name`).
+## Por que não precisa mexer no código
 
-3. **Backfill no banco para Tannus Labs** (one-off SQL):
-   - `UPDATE products SET name = 'Gatilhos Sexuais Proibidos' WHERE id = '224c2ec1-c140-409c-a0bd-76826587da2e';`
-   - `UPDATE celetus_sales SET product_id = '224c2ec1-...' WHERE user_id = '80a2d30a-...' AND product_id = '84bbe7d8-...' AND src = 'gatilhos2';` (move a venda Principal solta).
+A correção anterior do webhook (`hasRealSrc` em `findProduct`) já evita que um SRC novo seja anexado a um produto existente pelo nome. Após este backfill, novas vendas com SRC `peso` vão casar diretamente com o produto unificado pelo SRC.
 
-## Resultado esperado
+## Verificação após executar
 
-- No Hoje da Tannus Labs aparecem 2 linhas: "Gatilhos Sexuais Proibidos" (src `gatilhos-marcos`) e "Gatilhos Sexuais Proibidos" (src `gatilhos2`), cada uma com seu Principal e seus Orderbumps.
-- Para diferenciar visualmente, basta o usuário definir `display_name` em Produtos (ex.: "Gatilhos SRC2").
-- Próximas campanhas com SRC novo: mesmo se o primeiro evento for um Orderbump, o produto é criado neutro (nomeado pelo src) e auto-renomeado para o nome do Principal assim que a primeira venda Principal chegar.
+- Confirmar que o Produto A tem 37 vendas e SRC `peso`.
+- Confirmar que o Produto B sumiu da lista.
+- Conferir a tela "Resumo do dia" do dia 22/jun mostrando apenas 1 linha de "O Peso da Cama Feita".
