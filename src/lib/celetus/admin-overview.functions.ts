@@ -109,26 +109,6 @@ export const getAdminOverview = createServerFn({ method: "POST" })
       });
     }
 
-    // 3) Sales for period (paginate).
-    async function fetchAll<T>(
-      builder: ReturnType<typeof supabase.from>,
-      select: string,
-    ): Promise<T[]> {
-      const pageSize = 1000;
-      const out: T[] = [];
-      for (let offset = 0; ; offset += pageSize) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: page, error } = await (builder as any)
-          .select(select)
-          .range(offset, offset + pageSize - 1);
-        if (error) throw new Error(error.message);
-        if (!page || page.length === 0) break;
-        out.push(...(page as T[]));
-        if (page.length < pageSize) break;
-      }
-      return out;
-    }
-
     type SaleRow = {
       user_id: string;
       kind: string | null;
@@ -145,17 +125,24 @@ export const getAdminOverview = createServerFn({ method: "POST" })
       raw: unknown;
     };
 
-    const salesBuilder = supabase
-      .from("celetus_sales")
-      .in("user_id", companyIds)
-      .gte("sale_date", fromIso)
-      .lte("sale_date", toIso)
-      .in("status", PAID);
-    const allSales = await fetchAll<SaleRow>(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      salesBuilder as any,
-      "user_id, kind, recipient, commission_value, quantity, sale_date, src, src_tag, utm_source, campaign_id, adset_id, ad_id, raw",
-    );
+    const salesSelect =
+      "user_id, kind, recipient, commission_value, quantity, sale_date, src, src_tag, utm_source, campaign_id, adset_id, ad_id, raw";
+    const pageSize = 1000;
+    const allSales: SaleRow[] = [];
+    for (let offset = 0; ; offset += pageSize) {
+      const { data: page, error } = await supabase
+        .from("celetus_sales")
+        .select(salesSelect)
+        .in("user_id", companyIds)
+        .gte("sale_date", fromIso)
+        .lte("sale_date", toIso)
+        .in("status", PAID)
+        .range(offset, offset + pageSize - 1);
+      if (error) throw new Error(error.message);
+      if (!page || page.length === 0) break;
+      allSales.push(...(page as SaleRow[]));
+      if (page.length < pageSize) break;
+    }
 
     // 4) Manual invest per company in period.
     const { data: dmiRows, error: dmiErr } = await supabase

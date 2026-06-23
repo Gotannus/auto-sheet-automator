@@ -18,6 +18,7 @@ import { Route as ApiPublicHotmartWebhookRouteImport } from './routes/api/public
 import { Route as ApiPublicCeletusWebhookRouteImport } from './routes/api/public/celetus-webhook'
 import { Route as AuthenticatedCompanySlugWebhookLogsRouteImport } from './routes/_authenticated/$companySlug/webhook-logs'
 import { Route as AuthenticatedCompanySlugWebhookRouteImport } from './routes/_authenticated/$companySlug/webhook'
+import { Route as AuthenticatedCompanySlugVisaoGeralRouteImport } from './routes/_authenticated/$companySlug/visao-geral'
 import { Route as AuthenticatedCompanySlugSettingsRouteImport } from './routes/_authenticated/$companySlug/settings'
 import { Route as AuthenticatedCompanySlugSalesRouteImport } from './routes/_authenticated/$companySlug/sales'
 import { Route as AuthenticatedCompanySlugProductsRouteImport } from './routes/_authenticated/$companySlug/products'
@@ -71,6 +72,12 @@ const AuthenticatedCompanySlugWebhookRoute =
   AuthenticatedCompanySlugWebhookRouteImport.update({
     id: '/$companySlug/webhook',
     path: '/$companySlug/webhook',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedCompanySlugVisaoGeralRoute =
+  AuthenticatedCompanySlugVisaoGeralRouteImport.update({
+    id: '/$companySlug/visao-geral',
+    path: '/$companySlug/visao-geral',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedCompanySlugSettingsRoute =
@@ -127,6 +134,7 @@ export interface FileRoutesByFullPath {
   '/$companySlug/products': typeof AuthenticatedCompanySlugProductsRoute
   '/$companySlug/sales': typeof AuthenticatedCompanySlugSalesRoute
   '/$companySlug/settings': typeof AuthenticatedCompanySlugSettingsRoute
+  '/$companySlug/visao-geral': typeof AuthenticatedCompanySlugVisaoGeralRoute
   '/$companySlug/webhook': typeof AuthenticatedCompanySlugWebhookRoute
   '/$companySlug/webhook-logs': typeof AuthenticatedCompanySlugWebhookLogsRoute
   '/api/public/celetus-webhook': typeof ApiPublicCeletusWebhookRoute
@@ -144,6 +152,7 @@ export interface FileRoutesByTo {
   '/$companySlug/products': typeof AuthenticatedCompanySlugProductsRoute
   '/$companySlug/sales': typeof AuthenticatedCompanySlugSalesRoute
   '/$companySlug/settings': typeof AuthenticatedCompanySlugSettingsRoute
+  '/$companySlug/visao-geral': typeof AuthenticatedCompanySlugVisaoGeralRoute
   '/$companySlug/webhook': typeof AuthenticatedCompanySlugWebhookRoute
   '/$companySlug/webhook-logs': typeof AuthenticatedCompanySlugWebhookLogsRoute
   '/api/public/celetus-webhook': typeof ApiPublicCeletusWebhookRoute
@@ -163,6 +172,7 @@ export interface FileRoutesById {
   '/_authenticated/$companySlug/products': typeof AuthenticatedCompanySlugProductsRoute
   '/_authenticated/$companySlug/sales': typeof AuthenticatedCompanySlugSalesRoute
   '/_authenticated/$companySlug/settings': typeof AuthenticatedCompanySlugSettingsRoute
+  '/_authenticated/$companySlug/visao-geral': typeof AuthenticatedCompanySlugVisaoGeralRoute
   '/_authenticated/$companySlug/webhook': typeof AuthenticatedCompanySlugWebhookRoute
   '/_authenticated/$companySlug/webhook-logs': typeof AuthenticatedCompanySlugWebhookLogsRoute
   '/api/public/celetus-webhook': typeof ApiPublicCeletusWebhookRoute
@@ -182,6 +192,7 @@ export interface FileRouteTypes {
     | '/$companySlug/products'
     | '/$companySlug/sales'
     | '/$companySlug/settings'
+    | '/$companySlug/visao-geral'
     | '/$companySlug/webhook'
     | '/$companySlug/webhook-logs'
     | '/api/public/celetus-webhook'
@@ -199,6 +210,7 @@ export interface FileRouteTypes {
     | '/$companySlug/products'
     | '/$companySlug/sales'
     | '/$companySlug/settings'
+    | '/$companySlug/visao-geral'
     | '/$companySlug/webhook'
     | '/$companySlug/webhook-logs'
     | '/api/public/celetus-webhook'
@@ -217,6 +229,7 @@ export interface FileRouteTypes {
     | '/_authenticated/$companySlug/products'
     | '/_authenticated/$companySlug/sales'
     | '/_authenticated/$companySlug/settings'
+    | '/_authenticated/$companySlug/visao-geral'
     | '/_authenticated/$companySlug/webhook'
     | '/_authenticated/$companySlug/webhook-logs'
     | '/api/public/celetus-webhook'
@@ -298,6 +311,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCompanySlugWebhookRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/$companySlug/visao-geral': {
+      id: '/_authenticated/$companySlug/visao-geral'
+      path: '/$companySlug/visao-geral'
+      fullPath: '/$companySlug/visao-geral'
+      preLoaderRoute: typeof AuthenticatedCompanySlugVisaoGeralRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/$companySlug/settings': {
       id: '/_authenticated/$companySlug/settings'
       path: '/$companySlug/settings'
@@ -358,6 +378,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCompanySlugProductsRoute: typeof AuthenticatedCompanySlugProductsRoute
   AuthenticatedCompanySlugSalesRoute: typeof AuthenticatedCompanySlugSalesRoute
   AuthenticatedCompanySlugSettingsRoute: typeof AuthenticatedCompanySlugSettingsRoute
+  AuthenticatedCompanySlugVisaoGeralRoute: typeof AuthenticatedCompanySlugVisaoGeralRoute
   AuthenticatedCompanySlugWebhookRoute: typeof AuthenticatedCompanySlugWebhookRoute
   AuthenticatedCompanySlugWebhookLogsRoute: typeof AuthenticatedCompanySlugWebhookLogsRoute
   AuthenticatedCompanySlugIndexRoute: typeof AuthenticatedCompanySlugIndexRoute
@@ -372,6 +393,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCompanySlugProductsRoute: AuthenticatedCompanySlugProductsRoute,
   AuthenticatedCompanySlugSalesRoute: AuthenticatedCompanySlugSalesRoute,
   AuthenticatedCompanySlugSettingsRoute: AuthenticatedCompanySlugSettingsRoute,
+  AuthenticatedCompanySlugVisaoGeralRoute:
+    AuthenticatedCompanySlugVisaoGeralRoute,
   AuthenticatedCompanySlugWebhookRoute: AuthenticatedCompanySlugWebhookRoute,
   AuthenticatedCompanySlugWebhookLogsRoute:
     AuthenticatedCompanySlugWebhookLogsRoute,
