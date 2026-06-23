@@ -9,6 +9,7 @@ import {
   Webhook,
   Activity,
   Building2,
+  Eye,
   Wallet,
   Zap,
 } from "lucide-react";
@@ -48,6 +49,11 @@ function AuthedLayout() {
         </div>
         {slug ? (
           <nav className="flex-1 p-2 space-y-1 text-sm">
+            {slug === "gotannus" && (
+              <NavItem to={companyPath(slug, "visao-geral")} icon={<Eye className="h-4 w-4" />}>
+                Visão Geral
+              </NavItem>
+            )}
             <NavItem to={companyPath(slug, "hoje")} icon={<Zap className="h-4 w-4" />}>
               Resumo do dia
             </NavItem>
