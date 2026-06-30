@@ -1,66 +1,42 @@
-## Painel Admin Gotannus — Visão geral das empresas
+## Status atual (o que encontrei)
 
-Nova aba dentro de `/gotannus` mostrando últimas vendas em tempo real e resumo de faturamento/lucro de todas as empresas que o usuário tem acesso.
+**Recebendo webhook de reembolso?** Sim, só da Hotmart. Nos últimos meses chegaram 6 eventos `PURCHASE_REFUNDED` — todos ignorados com motivo `affiliate sale` (a venda original era afiliada, então o reembolso também foi ignorado). Da Celetus, nenhum reembolso chegou ainda — precisa confirmar se a Celetus tem o evento configurado no painel deles.
 
-### 1. Acesso protegido por senha (4188)
+**Está descontando?** Hoje, **não há uma única linha com status `Reembolso`, `Chargeback` ou `Cancelado` da Hotmart no banco** (apenas 10 `Cancelado` antigos da Celetus). Como nunca um reembolso "real" (não-afiliado) passou pelo sistema, o desconto nunca foi exercido na prática.
 
-- Gate de senha aplicado **somente quando a empresa atual = Gotannus** e o usuário acessa a aba "Visão Geral".
-- Senha `4188`, armazenada em `sessionStorage` com chave `gotannus_admin_unlocked` (mesmo padrão usado em `/tannus`).
-- Tela simples: input de 4 dígitos + botão "Entrar". Sai do gate ao acertar.
+**Está computando corretamente quando passa?** Em teoria sim — o dashboard filtra `status IN (Pago, Aprovado, ...)`, então uma linha que muda para `Reembolso` sai do faturamento. **Mas há um risco silencioso**: o upsert é por `(user_id, transaction_code, line_item_code)`. Se o `line_item_code` reconstruído no evento de reembolso for diferente do evento de aprovação (ex.: `offerName` vazio no refund, ou `productName` levemente diferente), o sistema **insere uma linha nova** ao invés de atualizar a original → a venda aprovada permanece no faturamento e o reembolso vira uma linha órfã.
 
-### 2. Nova aba no menu lateral (apenas Gotannus)
+## O que vou fazer
 
-- Em `src/routes/_authenticated/route.tsx`, adicionar item de menu **"Visão Geral"** (ícone `Eye` ou `LayoutGrid`) condicional: só aparece quando `slug === "gotannus"`.
-- Nova rota: `src/routes/_authenticated/$companySlug/visao-geral.tsx`.
-  - Se o slug não for `gotannus`, redireciona para o dashboard da empresa.
+### 1. Atualizar venda existente por `transaction_code` em eventos de reembolso/chargeback/cancelamento
 
-### 3. Server function: `getAdminOverview`
+Em `src/routes/api/public/hotmart-webhook.ts` e `src/lib/celetus/hotmart-parser.ts` (e equivalente para Celetus), quando o evento for `PURCHASE_REFUNDED`, `PURCHASE_CHARGEBACK`, `PURCHASE_PROTEST` ou `PURCHASE_CANCELED` (ou status normalizado `Reembolso`/`Chargeback`/`Cancelado`):
 
-Novo arquivo `src/lib/celetus/admin-overview.functions.ts` com `requireSupabaseAuth`. Retorna:
+- Antes do upsert, fazer `UPDATE celetus_sales SET status = '<novo status>', refunded_at = now() WHERE user_id = ? AND transaction_code = ?` — atualizando **todas as linhas** daquela transação (Principal + Orderbumps) de uma vez, independente do `line_item_code`.
+- Pular o upsert da linha do refund (já que estamos só mudando status, não criando venda nova).
+- Se nenhuma linha for atualizada (refund de venda que nunca foi registrada), logar como `ignored` com motivo `refund without original sale`.
 
-- **`recent_sales`**: últimas 20 vendas (todas as empresas do usuário), ordenadas por `sale_date desc`, ignorando `status = 'TestWebhook'`. Campos: empresa (nome), produto (display_name ou name), comprador, hora, valor, tipo (Principal/Bump).
-- **`companies_summary`**: para cada empresa do usuário, no período selecionado:
-  - faturamento (soma `commission_value` das vendas aprovadas)
-  - investimento (soma de `daily_manual_inputs.invest_value` + facebook ads + despesas mensais rateadas — mesma lógica já usada no `getDashboard`)
-  - lucro = faturamento − investimento − impostos/custos do mês (reaproveitar agregação existente)
-  - nº de vendas (principal / bump)
-  - ROI %
+### 2. Não ignorar refund por "affiliate"
 
-Para reduzir duplicação, a função itera sobre as empresas e reusa a query base de `getDashboard`/`getDailySummary` em modo "totais por empresa".
+Hoje o parser Hotmart ignora qualquer payload com afiliado. Para eventos de reembolso, **só ignorar se a venda original também tiver sido ignorada** (i.e., não existir no banco). Assim, se um dia uma venda afiliada for incluída, o refund correspondente também será.
 
-### 4. UI da página `visao-geral.tsx`
+### 3. Refletir no dashboard / "Hoje" / "Visão Geral"
 
-Layout em duas seções:
+- O filtro `.in("status", PAID)` já exclui refunds — nada a mudar lá.
+- Adicionar um pequeno indicador opcional na tela de **vendas** (`sales.tsx`) destacando linhas com status `Reembolso`/`Chargeback`/`Cancelado` em cinza/vermelho para visibilidade. (Sem mudar agregações.)
 
-**Topo — Seletor de período** (Hoje / Ontem / 7 dias / Este mês / Mês passado / Personalizado), igual ao `hoje.tsx`.
+### 4. Migration leve
 
-**Esquerda (2/3) — Cards por empresa**
-```text
-┌─────────────────────────────────────┐
-│ Cecilia Labs                        │
-│ Faturamento  R$ 1.234,56            │
-│ Investimento R$   400,00            │
-│ Lucro        R$   834,56  (verde)   │
-│ ROI 208% · 12 vendas (10P / 2B)     │
-└─────────────────────────────────────┘
-```
-- Lucro em **verde** se positivo, **vermelho** se negativo (regra já estabelecida).
-- Clicar no card → navega para `/{slug}/hoje`.
+Adicionar coluna `refunded_at timestamptz` em `celetus_sales` para histórico (opcional, mas útil para relatórios futuros). Não afeta lógica atual.
 
-**Direita (1/3) — Últimas vendas (tempo real)**
-- Lista compacta scrollável: `Empresa · Produto · 14:32 · R$ 19,90`.
-- `useQuery` com `refetchInterval: 30_000` e `refetchOnWindowFocus: true`.
-- Badge "ao vivo" com pulso verde.
+### 5. Verificação
 
-### 5. Detalhes técnicos
+Após implementar, vou:
+- Rodar um POST de teste no endpoint `/api/public/hotmart-webhook` simulando um `PURCHASE_APPROVED` seguido de `PURCHASE_REFUNDED` da mesma `transaction`, e conferir via `psql` que a linha original mudou para `Reembolso` e sumiu do dashboard.
+- Conferir os 6 refunds Hotmart antigos: como as vendas originais eram afiliadas (ignoradas), eles continuam sem efeito — o que está correto.
 
-- A função respeita RLS: só retorna empresas onde o usuário é owner/membro (via `companies` + `company_members`).
-- Reaproveita `resolveCompanyId` em loop ou faz join único — preferir um único `select` em `celetus_sales` com `inner join` em `companies` filtrando por `owner_user_id = userId OR id IN (member_company_ids)`.
-- Paginação das vendas usa o mesmo padrão de batching já corrigido no `getDashboard` (não é necessário aqui pois é só LIMIT 20).
-- Sem mudanças de schema.
+## Resumo curto
 
-### Arquivos
-
-- **Novo**: `src/lib/celetus/admin-overview.functions.ts`
-- **Novo**: `src/routes/_authenticated/$companySlug/visao-geral.tsx`
-- **Editar**: `src/routes/_authenticated/route.tsx` (adicionar item de menu condicional)
+- Reembolso da **Hotmart**: webhook chega, mas até hoje nenhum foi aplicado (todos os 6 eram de vendas afiliadas já ignoradas).
+- Reembolso da **Celetus**: nenhum evento recebido — preciso que você confirme se a Celetus tem o evento de reembolso ativado no painel.
+- Vou tornar o desconto robusto (atualização por `transaction_code` em vez de depender do `line_item_code` casar) e adicionar visibilidade na tela de vendas.

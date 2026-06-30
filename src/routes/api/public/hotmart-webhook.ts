@@ -61,6 +61,48 @@ export const Route = createFileRoute("/api/public/hotmart-webhook")({
           return json({ ok: true, ignored: true, reason: parsed.reason });
         }
 
+        // Refund / chargeback / cancellation: flip status of every row of
+        // this transaction (Principal + Orderbumps) so they leave revenue.
+        if (parsed.kind === "status_update") {
+          try {
+            const { applyRefundUpdate } = await import(
+              "@/routes/api/public/celetus-webhook"
+            );
+            const { rowsUpdated } = await applyRefundUpdate(
+              supabaseAdmin,
+              userId,
+              parsed.transactionCode,
+              parsed.status,
+            );
+            await logWebhookEvent(supabaseAdmin, {
+              user_id: userId,
+              status: rowsUpdated > 0 ? "ok" : "ignored",
+              transaction_code: parsed.transactionCode,
+              error_message: `[hotmart] ${parsed.status.toLowerCase()}${
+                rowsUpdated === 0 ? " without original sale" : ""
+              }`,
+              rows_upserted: rowsUpdated,
+              rows_ignored: rowsUpdated === 0 ? 1 : 0,
+              payload: rawBody,
+            });
+            return json({
+              ok: true,
+              status: parsed.status,
+              rows_updated: rowsUpdated,
+            });
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            await logWebhookEvent(supabaseAdmin, {
+              user_id: userId,
+              status: "error",
+              transaction_code: parsed.transactionCode,
+              error_message: `[hotmart] ${message}`,
+              payload: rawBody,
+            });
+            return json({ ok: false, error: message });
+          }
+        }
+
         // For Orderbumps, resolve the principal's src from the parent
         // transaction so the bump gets grouped under the principal product.
         if (parsed.parentTransactionCode) {
@@ -80,6 +122,7 @@ export const Route = createFileRoute("/api/public/hotmart-webhook")({
             }
           }
         }
+
 
         const result = await persistSaleCandidates(supabaseAdmin, userId, parsed.candidates);
 

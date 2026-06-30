@@ -118,6 +118,29 @@ type WebhookResult = {
   autoCreatedProducts: number;
 };
 
+const NEGATIVE_TERMINAL_STATUSES = new Set([
+  "Reembolso",
+  "Chargeback",
+  "Cancelado",
+  "Expirado",
+]);
+
+export async function applyRefundUpdate(
+  supabaseAdmin: SupabaseAdminClient,
+  userId: string,
+  transactionCode: string,
+  status: string,
+): Promise<{ rowsUpdated: number }> {
+  const { data, error } = await supabaseAdmin
+    .from("celetus_sales")
+    .update({ status, refunded_at: new Date().toISOString() })
+    .eq("user_id", userId)
+    .eq("transaction_code", transactionCode)
+    .select("id");
+  if (error) throw new Error(error.message);
+  return { rowsUpdated: (data ?? []).length };
+}
+
 export async function processWebhookPayload(
   supabaseAdmin: SupabaseAdminClient,
   userId: string,
@@ -155,6 +178,46 @@ export async function processWebhookPayload(
     return { ...base, transactionCode, errorMessage: "missing sale items" };
   }
 
+  // Refund / chargeback / cancellation: update existing rows by
+  // transaction_code so the sale is removed from revenue, regardless of
+  // whether the line_item_code matches the original approval event.
+  const incomingStatus = String(candidates[0]?.row?.status ?? "");
+  if (transactionCode && NEGATIVE_TERMINAL_STATUSES.has(incomingStatus)) {
+    try {
+      const { rowsUpdated } = await applyRefundUpdate(
+        supabaseAdmin,
+        userId,
+        transactionCode,
+        incomingStatus,
+      );
+      if (rowsUpdated === 0) {
+        return {
+          ...base,
+          transactionCode,
+          errorMessage: `${incomingStatus.toLowerCase()} without original sale`,
+          rowsReceived: candidates.length,
+          rowsIgnored: candidates.length,
+        };
+      }
+      return {
+        status: "ok",
+        transactionCode,
+        errorMessage: `status=${incomingStatus}`,
+        rowsReceived: candidates.length,
+        rowsUpserted: rowsUpdated,
+        rowsIgnored: 0,
+        autoCreatedProducts: 0,
+      };
+    } catch (error) {
+      return {
+        ...base,
+        status: "error",
+        transactionCode,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
   const sellableCandidates = candidates.filter(
     (candidate) => !isIndicationCandidate(payload, candidate),
   );
@@ -184,6 +247,7 @@ export async function processWebhookPayload(
     autoCreatedProducts: persist.autoCreatedProducts,
   };
 }
+
 
 export async function persistSaleCandidates(
   supabaseAdmin: SupabaseAdminClient,
