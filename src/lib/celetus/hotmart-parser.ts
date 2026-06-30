@@ -73,6 +73,11 @@ function toISODate(v: unknown): string {
 export type HotmartParseResult =
   | { kind: "ignored"; reason: string; transactionCode: string | null }
   | {
+      kind: "status_update";
+      transactionCode: string;
+      status: "Reembolso" | "Chargeback" | "Cancelado";
+    }
+  | {
       kind: "ok";
       candidates: SaleCandidate[];
       transactionCode: string;
@@ -104,6 +109,19 @@ export function parseHotmartPayload(rawBody: unknown): HotmartParseResult {
     return { kind: "ignored", reason: "missing transaction", transactionCode: null };
   }
 
+  // Refund / chargeback / cancellation events: emit a status_update so the
+  // webhook handler can flip the existing sale's status regardless of whether
+  // the original sale was affiliate or not.
+  const isNegative =
+    event === "PURCHASE_REFUNDED" ||
+    event === "PURCHASE_CHARGEBACK" ||
+    event === "PURCHASE_PROTEST" ||
+    event === "PURCHASE_CANCELED";
+  if (isNegative) {
+    const status = statusFromEvent(event) as "Reembolso" | "Chargeback" | "Cancelado";
+    return { kind: "status_update", transactionCode, status };
+  }
+
   // Indication / affiliate sale — ignore (regra Celetus)
   const hasAffiliate = affiliates.some((a) => txt(a.name, a.affiliate_code));
   if (hasAffiliate) {
@@ -114,6 +132,7 @@ export function parseHotmartPayload(rawBody: unknown): HotmartParseResult {
   const saleDate = toISODate(
     purchase.approved_date ?? purchase.order_date ?? purchase.date_next_charge,
   );
+
 
   const grossValue = num(price.value ?? (record(purchase.full_price)?.value));
   // Producer commission: prefer source === PRODUCER
