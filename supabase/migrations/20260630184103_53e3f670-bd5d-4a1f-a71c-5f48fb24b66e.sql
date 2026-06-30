@@ -1,0 +1,1 @@
+ALTER TABLE public.celetus_sales ADD COLUMN IF NOT EXISTS refunded_at timestamptz;

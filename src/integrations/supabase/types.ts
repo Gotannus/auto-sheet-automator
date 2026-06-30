@@ -42,6 +42,7 @@ export type Database = {
           recipient: string | null
           recipient_company: string | null
           recipient_type: string | null
+          refunded_at: string | null
           sale_date: string
           src: string
           src_tag: string | null
@@ -78,6 +79,7 @@ export type Database = {
           recipient?: string | null
           recipient_company?: string | null
           recipient_type?: string | null
+          refunded_at?: string | null
           sale_date: string
           src: string
           src_tag?: string | null
@@ -114,6 +116,7 @@ export type Database = {
           recipient?: string | null
           recipient_company?: string | null
           recipient_type?: string | null
+          refunded_at?: string | null
           sale_date?: string
           src?: string
           src_tag?: string | null
