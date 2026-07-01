@@ -377,6 +377,21 @@ function OverviewInner() {
               ao vivo
             </div>
           </div>
+          {data && data.companies.length > 0 && (
+            <Select value={salesFilter} onValueChange={setSalesFilter}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as empresas</SelectItem>
+                {data.companies.map((c) => (
+                  <SelectItem key={c.company_id} value={c.company_slug}>
+                    {c.company_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Card>
             <CardContent className="p-0 max-h-[700px] overflow-y-auto">
               {!data ? (
@@ -385,11 +400,11 @@ function OverviewInner() {
                     <div key={i} className="h-12 bg-muted rounded animate-pulse" />
                   ))}
                 </div>
-              ) : data.recent_sales.length === 0 ? (
+              ) : filteredSales.length === 0 ? (
                 <div className="p-6 text-sm text-muted-foreground">Sem vendas recentes.</div>
               ) : (
                 <ul className="divide-y">
-                  {data.recent_sales.map((s) => {
+                  {filteredSales.map((s) => {
                     const isBump =
                       s.kind.toLowerCase() === "orderbump" ||
                       s.kind.toLowerCase() === "order_bump" ||
