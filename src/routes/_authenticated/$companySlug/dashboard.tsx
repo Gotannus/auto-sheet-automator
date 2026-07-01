@@ -1408,17 +1408,14 @@ function ProjectionCard({
             </span>
           </div>
           <div>
-            <span className="text-muted-foreground text-xs">
-              {p.projectionReady ? "Fecha provável " : "Base segura "}
-            </span>
+            <span className="text-muted-foreground text-xs">Fecha provável </span>
             <span className={`font-semibold tabular-nums ${tone(p.projectedPace.profit)}`}>
               {fmt(p.projectedPace.profit)}
             </span>
           </div>
           <div>
-            <span className="text-muted-foreground text-xs">
-              {p.projectionReady ? "Ritmo recente " : "Aguardando dados "}
-            </span>
+            <span className="text-muted-foreground text-xs">Ritmo recente </span>
+
             <span className={`font-semibold tabular-nums ${tone(p.projectedRecent.profit)}`}>
               {fmt(p.projectedRecent.profit)}
             </span>
