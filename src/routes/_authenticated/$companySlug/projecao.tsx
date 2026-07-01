@@ -276,8 +276,9 @@ function ForecastResult({ p }: { p: Projection }) {
                   ? "Mesmo valor do mês fechado."
                   : p.projectionReady
                     ? `Usando os últimos ${p.recentDays || 0} dias corridos como referência.`
-                    : "Aparece como lucro atual até ter pelo menos 3 dias de dados."}
+                    : `Usando os últimos ${p.recentDays || 0} dias corridos — ainda com poucos dados.`}
               </div>
+
             </div>
             {recentBetter ? (
               <TrendingUp className="h-5 w-5 text-emerald-600" />
