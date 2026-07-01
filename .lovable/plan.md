@@ -1,42 +1,57 @@
-## Status atual (o que encontrei)
+## Diagnóstico (Tannus Labs)
 
-**Recebendo webhook de reembolso?** Sim, só da Hotmart. Nos últimos meses chegaram 6 eventos `PURCHASE_REFUNDED` — todos ignorados com motivo `affiliate sale` (a venda original era afiliada, então o reembolso também foi ignorado). Da Celetus, nenhum reembolso chegou ainda — precisa confirmar se a Celetus tem o evento configurado no painel deles.
+Ao analisar a base, encontrei três problemas encadeados:
 
-**Está descontando?** Hoje, **não há uma única linha com status `Reembolso`, `Chargeback` ou `Cancelado` da Hotmart no banco** (apenas 10 `Cancelado` antigos da Celetus). Como nunca um reembolso "real" (não-afiliado) passou pelo sistema, o desconto nunca foi exercido na prática.
+### 1. Orderbumps do Sussurros caindo em produto "fantasma"
+Quando saíram vendas de **Palavras de Tentação** (src=`palavras`) com o Orderbump "Sussurros Proibidos – O que dizer…", o webhook não achou produto pelo `src` do bump e criou um produto novo com o **código da transação como nome/src** (ex.: `L9IK2M`). O Principal caiu no produto certo (Palavras), mas o bump foi para o fantasma. Linhas afetadas:
 
-**Está computando corretamente quando passa?** Em teoria sim — o dashboard filtra `status IN (Pago, Aprovado, ...)`, então uma linha que muda para `Reembolso` sai do faturamento. **Mas há um risco silencioso**: o upsert é por `(user_id, transaction_code, line_item_code)`. Se o `line_item_code` reconstruído no evento de reembolso for diferente do evento de aprovação (ex.: `offerName` vazio no refund, ou `productName` levemente diferente), o sistema **insere uma linha nova** ao invés de atualizar a original → a venda aprovada permanece no faturamento e o reembolso vira uma linha órfã.
+| transaction | Principal (correto) | Orderbump caiu em |
+|---|---|---|
+| DQMKTE0L | Palavras (`a116ec1c`) | `L9IK2M` |
+| 6HYC6HKW | Palavras (`a116ec1c`) | `L9IK2M` |
+| KLEYU0BYW8 | Gatilhos (`e59ab4d9` phantom, src=`C4QLTP`) | `L9IK2M` + `ZNWADX` |
 
-## O que vou fazer
+Efeito visível: no relatório aparece "L9IK2M" e "ZNWADX" como se fossem produtos, e o Sussurros não soma esses bumps porque eles nem estavam no Sussurros — pertencem ao pai da transação (Palavras / Gatilhos).
 
-### 1. Atualizar venda existente por `transaction_code` em eventos de reembolso/chargeback/cancelamento
+### 2. Produtos duplicados / fantasmas para consolidar
+- `L9IK2M` (`7e59d99a`), `ZNWADX` (`3a2dc0f1`) — só têm bumps mal roteados; some após reatribuição.
+- `Gatilhos Sexuais Proibidos` src=`C4QLTP` (`e59ab4d9`) — 1 venda fantasma; funde no Gatilhos principal `gatilhos-marcos` (`84bbe7d8`).
+- **375 produtos `sem-src-*`** — todos com 1 única venda `Abandonado / Outro` (checkout abandonado sem src). Não entram em faturamento, mas poluem a lista.
 
-Em `src/routes/api/public/hotmart-webhook.ts` e `src/lib/celetus/hotmart-parser.ts` (e equivalente para Celetus), quando o evento for `PURCHASE_REFUNDED`, `PURCHASE_CHARGEBACK`, `PURCHASE_PROTEST` ou `PURCHASE_CANCELED` (ou status normalizado `Reembolso`/`Chargeback`/`Cancelado`):
+### 3. Duplicados de nomes iguais (precisa sua decisão)
+Estes têm faturamento real dos dois lados, então **não** vou mexer sem confirmação:
+- **O Peso da Cama Feita**: `bm05conta02-peso-cp01` (R$5.922) × `peso-17` (R$119) — unificar?
+- **Palavras de Tentação**: `palavras-tentacao` (R$408) × `palavras` (R$47) — unificar?
+- **Gatilhos Sexuais Proibidos**: `gatilhos-marcos` (R$7.613) × `gatilhos2` (R$282) — você pediu antes para manter separado (SRC2). Confirma que mantém?
 
-- Antes do upsert, fazer `UPDATE celetus_sales SET status = '<novo status>', refunded_at = now() WHERE user_id = ? AND transaction_code = ?` — atualizando **todas as linhas** daquela transação (Principal + Orderbumps) de uma vez, independente do `line_item_code`.
-- Pular o upsert da linha do refund (já que estamos só mudando status, não criando venda nova).
-- Se nenhuma linha for atualizada (refund de venda que nunca foi registrada), logar como `ignored` com motivo `refund without original sale`.
+Vou perguntar isso em seguida.
 
-### 2. Não ignorar refund por "affiliate"
+## Plano de correção
 
-Hoje o parser Hotmart ignora qualquer payload com afiliado. Para eventos de reembolso, **só ignorar se a venda original também tiver sido ignorada** (i.e., não existir no banco). Assim, se um dia uma venda afiliada for incluída, o refund correspondente também será.
+### A. Corrigir vendas já gravadas (Tannus Labs)
+1. Reatribuir `product_id` dos 3 bumps hoje em `L9IK2M`:
+   - DQMKTE0L e 6HYC6HKW → `a116ec1c` (Palavras / src=`palavras`).
+   - KLEYU0BYW8 → Gatilhos principal (após a fusão do C4QLTP).
+2. Reatribuir o bump `ZNWADX` (KLEYU0BYW8) → Gatilhos principal.
+3. Fundir vendas do Gatilhos fantasma `e59ab4d9` (src=`C4QLTP`) em `84bbe7d8` (src=`gatilhos-marcos`).
+4. Apagar produtos vazios: `L9IK2M`, `ZNWADX`, `C4QLTP`.
 
-### 3. Refletir no dashboard / "Hoje" / "Visão Geral"
+### B. Limpar checkouts abandonados
+5. Apagar as 375 linhas `celetus_sales` `Abandonado/Outro` vinculadas a produtos `sem-src-*` e depois apagar os 375 produtos `sem-src-*`. Nada disso soma em faturamento hoje.
 
-- O filtro `.in("status", PAID)` já exclui refunds — nada a mudar lá.
-- Adicionar um pequeno indicador opcional na tela de **vendas** (`sales.tsx`) destacando linhas com status `Reembolso`/`Chargeback`/`Cancelado` em cinza/vermelho para visibilidade. (Sem mudar agregações.)
+### C. Blindar o webhook (`src/routes/api/public/celetus-webhook.ts`)
+Antes de criar um produto novo para um candidato **Orderbump**:
+- Consultar `celetus_sales` por `transaction_code` no mesmo tenant.
+- Se já existe uma linha (Principal ou outro bump) para essa transação, reutilizar o `product_id` / `src` dela em vez de criar produto com `src = transactionCode`.
+- Se não existir nada ainda (bump chegou antes do Principal em webhooks separados), manter a lógica atual de "promoção" (o Principal renomeia depois), mas usar como `src` placeholder algo determinístico tipo `pending-<transactionCode>` para ser fácil de identificar e reprocessar.
 
-### 4. Migration leve
+Isso resolve o padrão que produziu `L9IK2M`, `ZNWADX`, `C4QLTP`, `J3P36V`, etc.
 
-Adicionar coluna `refunded_at timestamptz` em `celetus_sales` para histórico (opcional, mas útil para relatórios futuros). Não afeta lógica atual.
+### D. Fora do escopo agora
+- Fusões dos duplicados "reais" da seção 3 acima — aguardo sua resposta às perguntas.
+- Não altero nada em Cecilia Labs / Gotannus nesta rodada.
 
-### 5. Verificação
-
-Após implementar, vou:
-- Rodar um POST de teste no endpoint `/api/public/hotmart-webhook` simulando um `PURCHASE_APPROVED` seguido de `PURCHASE_REFUNDED` da mesma `transaction`, e conferir via `psql` que a linha original mudou para `Reembolso` e sumiu do dashboard.
-- Conferir os 6 refunds Hotmart antigos: como as vendas originais eram afiliadas (ignoradas), eles continuam sem efeito — o que está correto.
-
-## Resumo curto
-
-- Reembolso da **Hotmart**: webhook chega, mas até hoje nenhum foi aplicado (todos os 6 eram de vendas afiliadas já ignoradas).
-- Reembolso da **Celetus**: nenhum evento recebido — preciso que você confirme se a Celetus tem o evento de reembolso ativado no painel.
-- Vou tornar o desconto robusto (atualização por `transaction_code` em vez de depender do `line_item_code` casar) e adicionar visibilidade na tela de vendas.
+## Detalhes técnicos
+- Correções de dados via `supabase--insert` (UPDATE/DELETE) em uma migração de dados única, com filtros por `user_id='80a2d30a-…'` (Tannus Labs) para não afetar outras empresas.
+- Alteração de código restrita a `src/routes/api/public/celetus-webhook.ts` (função `persistSaleCandidates` / criação de produto para bumps). Sem tocar em Hotmart parser (ele já resolve o pai pelo `parent_purchase_transaction`).
+- Nenhuma mudança de schema.
