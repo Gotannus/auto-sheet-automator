@@ -114,9 +114,10 @@ export function computeProjection(
   const recentWindowSize = Math.min(7, upToToday.length);
   const recentDays = recentWindowSize > 0 ? upToToday.slice(-recentWindowSize) : [];
   const recentAverage = divideMoney(sumMoney(recentDays), recentDays.length || 1);
-  const projectedRecent = monthClosed
+  const recentRunRateProjection = monthClosed
     ? realized
     : addMoney(realized, scaleMoney(recentAverage, daysRemaining));
+  const projectedRecent = projectionReady ? recentRunRateProjection : realized;
 
   // Reference only: active-day average can be useful, but should not be the
   // headline projection because it usually overstates the month.
@@ -143,6 +144,7 @@ export function computeProjection(
     activeAverage,
     recentAverage,
     runRateProjection,
+    recentRunRateProjection,
     projectedPace,
     projectedRecent,
     activeProjection,
