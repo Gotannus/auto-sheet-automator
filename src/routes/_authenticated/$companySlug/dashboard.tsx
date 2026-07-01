@@ -243,6 +243,19 @@ function DashboardPage() {
     })),
   });
 
+  // Always-Total queries used to derive which products have activity in the
+  // current period (for filtering the product dropdown). When the user is
+  // already in Total, React Query dedupes via the shared queryKey.
+  const totalQueries = useQueries({
+    queries: months.map((mo) => ({
+      queryKey: ["dash", company.slug, TOTAL_PRODUCT_ID, mo.year, mo.month],
+      queryFn: () =>
+        fetchDash({
+          data: { company_slug: company.slug, year: mo.year, month: mo.month },
+        }),
+    })),
+  });
+
   const isLoading = queries.some((q) => q.isLoading);
   const primary = queries[0]?.data ?? null;
 
@@ -253,6 +266,30 @@ function DashboardPage() {
     return all;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queries.map((q) => q.dataUpdatedAt).join(","), range]);
+
+  const activeProductIds = useMemo<Set<string> | null>(() => {
+    if (totalQueries.some((q) => q.isLoading && !q.data)) return null;
+    const ids = new Set<string>();
+    for (const q of totalQueries) {
+      if (!q.data) continue;
+      for (const d of q.data.days) {
+        if (range && (d.date < range.from || d.date > range.to)) continue;
+        for (const p of d.by_product ?? []) {
+          if (p.sales > 0 || (p.invest_manual ?? 0) > 0) ids.add(p.product_id);
+        }
+      }
+    }
+    return ids;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalQueries.map((q) => q.dataUpdatedAt).join(","), range]);
+
+  const visibleProducts = useMemo(() => {
+    if (!activeProductIds) return products;
+    return products.filter(
+      (p: Product) => activeProductIds.has(p.id) || p.id === productId,
+    );
+  }, [products, activeProductIds, productId]);
+
 
   if (!products.length) {
     return (
