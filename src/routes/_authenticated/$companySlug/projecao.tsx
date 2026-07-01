@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Target, Trash2, TrendingUp } from "lucide-react";
+import { Plus, Target, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -44,45 +44,30 @@ const fmtBRL = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 2 });
 const fmtPct = (v: number) =>
   (v * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1, minimumFractionDigits: 1 }) + "%";
-const fmtDayValue = (v: number) => v.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
 
 const MONTHS = [
-  "Janeiro",
-  "Fevereiro",
-  "Março",
-  "Abril",
-  "Maio",
-  "Junho",
-  "Julho",
-  "Agosto",
-  "Setembro",
-  "Outubro",
-  "Novembro",
-  "Dezembro",
+  "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+  "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
 ];
 
 type MonthKey = { year: number; month: number };
 type Draft = { id?: string; name: string; share_pct: number; sort_order: number };
-type Scenario = ProjectionMoney & { requiredRevenue: number; targetProfit: number };
 
 function todayYM(): MonthKey {
   const s = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
   const [y, m] = s.split("-").map(Number);
   return { year: y, month: m };
 }
-
 function shiftMonth({ year, month }: MonthKey, delta: number): MonthKey {
   const idx = year * 12 + (month - 1) + delta;
   return { year: Math.floor(idx / 12), month: (idx % 12) + 1 };
 }
-
 function parseMoneyInput(value: string, fallback = 0) {
   const normalized = value.replace(/\./g, "").replace(",", ".").trim();
   if (!normalized) return fallback;
   const n = Number(normalized);
   return Number.isFinite(n) ? n : fallback;
 }
-
 function moneyInputValue(value: number) {
   return value.toLocaleString("pt-BR", { maximumFractionDigits: 2, minimumFractionDigits: 2 });
 }
@@ -111,19 +96,19 @@ function ProjecaoPage() {
   }, [q.data, ym.year, ym.month]);
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-[1400px] mx-auto">
+    <div className="p-4 md:p-6 space-y-5 max-w-[1100px] mx-auto">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Target className="h-6 w-6 text-primary" />
-            Projeção de lucro
+            Projeção
           </h1>
           <p className="text-sm text-muted-foreground">
             {company?.name ?? companySlug} · {MONTHS[ym.month - 1]} {ym.year}
           </p>
         </div>
         <Select value={target} onValueChange={(v) => setTarget(v as "this" | "last")}>
-          <SelectTrigger className="w-[200px]">
+          <SelectTrigger className="w-[180px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -138,172 +123,163 @@ function ProjecaoPage() {
           <CardContent className="p-6 text-sm text-muted-foreground">Carregando...</CardContent>
         </Card>
       ) : (
-        <ProjectionWorkspace companySlug={companySlug} projection={projection} />
+        <>
+          <HeroCard p={projection} />
+          <div className="grid gap-4 md:grid-cols-2">
+            <MoneyCard title="Realizado" subtitle="O que já aconteceu" data={projection.realized} highlight />
+            <MoneyCard title="Projetado" subtitle="Estimativa até o fim do mês" data={projection.projectedPace} />
+          </div>
+          <GoalCard p={projection} />
+          <PartnersSection companySlug={companySlug} projection={projection} />
+        </>
       )}
     </div>
   );
 }
 
-function ProjectionWorkspace({ companySlug, projection }: { companySlug: string; projection: Projection }) {
-  const [scenario, setScenario] = useState<Scenario>(() => ({
-    ...projection.recommended,
-    requiredRevenue: projection.recommended.revenue,
-    targetProfit: projection.recommended.profit,
-  }));
+function HeroCard({ p }: { p: Projection }) {
+  const profit = p.realized.profit;
+  const positive = profit >= 0;
+  const pctMonth = p.daysInMonth > 0 ? Math.min(1, p.daysElapsed / p.daysInMonth) : 0;
+  const roi = p.realized.invest > 0 ? roiOf(p.realized) : null;
 
   return (
-    <>
-      <CurrentResult p={projection} />
-      <ScenarioBuilder p={projection} onScenarioChange={setScenario} />
-      <GoalComparison p={projection} scenario={scenario} />
-      <PartnersSection companySlug={companySlug} projection={projection} scenario={scenario} />
-    </>
-  );
-}
-
-
-function Kpi({
-  label,
-  value,
-  tone = "neutral",
-}: {
-  label: string;
-  value: string;
-  tone?: "profit" | "invest" | "revenue" | "neutral";
-}) {
-  const color =
-    tone === "profit"
-      ? value.includes("-")
-        ? "text-rose-600"
-        : "text-emerald-600"
-      : tone === "invest"
-        ? "text-sky-600"
-        : "text-foreground";
-  return (
-    <div>
-      <div className="text-xs text-muted-foreground uppercase tracking-wide">{label}</div>
-      <div className={`text-xl font-semibold tabular-nums ${color}`}>{value}</div>
-    </div>
-  );
-}
-
-function MoneyGrid({ data }: { data: ProjectionMoney }) {
-  return (
-    <div className="grid grid-cols-2 gap-4 pt-2">
-      <Kpi label="Faturamento" value={fmtBRL(data.revenue)} tone="revenue" />
-      <Kpi label="Investimento" value={fmtBRL(data.invest)} tone="invest" />
-      <Kpi label="Lucro" value={fmtBRL(data.profit)} tone="profit" />
-      <Kpi label="ROI" value={data.invest > 0 ? fmtPct(roiOf(data)) : "—"} />
-    </div>
-  );
-}
-
-function CurrentResult({ p }: { p: Projection }) {
-  return (
-    <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-      <Card className="border-primary/30">
-        <CardContent className="p-5 space-y-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-sm font-semibold">Resultado atual</div>
-              <div className="text-xs text-muted-foreground">
-                {p.monthClosed
-                  ? `Mês fechado com ${p.daysInMonth} dias`
-                  : `${p.daysElapsed} de ${p.daysInMonth} dias já passaram · ${p.daysRemaining} restantes`}
-              </div>
-            </div>
-            <div className={`text-2xl font-bold tabular-nums ${p.realized.profit >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-              {fmtBRL(p.realized.profit)}
-            </div>
-          </div>
-          <MoneyGrid data={p.realized} />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent className="p-5 space-y-4">
+    <Card className="border-primary/30">
+      <CardContent className="p-6 space-y-4">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <div className="text-sm font-semibold">Média real até agora</div>
-            <div className="text-xs text-muted-foreground">
-              Calculada por dia corrido, incluindo dias zerados.
+            <div className="text-sm text-muted-foreground">Lucro do mês</div>
+            <div className={`text-4xl md:text-5xl font-bold tabular-nums ${positive ? "text-emerald-600" : "text-rose-600"}`}>
+              {fmtBRL(profit)}
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            <Kpi label="Fat./dia" value={fmtBRL(p.runningAverage.revenue)} tone="revenue" />
-            <Kpi label="Inv./dia" value={fmtBRL(p.runningAverage.invest)} tone="invest" />
-            <Kpi label="Lucro/dia" value={fmtBRL(p.runningAverage.profit)} tone="profit" />
+          <div className="text-right space-y-1">
+            <div className="text-xs text-muted-foreground uppercase tracking-wide">Fecha provável</div>
+            <div className={`text-2xl font-semibold tabular-nums ${p.projectedPace.profit >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+              {fmtBRL(p.projectedPace.profit)}
+            </div>
+            {roi !== null && (
+              <div className="text-xs text-muted-foreground">ROI atual: <span className="font-semibold text-foreground">{fmtPct(roi)}</span></div>
+            )}
           </div>
-          <div className="text-xs text-muted-foreground">
-            Dias com movimentação: {p.activeDays} · Dias usados no cálculo: {fmtDayValue(p.daysElapsed || 0)}
+        </div>
+        <div>
+          <div className="h-2 rounded-full bg-muted overflow-hidden">
+            <div className="h-full bg-primary" style={{ width: `${pctMonth * 100}%` }} />
           </div>
-        </CardContent>
-      </Card>
-    </div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            {p.monthClosed
+              ? `Mês fechado (${p.daysInMonth} dias).`
+              : `Dia ${p.daysElapsed} de ${p.daysInMonth} · faltam ${p.daysRemaining} dias`}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
-function GoalComparison({ p, scenario }: { p: Projection; scenario: Scenario }) {
-  const noteProjected = p.monthClosed
-    ? "Resultado final do mês selecionado."
-    : p.projectionReady
-      ? "Projeção: realizado + média diária × dias restantes."
-      : "Baseado em poucos dias — projeção tende a variar bastante.";
-
-  return (
-    <div className="grid gap-4 md:grid-cols-2">
-      <GoalCard
-        title="Realizado × Meta do mês"
-        note="Comparando o que já saiu com o alvo do simulador."
-        actual={p.realized}
-        target={scenario}
-      />
-      <GoalCard
-        title="Fechamento provável × Meta projetada"
-        note={noteProjected}
-        actual={p.projectedPace}
-        target={scenario}
-        emphasize
-      />
-    </div>
-  );
-}
-
-function GoalCard({
+function MoneyCard({
   title,
-  note,
-  actual,
-  target,
-  emphasize = false,
+  subtitle,
+  data,
+  highlight = false,
 }: {
   title: string;
-  note: string;
-  actual: ProjectionMoney;
-  target: Scenario;
-  emphasize?: boolean;
+  subtitle: string;
+  data: ProjectionMoney;
+  highlight?: boolean;
 }) {
-  const profitPct = target.profit > 0 ? actual.profit / target.profit : 0;
-  const profitOk = actual.profit >= target.profit;
+  const roi = data.invest > 0 ? roiOf(data) : null;
   return (
-    <Card className={emphasize ? "border-emerald-500/30" : undefined}>
+    <Card className={highlight ? "border-emerald-500/20" : undefined}>
+      <CardContent className="p-5 space-y-3">
+        <div>
+          <div className="text-sm font-semibold">{title}</div>
+          <div className="text-xs text-muted-foreground">{subtitle}</div>
+        </div>
+        <Row label="Faturamento" value={fmtBRL(data.revenue)} />
+        <Row label="Investimento" value={fmtBRL(data.invest)} />
+        <Row
+          label="Lucro"
+          value={fmtBRL(data.profit)}
+          valueClass={data.profit >= 0 ? "text-emerald-600" : "text-rose-600"}
+          strong
+        />
+        <Row label="ROI" value={roi !== null ? fmtPct(roi) : "—"} />
+      </CardContent>
+    </Card>
+  );
+}
+
+function Row({ label, value, valueClass = "", strong = false }: { label: string; value: string; valueClass?: string; strong?: boolean }) {
+  return (
+    <div className="flex items-center justify-between text-sm border-b last:border-b-0 pb-1.5">
+      <span className="text-muted-foreground">{label}</span>
+      <span className={`tabular-nums ${strong ? "font-semibold text-base" : ""} ${valueClass}`}>{value}</span>
+    </div>
+  );
+}
+
+function GoalCard({ p }: { p: Projection }) {
+  const [goalText, setGoalText] = useState(() =>
+    moneyInputValue(Math.max(p.projectedPace.profit, p.realized.profit)),
+  );
+  useEffect(() => {
+    setGoalText(moneyInputValue(Math.max(p.projectedPace.profit, p.realized.profit)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p.realized.profit, p.projectedPace.profit]);
+
+  const goal = parseMoneyInput(goalText, 0);
+  const missing = Math.max(0, goal - p.realized.profit);
+  const daysLeft = Math.max(0, p.daysRemaining);
+  const needPerDay = daysLeft > 0 ? missing / daysLeft : 0;
+  const currentPerDay = p.daysElapsed > 0 ? p.realized.profit / p.daysElapsed : 0;
+  const onPace = currentPerDay >= needPerDay && goal > 0;
+
+  return (
+    <Card>
       <CardContent className="p-5 space-y-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="text-sm font-semibold">{title}</div>
-            <div className="text-xs text-muted-foreground">{note}</div>
-          </div>
-          <TrendingUp className={`h-5 w-5 ${profitOk ? "text-emerald-600" : "text-rose-600"}`} />
+        <div>
+          <div className="text-sm font-semibold">Minha meta de lucro</div>
+          <div className="text-xs text-muted-foreground">Quanto você quer lucrar esse mês?</div>
         </div>
 
-        <GoalRow label="Lucro" actual={actual.profit} target={target.profit} />
-        <GoalRow label="Faturamento" actual={actual.revenue} target={target.revenue} />
-        <GoalRow label="Investimento" actual={actual.invest} target={target.invest} inverse />
-
-        {target.profit > 0 && (
-          <div className="text-xs text-muted-foreground pt-1 border-t">
-            Meta de lucro atingida:{" "}
-            <span className={`font-semibold ${profitOk ? "text-emerald-600" : "text-rose-600"}`}>
-              {fmtPct(profitPct)}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">R$</span>
+            <Input
+              inputMode="decimal"
+              value={goalText}
+              onChange={(e) => setGoalText(e.target.value)}
+              className="w-40 text-lg font-semibold"
+            />
+          </div>
+          {goal > 0 && (
+            <span
+              className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                onPace ? "bg-emerald-500/10 text-emerald-700" : "bg-rose-500/10 text-rose-700"
+              }`}
+            >
+              {p.monthClosed
+                ? goal <= p.realized.profit
+                  ? "Meta batida"
+                  : "Meta não batida"
+                : onPace
+                  ? "No ritmo"
+                  : "Abaixo do ritmo"}
             </span>
+          )}
+        </div>
+
+        {goal > 0 && !p.monthClosed && (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pt-2 border-t">
+            <Stat label="Falta" value={fmtBRL(missing)} />
+            <Stat label="Precisa/dia" value={daysLeft > 0 ? fmtBRL(needPerDay) : "—"} />
+            <Stat
+              label="Ritmo atual/dia"
+              value={fmtBRL(currentPerDay)}
+              valueClass={onPace ? "text-emerald-600" : "text-rose-600"}
+            />
           </div>
         )}
       </CardContent>
@@ -311,162 +287,11 @@ function GoalCard({
   );
 }
 
-function GoalRow({
-  label,
-  actual,
-  target,
-  inverse = false,
-}: {
-  label: string;
-  actual: number;
-  target: number;
-  inverse?: boolean;
-}) {
-  const delta = actual - target;
-  const good = inverse ? delta <= 0 : delta >= 0;
+function Stat({ label, value, valueClass = "" }: { label: string; value: string; valueClass?: string }) {
   return (
-    <div className="grid grid-cols-3 gap-2 items-baseline text-sm">
-      <div>
-        <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
-        <div className="font-semibold tabular-nums">{fmtBRL(actual)}</div>
-      </div>
-      <div>
-        <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Meta</div>
-        <div className="tabular-nums text-muted-foreground">{fmtBRL(target)}</div>
-      </div>
-      <div className="text-right">
-        <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Δ</div>
-        <div className={`font-semibold tabular-nums ${good ? "text-emerald-600" : "text-rose-600"}`}>
-          {delta >= 0 ? "+" : ""}
-          {fmtBRL(delta)}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-
-function ScenarioBuilder({
-  p,
-  onScenarioChange,
-}: {
-  p: Projection;
-  onScenarioChange: (scenario: Scenario) => void;
-}) {
-  const recommendedRoi = roiOf(p.recommended);
-  const roiInputValue = (v: number) =>
-    (v * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1, minimumFractionDigits: 1 });
-
-  const [targetProfitText, setTargetProfitText] = useState(() => moneyInputValue(p.recommended.profit));
-  const [targetRoiText, setTargetRoiText] = useState(() => roiInputValue(recommendedRoi));
-
-  useEffect(() => {
-    setTargetProfitText(moneyInputValue(p.recommended.profit));
-    setTargetRoiText(roiInputValue(recommendedRoi));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [p.recommended.profit, p.recommended.invest, p.recommended.revenue]);
-
-  const targetProfit = parseMoneyInput(targetProfitText, p.recommended.profit);
-  const targetRoi = Math.max(0, parseMoneyInput(targetRoiText, recommendedRoi * 100) / 100);
-  const plannedInvest = targetRoi > 0 ? targetProfit / targetRoi : 0;
-  const variableCostRate = p.recommended.revenue > 0
-    ? Math.max(0, Math.min(0.95, (p.recommended.revenue - p.recommended.invest - p.recommended.profit) / p.recommended.revenue))
-    : 0;
-  const netRevenueRate = Math.max(0.05, 1 - variableCostRate);
-  const requiredRevenue = Math.max(0, (targetProfit + plannedInvest) / netRevenueRate);
-  const scenario: Scenario = {
-    revenue: requiredRevenue,
-    invest: plannedInvest,
-    profit: targetProfit,
-    requiredRevenue,
-    targetProfit,
-  };
-  const profitDelta = scenario.profit - p.projectedPace.profit;
-  const revenueDelta = scenario.revenue - p.projectedPace.revenue;
-  const investDelta = scenario.invest - p.projectedPace.invest;
-
-  useEffect(() => {
-    onScenarioChange(scenario);
-  }, [scenario.revenue, scenario.invest, scenario.profit, scenario.requiredRevenue, scenario.targetProfit, onScenarioChange]);
-
-  const applyProfitDelta = (delta: number) => setTargetProfitText(moneyInputValue(p.projectedPace.profit + delta));
-
-  return (
-    <Card>
-      <CardContent className="p-5 space-y-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <div className="text-sm font-semibold">Meta e simulação</div>
-            <div className="text-xs text-muted-foreground">
-              Defina o lucro alvo e o ROI desejado. O sistema calcula quanto investir e o faturamento necessário.
-            </div>
-          </div>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              setTargetProfitText(moneyInputValue(p.recommended.profit));
-              setTargetRoiText(roiInputValue(recommendedRoi));
-            }}
-          >
-            Resetar provável
-          </Button>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="space-y-2">
-            <span className="text-sm font-medium">Lucro alvo do mês</span>
-            <Input
-              inputMode="decimal"
-              value={targetProfitText}
-              onChange={(e) => setTargetProfitText(e.target.value)}
-            />
-          </label>
-          <label className="space-y-2">
-            <span className="text-sm font-medium">ROI do mês (%)</span>
-            <Input
-              inputMode="decimal"
-              value={targetRoiText}
-              onChange={(e) => setTargetRoiText(e.target.value)}
-            />
-          </label>
-        </div>
-
-
-        <div className="flex flex-wrap gap-2">
-          {[1000, 3000, 5000, 10000].map((delta) => (
-            <Button key={delta} type="button" size="sm" variant="secondary" onClick={() => applyProfitDelta(delta)}>
-              +{fmtBRL(delta)} de lucro
-            </Button>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t">
-          <Kpi label="Faturamento necessário" value={fmtBRL(scenario.revenue)} tone="revenue" />
-          <Kpi label="Investimento" value={fmtBRL(scenario.invest)} tone="invest" />
-          <Kpi label="Lucro alvo" value={fmtBRL(scenario.profit)} tone="profit" />
-          <Kpi label="ROI alvo" value={scenario.invest > 0 ? fmtPct(roiOf(scenario)) : "—"} />
-        </div>
-
-        <div className="grid gap-3 md:grid-cols-3 text-sm">
-          <ScenarioDelta label="Lucro vs. provável" value={profitDelta} />
-          <ScenarioDelta label="Faturamento vs. provável" value={revenueDelta} />
-          <ScenarioDelta label="Investimento vs. provável" value={investDelta} inverse />
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function ScenarioDelta({ label, value, inverse = false }: { label: string; value: number; inverse?: boolean }) {
-  const good = inverse ? value <= 0 : value >= 0;
-  return (
-    <div className="rounded-md border p-3">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className={`text-lg font-semibold tabular-nums ${good ? "text-emerald-600" : "text-rose-600"}`}>
-        {value >= 0 ? "+" : ""}{fmtBRL(value)}
-      </div>
+    <div>
+      <div className="text-xs text-muted-foreground uppercase tracking-wide">{label}</div>
+      <div className={`text-lg font-semibold tabular-nums ${valueClass}`}>{value}</div>
     </div>
   );
 }
@@ -474,11 +299,9 @@ function ScenarioDelta({ label, value, inverse = false }: { label: string; value
 function PartnersSection({
   companySlug,
   projection,
-  scenario,
 }: {
   companySlug: string;
   projection: Projection;
-  scenario: Scenario;
 }) {
   const qc = useQueryClient();
   const fetchList = useServerFn(listPartners);
@@ -487,6 +310,7 @@ function PartnersSection({
     queryFn: () => fetchList({ data: { company_slug: companySlug } }),
   });
 
+  const [editing, setEditing] = useState(false);
   const [drafts, setDrafts] = useState<Draft[]>([]);
   useEffect(() => {
     if (list.data) {
@@ -521,120 +345,139 @@ function PartnersSection({
     onSuccess: () => {
       toast.success("Sócios salvos.");
       qc.invalidateQueries({ queryKey: ["partners", companySlug] });
+      setEditing(false);
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const baseProfit = projection.projectedPace.profit;
+
   return (
     <Card>
-      <CardContent className="p-5 space-y-4">
+      <CardContent className="p-5 space-y-3">
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-sm font-semibold">Divisão entre sócios</div>
             <div className="text-xs text-muted-foreground">
-              Valores calculados sobre lucro atual, fechamento provável e cenário simulado.
+              Com base no lucro projetado: <span className="font-semibold text-foreground">{fmtBRL(baseProfit)}</span>
             </div>
           </div>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setDrafts((d) => [...d, { name: "", share_pct: 0, sort_order: d.length }])}
-          >
-            <Plus className="h-4 w-4 mr-1" /> Adicionar sócio
+          <Button size="sm" variant="outline" onClick={() => setEditing((v) => !v)}>
+            {editing ? "Fechar" : "Editar sócios"}
           </Button>
         </div>
 
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead className="w-[110px]">%</TableHead>
-              <TableHead className="text-right">Atual</TableHead>
-              <TableHead className="text-right">Provável</TableHead>
-              <TableHead className="text-right">Simulado</TableHead>
-              <TableHead className="w-[50px]" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {drafts.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-6">
-                  Nenhum sócio cadastrado.
-                </TableCell>
-              </TableRow>
-            ) : (
-              drafts.map((d, i) => {
-                const pct = Number(d.share_pct) / 100 || 0;
-                return (
-                  <TableRow key={d.id ?? `new-${i}`}>
-                    <TableCell>
-                      <Input
-                        value={d.name}
-                        onChange={(e) =>
-                          setDrafts((arr) =>
-                            arr.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)),
-                          )
-                        }
-                        placeholder="Nome do sócio"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        min={0}
-                        max={100}
-                        step="0.01"
-                        value={d.share_pct}
-                        onChange={(e) =>
-                          setDrafts((arr) =>
-                            arr.map((x, j) =>
-                              j === i ? { ...x, share_pct: Number(e.target.value) } : x,
-                            ),
-                          )
-                        }
-                      />
-                    </TableCell>
-                    <PartnerMoneyCell value={projection.realized.profit * pct} />
-                    <PartnerMoneyCell value={projection.projectedPace.profit * pct} />
-                    <PartnerMoneyCell value={scenario.profit * pct} />
-                    <TableCell>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => setDrafts((arr) => arr.filter((_, j) => j !== i))}
-                      >
-                        <Trash2 className="h-4 w-4 text-rose-600" />
-                      </Button>
+        {!editing ? (
+          drafts.length === 0 ? (
+            <div className="text-sm text-muted-foreground py-4">Nenhum sócio cadastrado.</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead className="w-[80px] text-right">%</TableHead>
+                  <TableHead className="text-right">Valor</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {drafts.map((d, i) => {
+                  const pct = Number(d.share_pct) / 100 || 0;
+                  const val = baseProfit * pct;
+                  return (
+                    <TableRow key={d.id ?? `v-${i}`}>
+                      <TableCell className="font-medium">{d.name || "—"}</TableCell>
+                      <TableCell className="text-right tabular-nums">{Number(d.share_pct).toFixed(2)}%</TableCell>
+                      <TableCell className={`text-right tabular-nums font-semibold ${val >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                        {fmtBRL(val)}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )
+        ) : (
+          <>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead className="w-[100px]">%</TableHead>
+                  <TableHead className="w-[50px]" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {drafts.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-center text-sm text-muted-foreground py-4">
+                      Nenhum sócio.
                     </TableCell>
                   </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
+                ) : (
+                  drafts.map((d, i) => (
+                    <TableRow key={d.id ?? `e-${i}`}>
+                      <TableCell>
+                        <Input
+                          value={d.name}
+                          onChange={(e) =>
+                            setDrafts((arr) => arr.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))
+                          }
+                          placeholder="Nome"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          step="0.01"
+                          value={d.share_pct}
+                          onChange={(e) =>
+                            setDrafts((arr) =>
+                              arr.map((x, j) => (j === i ? { ...x, share_pct: Number(e.target.value) } : x)),
+                            )
+                          }
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setDrafts((arr) => arr.filter((_, j) => j !== i))}
+                        >
+                          <Trash2 className="h-4 w-4 text-rose-600" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
 
-        <div className="flex items-center justify-between pt-2 border-t">
-          <div className={`text-sm ${balanced ? "text-emerald-600" : "text-amber-600"}`}>
-            Total: <span className="font-semibold tabular-nums">{totalPct.toFixed(2)}%</span>
-            {!balanced && <span className="ml-2 text-xs">(deve somar 100%)</span>}
-          </div>
-          <Button
-            size="sm"
-            onClick={() => mut.mutate()}
-            disabled={mut.isPending || drafts.some((d) => !d.name.trim())}
-          >
-            {mut.isPending ? "Salvando..." : "Salvar sócios"}
-          </Button>
-        </div>
+            <div className="flex items-center justify-between gap-3 pt-2 border-t">
+              <div className="flex items-center gap-3">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setDrafts((d) => [...d, { name: "", share_pct: 0, sort_order: d.length }])}
+                >
+                  <Plus className="h-4 w-4 mr-1" /> Adicionar
+                </Button>
+                <span className={`text-xs ${balanced ? "text-emerald-600" : "text-amber-600"}`}>
+                  Total: {totalPct.toFixed(2)}% {!balanced && "(deve somar 100%)"}
+                </span>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => mut.mutate()}
+                disabled={mut.isPending || drafts.some((d) => !d.name.trim())}
+              >
+                {mut.isPending ? "Salvando..." : "Salvar"}
+              </Button>
+            </div>
+          </>
+        )}
       </CardContent>
     </Card>
-  );
-}
-
-function PartnerMoneyCell({ value }: { value: number }) {
-  return (
-    <TableCell className={`text-right tabular-nums ${value >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-      {fmtBRL(value)}
-    </TableCell>
   );
 }
