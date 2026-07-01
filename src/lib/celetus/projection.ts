@@ -107,7 +107,7 @@ export function computeProjection(
     ? realized
     : addMoney(realized, scaleMoney(runningAverage, daysRemaining));
   const projectionReady = monthClosed || daysElapsed >= 3;
-  const projectedPace = projectionReady ? runRateProjection : realized;
+  const projectedPace = runRateProjection;
 
   // Secondary signal: recent calendar pace including zero days, useful when
   // the current week changed but still grounded in real elapsed days.
@@ -117,7 +117,8 @@ export function computeProjection(
   const recentRunRateProjection = monthClosed
     ? realized
     : addMoney(realized, scaleMoney(recentAverage, daysRemaining));
-  const projectedRecent = projectionReady ? recentRunRateProjection : realized;
+  const projectedRecent = recentRunRateProjection;
+
 
   // Reference only: active-day average can be useful, but should not be the
   // headline projection because it usually overstates the month.
