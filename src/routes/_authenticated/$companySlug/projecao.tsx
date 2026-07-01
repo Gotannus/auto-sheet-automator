@@ -129,6 +129,7 @@ function ProjecaoPage() {
             <MoneyCard title="Realizado" subtitle="O que já aconteceu" data={projection.realized} highlight />
             <MoneyCard title="Projetado" subtitle="Estimativa até o fim do mês" data={projection.projectedPace} />
           </div>
+          <ByProductProjection days={q.data!.days} ym={ym} />
           <GoalCard p={projection} />
           <PartnersSection companySlug={companySlug} projection={projection} />
         </>
