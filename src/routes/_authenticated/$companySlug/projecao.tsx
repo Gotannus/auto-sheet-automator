@@ -256,8 +256,9 @@ function ForecastResult({ p }: { p: Projection }) {
                   ? "Resultado final do mês selecionado."
                   : p.projectionReady
                     ? "Se continuar no mesmo ritmo real até hoje."
-                    : "Ainda é cedo para cravar o fechamento; abaixo fica o lucro atual como base segura."}
+                    : "Baseado em poucos dias — projeção tende a variar bastante."}
               </div>
+
             </div>
             <TrendingUp className="h-5 w-5 text-emerald-600" />
           </div>
