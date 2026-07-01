@@ -1,65 +1,61 @@
-## Objetivo
-Deixar `/projecao` limpa e direta. Uma leitura por card, sem colunas cheias de KPIs, deltas e simuladores confusos.
 
-## Nova estrutura da página (top → bottom)
+## Objetivo
+
+Reestilizar a página `/projecao` seguindo o layout do HTML enviado (dashboard escuro estilo "CVR Intelligence"), mantendo toda a lógica atual (dados vindos de `computeProjection`, meta, sócios, projeção por produto). Apenas apresentação — nenhuma mudança em `projection.ts`, `dashboard.functions.ts` ou server functions.
+
+## Escopo
+
+Arquivo único: `src/routes/_authenticated/$companySlug/projecao.tsx`.
+
+Sem sidebar (o app já tem navegação própria) — aproveitamos apenas o **conteúdo principal** do modelo. Cores/superfícies via tokens do design system (`bg-card`, `border`, `text-emerald-500`, `text-rose-500`, `text-primary`) para respeitar tema escuro/claro do projeto, não hard-code de `#070b14`.
+
+## Nova estrutura da página
 
 ```text
-┌──────────────────────────────────────────────────────┐
-│ HERO — Lucro do mês                                  │
-│   R$ X.XXX  (verde/vermelho)                         │
-│   "Fecha provável: R$ Y.YYY"  · ROI atual Z%         │
-│   barra de progresso: X de Y dias                    │
-└──────────────────────────────────────────────────────┘
-
-┌──── Realizado ────┐   ┌──── Projetado ────┐
-│ Fat  R$           │   │ Fat  R$           │
-│ Inv  R$           │   │ Inv  R$           │
-│ Lucro R$          │   │ Lucro R$          │
-│ ROI  %            │   │ ROI  %            │
-└───────────────────┘   └───────────────────┘
-
-┌──────────────────────────────────────────────────────┐
-│ Minha meta de lucro                                  │
-│  [ input: R$ _____ ]                                 │
-│  Falta: R$ ___   ·   Precisa lucrar R$ __/dia        │
-│  vs. ritmo atual R$ __/dia  → ✅ dá / ⚠️ não dá     │
-└──────────────────────────────────────────────────────┘
-
-┌──────────────────────────────────────────────────────┐
-│ Divisão entre sócios (com base no lucro projetado)   │
-│  tabela simples: nome · % · R$                       │
-│  [botão editar sócios]                               │
-└──────────────────────────────────────────────────────┘
+┌─ Topbar ────────────────────────────────────────────────┐
+│  Projeção · Empresa · Mês         [Este mês ▾]  [chips] │
+├─ KPI row (5 cards) ─────────────────────────────────────┤
+│ Lucro mês │ Fecha provável │ ROI atual │ Fat. mês │ Inv│
+│  (verde/  │  (verde grande)│  (azul)   │  (info)  │(warn)
+│  vermelho │  + Δ vs meta   │           │          │    │
+├─ Main grid (1.3fr / 1fr) ───────────────────────────────┤
+│ Curva diária de lucro       │  Leitura executiva       │
+│ (SVG line + área, ponto     │  · 3 read-cards dinâmicos│
+│  "hoje" destacado, linha    │  · bloco conclusão       │
+│  pontilhada projetada)      │    (on pace / off pace)  │
+├─ Bottom grid (1fr / 1fr) ───────────────────────────────┤
+│ Realizado × Projetado ×     │ Projeção por produto     │
+│ Meta (triple-bars por       │ (tabela + mini strip:    │
+│ métrica: Fat, Inv, Lucro,   │  Fat, Inv, Lucro, ROI)   │
+│ ROI)                        │                          │
+├─ Meta de lucro + Sócios ────────────────────────────────┤
+│ (mantém componentes atuais, estilizados como cards)     │
+└─────────────────────────────────────────────────────────┘
 ```
 
-## O que sai
-- Cards "Média real até agora" (Fat/dia, Inv/dia, Lucro/dia).
-- `GoalComparison` (Realizado × Meta e Fechamento × Meta com Δ triplo).
-- `ScenarioBuilder` com ROI %, faturamento necessário, deltas, botões de +R$ de lucro, reset provável.
-- KPI de "Faturamento necessário" e cálculo com `netRevenueRate`/variableCostRate.
+## Detalhes de UI
 
-## O que fica (simplificado)
-- **Hero**: número grande do lucro do mês (realizado). Abaixo, linha compacta com fecha provável + ROI atual + barra de progresso do mês.
-- **Dois cards lado a lado** (`Realizado` e `Projetado`): 4 linhas cada — Faturamento, Investimento, Lucro, ROI. Sem deltas.
-- **Meta de lucro**: um único input (lucro alvo do mês). Mostra:
-  - Falta: `alvo − lucro realizado`
-  - Precisa/dia: `falta / dias restantes`
-  - Ritmo atual/dia: `lucro realizado / dias passados`
-  - Selo verde "no ritmo" se ritmo ≥ precisa/dia, vermelho "abaixo" caso contrário.
-- **Sócios**: mantém a tabela de partners, mas menor, mostrando apenas Nome · % · R$ (com base no lucro projetado). Edição por botão que abre inline.
+- **KPI cards**: mesmo formato do modelo (label uppercase pequena, valor 34px bold, sub, trend pill). Cores por semântica: `success` para lucro positivo, `alert` para negativo, `info`/`warn` para faturamento/investimento.
+- **Curva diária (SVG)**: gerada a partir de `q.data.days` acumulando lucro por dia. Área com gradient azul, ponto de "hoje" verde. Se `daysRemaining > 0`, linha pontilhada estendida até `projectedPace.profit` no último dia do mês.
+- **Leitura executiva**: 3 cards gerados por regras simples:
+  1. Ritmo atual (lucro/dia realizado)
+  2. Fecha provável × meta (bate/não bate)
+  3. Produto líder projetado
+  + bloco conclusão colorido (verde se on-pace, âmbar se abaixo).
+- **Triple-bars comparativas**: substitui os cards "Realizado" e "Projetado" atuais. Para cada métrica (Faturamento, Investimento, Lucro, ROI): barras Realizado / Projetado / Meta com % relativo ao maior.
+- **Projeção por produto**: reaproveita cálculo do `ByProductProjection` atual, apenas re-renderizado como tabela compacta no card, com strip de mini-KPIs no topo (totais).
+- **Meta de lucro** (`GoalCard`) e **Sócios** (`PartnersSection`): mantidos, apenas com espaçamento/tipografia alinhados ao novo visual.
 
-## Card do dashboard
-Manter o card "Projeção do mês" no `dashboard.tsx` como está (já usa o mesmo `computeProjection`). Sem mudanças.
+## O que NÃO muda
 
-## Arquivos
-- `src/routes/_authenticated/$companySlug/projecao.tsx` — reescrever componentes `ProjectionWorkspace`, remover `CurrentResult` complexo, `GoalComparison`, `GoalCard`, `GoalRow`, `ScenarioBuilder`, `ScenarioDelta`. Adicionar `HeroCard`, `RealizedCard`, `ProjectedCard`, `SimpleGoalCard`. Manter `PartnersSection` mas encolher UI.
-- `src/lib/celetus/projection.ts` — sem alterações (já expõe realized, projectedPace, runningAverage, daysElapsed, daysRemaining, daysInMonth).
-- Nenhuma migração de banco.
+- `computeProjection`, `projection.ts`, servidor, queries.
+- Componentes `GoalCard` e `PartnersSection` (só ajustes visuais leves).
+- Não adiciono sidebar/nav do modelo — o app já tem a sua.
+- Sem novos pacotes.
 
-## Detalhes técnicos
-- Cores: lucro positivo `text-emerald-600`, negativo `text-rose-600`. Selo do ritmo: `bg-emerald-500/10 text-emerald-700` ou `bg-rose-500/10 text-rose-700`.
-- Barra de progresso: `daysElapsed / daysInMonth`.
-- Lucro/dia necessário oculto quando `daysRemaining === 0` (mostra "Mês fechado").
-- Sócios: `partner.share_pct × projectedPace.profit`.
-- Estado do input de meta com `useState`, default = `projection.recommended.profit` (fecha provável).
-- Remover imports não usados após limpeza (`TrendingUp`, `ScenarioDelta`, etc.).
+## Riscos
+
+- Layout denso pode ficar apertado em telas médias; usarei os mesmos breakpoints do modelo (`@media 1260px` e `780px`) via Tailwind (`lg:` / `md:`).
+- SVG inline sem lib; simples e sem dependências.
+
+Se aprovar, implemento tudo em uma edição do `projecao.tsx`.
