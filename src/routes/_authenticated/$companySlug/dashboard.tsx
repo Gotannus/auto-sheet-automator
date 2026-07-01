@@ -15,6 +15,7 @@ import type { DateRange } from "react-day-picker";
 
 import { listProducts, type Product } from "@/lib/celetus/products.functions";
 import { getDashboard, upsertDailyInput } from "@/lib/celetus/dashboard.functions";
+import { computeProjection } from "@/lib/celetus/projection";
 import { companyPath, isValidSlug } from "@/lib/celetus/workspaces";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -1368,4 +1369,64 @@ function toneProfit(profit: number, revenue: number) {
 
 function sameMoney(a: number, b: number) {
   return Math.round(a * 100) === Math.round(b * 100);
+}
+
+function ProjectionCard({
+  days,
+  companySlug,
+  year,
+  month,
+}: {
+  days: DayData[];
+  companySlug: string;
+  year: number;
+  month: number;
+}) {
+  const p = useMemo(
+    () => computeProjection(days, { monthYear: year, monthMonth: month }),
+    [days, year, month],
+  );
+  const fmt = (v: number) =>
+    v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+  const tone = (v: number) => (v >= 0 ? "text-emerald-600" : "text-rose-600");
+  return (
+    <Card className="border-primary/30 bg-primary/5">
+      <CardContent className="p-4 flex flex-wrap items-center gap-x-6 gap-y-3">
+        <div className="flex items-center gap-2">
+          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Projeção do mês
+          </div>
+          <div className="text-[11px] text-muted-foreground">
+            {p.daysElapsed}/{p.daysInMonth} dias
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+          <div>
+            <span className="text-muted-foreground text-xs">Realizado </span>
+            <span className={`font-semibold tabular-nums ${tone(p.realized.profit)}`}>
+              {fmt(p.realized.profit)}
+            </span>
+          </div>
+          <div>
+            <span className="text-muted-foreground text-xs">Projeção A </span>
+            <span className={`font-semibold tabular-nums ${tone(p.projectionAvg.profit)}`}>
+              {fmt(p.projectionAvg.profit)}
+            </span>
+          </div>
+          <div>
+            <span className="text-muted-foreground text-xs">Projeção B </span>
+            <span className={`font-semibold tabular-nums ${tone(p.projectionLast7.profit)}`}>
+              {fmt(p.projectionLast7.profit)}
+            </span>
+          </div>
+        </div>
+        <Link
+          to={companyPath(companySlug, "projecao")}
+          className="ml-auto text-xs text-primary hover:underline"
+        >
+          Ver simulador →
+        </Link>
+      </CardContent>
+    </Card>
+  );
 }
