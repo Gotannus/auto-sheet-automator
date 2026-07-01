@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Target, Trash2, TrendingDown, TrendingUp } from "lucide-react";
+import { Plus, Target, Trash2, TrendingUp } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -154,12 +154,13 @@ function ProjectionWorkspace({ companySlug, projection }: { companySlug: string;
   return (
     <>
       <CurrentResult p={projection} />
-      <ForecastResult p={projection} />
       <ScenarioBuilder p={projection} onScenarioChange={setScenario} />
+      <GoalComparison p={projection} scenario={scenario} />
       <PartnersSection companySlug={companySlug} projection={projection} scenario={scenario} />
     </>
   );
 }
+
 
 function Kpi({
   label,
@@ -241,62 +242,109 @@ function CurrentResult({ p }: { p: Projection }) {
   );
 }
 
-function ForecastResult({ p }: { p: Projection }) {
-  const deltaRecent = p.projectedRecent.profit - p.projectedPace.profit;
-  const recentBetter = deltaRecent >= 0;
+function GoalComparison({ p, scenario }: { p: Projection; scenario: Scenario }) {
+  const noteProjected = p.monthClosed
+    ? "Resultado final do mês selecionado."
+    : p.projectionReady
+      ? "Projeção: realizado + média diária × dias restantes."
+      : "Baseado em poucos dias — projeção tende a variar bastante.";
+
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <Card className="border-emerald-500/30">
-        <CardContent className="p-5 space-y-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-sm font-semibold">Fechamento provável</div>
-              <div className="text-xs text-muted-foreground">
-                {p.monthClosed
-                  ? "Resultado final do mês selecionado."
-                  : p.projectionReady
-                    ? "Se continuar no mesmo ritmo real até hoje."
-                    : "Baseado em poucos dias — projeção tende a variar bastante."}
-              </div>
-
-            </div>
-            <TrendingUp className="h-5 w-5 text-emerald-600" />
-          </div>
-          <MoneyGrid data={p.projectedPace} />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent className="p-5 space-y-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-sm font-semibold">Ritmo recente</div>
-              <div className="text-xs text-muted-foreground">
-                {p.monthClosed
-                  ? "Mesmo valor do mês fechado."
-                  : p.projectionReady
-                    ? `Usando os últimos ${p.recentDays || 0} dias corridos como referência.`
-                    : `Usando os últimos ${p.recentDays || 0} dias corridos — ainda com poucos dados.`}
-              </div>
-
-            </div>
-            {recentBetter ? (
-              <TrendingUp className="h-5 w-5 text-emerald-600" />
-            ) : (
-              <TrendingDown className="h-5 w-5 text-rose-600" />
-            )}
-          </div>
-          <MoneyGrid data={p.projectedRecent} />
-          {!p.monthClosed && (
-            <div className={`text-sm ${recentBetter ? "text-emerald-600" : "text-rose-600"}`}>
-              Diferença contra o provável: <span className="font-semibold tabular-nums">{fmtBRL(deltaRecent)}</span>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <GoalCard
+        title="Realizado × Meta do mês"
+        note="Comparando o que já saiu com o alvo do simulador."
+        actual={p.realized}
+        target={scenario}
+      />
+      <GoalCard
+        title="Fechamento provável × Meta projetada"
+        note={noteProjected}
+        actual={p.projectedPace}
+        target={scenario}
+        emphasize
+      />
     </div>
   );
 }
+
+function GoalCard({
+  title,
+  note,
+  actual,
+  target,
+  emphasize = false,
+}: {
+  title: string;
+  note: string;
+  actual: ProjectionMoney;
+  target: Scenario;
+  emphasize?: boolean;
+}) {
+  const profitPct = target.profit > 0 ? actual.profit / target.profit : 0;
+  const profitOk = actual.profit >= target.profit;
+  return (
+    <Card className={emphasize ? "border-emerald-500/30" : undefined}>
+      <CardContent className="p-5 space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold">{title}</div>
+            <div className="text-xs text-muted-foreground">{note}</div>
+          </div>
+          <TrendingUp className={`h-5 w-5 ${profitOk ? "text-emerald-600" : "text-rose-600"}`} />
+        </div>
+
+        <GoalRow label="Lucro" actual={actual.profit} target={target.profit} />
+        <GoalRow label="Faturamento" actual={actual.revenue} target={target.revenue} />
+        <GoalRow label="Investimento" actual={actual.invest} target={target.invest} inverse />
+
+        {target.profit > 0 && (
+          <div className="text-xs text-muted-foreground pt-1 border-t">
+            Meta de lucro atingida:{" "}
+            <span className={`font-semibold ${profitOk ? "text-emerald-600" : "text-rose-600"}`}>
+              {fmtPct(profitPct)}
+            </span>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function GoalRow({
+  label,
+  actual,
+  target,
+  inverse = false,
+}: {
+  label: string;
+  actual: number;
+  target: number;
+  inverse?: boolean;
+}) {
+  const delta = actual - target;
+  const good = inverse ? delta <= 0 : delta >= 0;
+  return (
+    <div className="grid grid-cols-3 gap-2 items-baseline text-sm">
+      <div>
+        <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
+        <div className="font-semibold tabular-nums">{fmtBRL(actual)}</div>
+      </div>
+      <div>
+        <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Meta</div>
+        <div className="tabular-nums text-muted-foreground">{fmtBRL(target)}</div>
+      </div>
+      <div className="text-right">
+        <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Δ</div>
+        <div className={`font-semibold tabular-nums ${good ? "text-emerald-600" : "text-rose-600"}`}>
+          {delta >= 0 ? "+" : ""}
+          {fmtBRL(delta)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 function ScenarioBuilder({
   p,
@@ -305,16 +353,22 @@ function ScenarioBuilder({
   p: Projection;
   onScenarioChange: (scenario: Scenario) => void;
 }) {
+  const recommendedRoi = roiOf(p.recommended);
+  const roiInputValue = (v: number) =>
+    (v * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+
   const [targetProfitText, setTargetProfitText] = useState(() => moneyInputValue(p.recommended.profit));
-  const [plannedInvestText, setPlannedInvestText] = useState(() => moneyInputValue(p.recommended.invest));
+  const [targetRoiText, setTargetRoiText] = useState(() => roiInputValue(recommendedRoi));
 
   useEffect(() => {
     setTargetProfitText(moneyInputValue(p.recommended.profit));
-    setPlannedInvestText(moneyInputValue(p.recommended.invest));
-  }, [p.recommended.profit, p.recommended.invest]);
+    setTargetRoiText(roiInputValue(recommendedRoi));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p.recommended.profit, p.recommended.invest, p.recommended.revenue]);
 
   const targetProfit = parseMoneyInput(targetProfitText, p.recommended.profit);
-  const plannedInvest = Math.max(0, parseMoneyInput(plannedInvestText, p.recommended.invest));
+  const targetRoi = Math.max(0, parseMoneyInput(targetRoiText, recommendedRoi * 100) / 100);
+  const plannedInvest = targetRoi > 0 ? targetProfit / targetRoi : 0;
   const variableCostRate = p.recommended.revenue > 0
     ? Math.max(0, Math.min(0.95, (p.recommended.revenue - p.recommended.invest - p.recommended.profit) / p.recommended.revenue))
     : 0;
@@ -344,7 +398,7 @@ function ScenarioBuilder({
           <div>
             <div className="text-sm font-semibold">Meta e simulação</div>
             <div className="text-xs text-muted-foreground">
-              Defina quanto quer lucrar no mês e o investimento previsto. O sistema mostra o faturamento necessário.
+              Defina o lucro alvo e o ROI desejado. O sistema calcula quanto investir e o faturamento necessário.
             </div>
           </div>
           <Button
@@ -353,7 +407,7 @@ function ScenarioBuilder({
             variant="outline"
             onClick={() => {
               setTargetProfitText(moneyInputValue(p.recommended.profit));
-              setPlannedInvestText(moneyInputValue(p.recommended.invest));
+              setTargetRoiText(roiInputValue(recommendedRoi));
             }}
           >
             Resetar provável
@@ -370,14 +424,15 @@ function ScenarioBuilder({
             />
           </label>
           <label className="space-y-2">
-            <span className="text-sm font-medium">Investimento planejado no mês</span>
+            <span className="text-sm font-medium">ROI do mês (%)</span>
             <Input
               inputMode="decimal"
-              value={plannedInvestText}
-              onChange={(e) => setPlannedInvestText(e.target.value)}
+              value={targetRoiText}
+              onChange={(e) => setTargetRoiText(e.target.value)}
             />
           </label>
         </div>
+
 
         <div className="flex flex-wrap gap-2">
           {[1000, 3000, 5000, 10000].map((delta) => (
