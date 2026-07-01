@@ -24,7 +24,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getCompanyBySlug } from "@/lib/celetus/companies.functions";
-import { getDashboard } from "@/lib/celetus/dashboard.functions";
+import { getDashboard, type DayRow } from "@/lib/celetus/dashboard.functions";
 import { listPartners, savePartners, type Partner } from "@/lib/celetus/partners.functions";
 import { computeProjection, roiOf, type Projection, type ProjectionMoney } from "@/lib/celetus/projection";
 import { isValidSlug } from "@/lib/celetus/workspaces";
