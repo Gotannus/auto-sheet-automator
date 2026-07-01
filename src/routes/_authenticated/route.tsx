@@ -11,6 +11,7 @@ import {
   Building2,
   Eye,
   Wallet,
+  TrendingUp,
 } from "lucide-react";
 
 
@@ -56,6 +57,9 @@ function AuthedLayout() {
             )}
             <NavItem to={companyPath(slug, "dashboard")} icon={<LayoutDashboard className="h-4 w-4" />}>
               Dashboard
+            </NavItem>
+            <NavItem to={companyPath(slug, "projecao")} icon={<TrendingUp className="h-4 w-4" />}>
+              Projeção
             </NavItem>
 
             <NavItem to={companyPath(slug, "sales")} icon={<Receipt className="h-4 w-4" />}>
