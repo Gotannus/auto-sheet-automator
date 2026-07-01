@@ -890,7 +890,12 @@ function ReadOnlyDailyRow({
                         {p.revenue_tax ? fmtBRL(p.revenue_tax) : "-"}
                       </TableCell>
                       <TableCell className="text-right">
-                        {p.invest_manual != null ? fmtBRL(p.invest_manual) : "-"}
+                        <ProductInvestCell
+                          companySlug={companySlug}
+                          productId={p.product_id}
+                          date={day.date}
+                          value={p.invest_manual}
+                        />
                       </TableCell>
                       <TableCell className="text-right">
                         {p.invest_final ? fmtBRL(p.invest_final) : "-"}
