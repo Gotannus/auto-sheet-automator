@@ -454,16 +454,21 @@ function DashboardPage() {
           <CardContent className="p-6 text-sm text-muted-foreground">Carregando...</CardContent>
         </Card>
       ) : (
-        <DashContent
-          companySlug={company.slug}
-          productId={selectedProductId}
-          isTotal={isTotal}
-          data={primary}
-          targetDay={targetDay}
-          rangeDays={range ? mergedDays : null}
-          rangeFullMonth={range ? isFullMonth(range) : false}
-          onChartClick={openChart}
-        />
+        <>
+          {!range && !targetDay && (
+            <ProjectionCard days={primary.days} companySlug={company.slug} year={year} month={month} />
+          )}
+          <DashContent
+            companySlug={company.slug}
+            productId={selectedProductId}
+            isTotal={isTotal}
+            data={primary}
+            targetDay={targetDay}
+            rangeDays={range ? mergedDays : null}
+            rangeFullMonth={range ? isFullMonth(range) : false}
+            onChartClick={openChart}
+          />
+        </>
       )}
 
       <ChartDialog
