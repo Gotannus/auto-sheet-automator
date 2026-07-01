@@ -21,6 +21,7 @@ import { Route as AuthenticatedCompanySlugWebhookRouteImport } from './routes/_a
 import { Route as AuthenticatedCompanySlugVisaoGeralRouteImport } from './routes/_authenticated/$companySlug/visao-geral'
 import { Route as AuthenticatedCompanySlugSettingsRouteImport } from './routes/_authenticated/$companySlug/settings'
 import { Route as AuthenticatedCompanySlugSalesRouteImport } from './routes/_authenticated/$companySlug/sales'
+import { Route as AuthenticatedCompanySlugProjecaoRouteImport } from './routes/_authenticated/$companySlug/projecao'
 import { Route as AuthenticatedCompanySlugProductsRouteImport } from './routes/_authenticated/$companySlug/products'
 import { Route as AuthenticatedCompanySlugImportRouteImport } from './routes/_authenticated/$companySlug/import'
 import { Route as AuthenticatedCompanySlugExpensesRouteImport } from './routes/_authenticated/$companySlug/expenses'
@@ -91,6 +92,12 @@ const AuthenticatedCompanySlugSalesRoute =
     path: '/$companySlug/sales',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedCompanySlugProjecaoRoute =
+  AuthenticatedCompanySlugProjecaoRouteImport.update({
+    id: '/$companySlug/projecao',
+    path: '/$companySlug/projecao',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedCompanySlugProductsRoute =
   AuthenticatedCompanySlugProductsRouteImport.update({
     id: '/$companySlug/products',
@@ -124,6 +131,7 @@ export interface FileRoutesByFullPath {
   '/$companySlug/expenses': typeof AuthenticatedCompanySlugExpensesRoute
   '/$companySlug/import': typeof AuthenticatedCompanySlugImportRoute
   '/$companySlug/products': typeof AuthenticatedCompanySlugProductsRoute
+  '/$companySlug/projecao': typeof AuthenticatedCompanySlugProjecaoRoute
   '/$companySlug/sales': typeof AuthenticatedCompanySlugSalesRoute
   '/$companySlug/settings': typeof AuthenticatedCompanySlugSettingsRoute
   '/$companySlug/visao-geral': typeof AuthenticatedCompanySlugVisaoGeralRoute
@@ -141,6 +149,7 @@ export interface FileRoutesByTo {
   '/$companySlug/expenses': typeof AuthenticatedCompanySlugExpensesRoute
   '/$companySlug/import': typeof AuthenticatedCompanySlugImportRoute
   '/$companySlug/products': typeof AuthenticatedCompanySlugProductsRoute
+  '/$companySlug/projecao': typeof AuthenticatedCompanySlugProjecaoRoute
   '/$companySlug/sales': typeof AuthenticatedCompanySlugSalesRoute
   '/$companySlug/settings': typeof AuthenticatedCompanySlugSettingsRoute
   '/$companySlug/visao-geral': typeof AuthenticatedCompanySlugVisaoGeralRoute
@@ -160,6 +169,7 @@ export interface FileRoutesById {
   '/_authenticated/$companySlug/expenses': typeof AuthenticatedCompanySlugExpensesRoute
   '/_authenticated/$companySlug/import': typeof AuthenticatedCompanySlugImportRoute
   '/_authenticated/$companySlug/products': typeof AuthenticatedCompanySlugProductsRoute
+  '/_authenticated/$companySlug/projecao': typeof AuthenticatedCompanySlugProjecaoRoute
   '/_authenticated/$companySlug/sales': typeof AuthenticatedCompanySlugSalesRoute
   '/_authenticated/$companySlug/settings': typeof AuthenticatedCompanySlugSettingsRoute
   '/_authenticated/$companySlug/visao-geral': typeof AuthenticatedCompanySlugVisaoGeralRoute
@@ -179,6 +189,7 @@ export interface FileRouteTypes {
     | '/$companySlug/expenses'
     | '/$companySlug/import'
     | '/$companySlug/products'
+    | '/$companySlug/projecao'
     | '/$companySlug/sales'
     | '/$companySlug/settings'
     | '/$companySlug/visao-geral'
@@ -196,6 +207,7 @@ export interface FileRouteTypes {
     | '/$companySlug/expenses'
     | '/$companySlug/import'
     | '/$companySlug/products'
+    | '/$companySlug/projecao'
     | '/$companySlug/sales'
     | '/$companySlug/settings'
     | '/$companySlug/visao-geral'
@@ -214,6 +226,7 @@ export interface FileRouteTypes {
     | '/_authenticated/$companySlug/expenses'
     | '/_authenticated/$companySlug/import'
     | '/_authenticated/$companySlug/products'
+    | '/_authenticated/$companySlug/projecao'
     | '/_authenticated/$companySlug/sales'
     | '/_authenticated/$companySlug/settings'
     | '/_authenticated/$companySlug/visao-geral'
@@ -319,6 +332,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCompanySlugSalesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/$companySlug/projecao': {
+      id: '/_authenticated/$companySlug/projecao'
+      path: '/$companySlug/projecao'
+      fullPath: '/$companySlug/projecao'
+      preLoaderRoute: typeof AuthenticatedCompanySlugProjecaoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/$companySlug/products': {
       id: '/_authenticated/$companySlug/products'
       path: '/$companySlug/products'
@@ -355,6 +375,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCompanySlugExpensesRoute: typeof AuthenticatedCompanySlugExpensesRoute
   AuthenticatedCompanySlugImportRoute: typeof AuthenticatedCompanySlugImportRoute
   AuthenticatedCompanySlugProductsRoute: typeof AuthenticatedCompanySlugProductsRoute
+  AuthenticatedCompanySlugProjecaoRoute: typeof AuthenticatedCompanySlugProjecaoRoute
   AuthenticatedCompanySlugSalesRoute: typeof AuthenticatedCompanySlugSalesRoute
   AuthenticatedCompanySlugSettingsRoute: typeof AuthenticatedCompanySlugSettingsRoute
   AuthenticatedCompanySlugVisaoGeralRoute: typeof AuthenticatedCompanySlugVisaoGeralRoute
@@ -369,6 +390,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCompanySlugExpensesRoute: AuthenticatedCompanySlugExpensesRoute,
   AuthenticatedCompanySlugImportRoute: AuthenticatedCompanySlugImportRoute,
   AuthenticatedCompanySlugProductsRoute: AuthenticatedCompanySlugProductsRoute,
+  AuthenticatedCompanySlugProjecaoRoute: AuthenticatedCompanySlugProjecaoRoute,
   AuthenticatedCompanySlugSalesRoute: AuthenticatedCompanySlugSalesRoute,
   AuthenticatedCompanySlugSettingsRoute: AuthenticatedCompanySlugSettingsRoute,
   AuthenticatedCompanySlugVisaoGeralRoute:
