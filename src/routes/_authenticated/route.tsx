@@ -11,8 +11,8 @@ import {
   Building2,
   Eye,
   Wallet,
-  Zap,
 } from "lucide-react";
+
 
 import {
   companyPath,
@@ -54,9 +54,6 @@ function AuthedLayout() {
                 Visão Geral
               </NavItem>
             )}
-            <NavItem to={companyPath(slug, "hoje")} icon={<Zap className="h-4 w-4" />}>
-              Resumo do dia
-            </NavItem>
             <NavItem to={companyPath(slug, "dashboard")} icon={<LayoutDashboard className="h-4 w-4" />}>
               Dashboard
             </NavItem>
