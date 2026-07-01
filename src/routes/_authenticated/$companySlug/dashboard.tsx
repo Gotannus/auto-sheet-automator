@@ -792,10 +792,12 @@ function DailyTable({
 }
 
 function ReadOnlyDailyRow({
+  companySlug,
   day,
   expanded,
   onToggle,
 }: {
+  companySlug: string;
   day: DayData;
   expanded: boolean;
   onToggle: () => void;
