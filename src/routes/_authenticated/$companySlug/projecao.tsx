@@ -254,12 +254,22 @@ function ForecastResult({ p }: { p: Projection }) {
               <div className="text-xs text-muted-foreground">
                 {p.monthClosed
                   ? "Resultado final do mês selecionado."
-                  : "Se continuar no mesmo ritmo real até hoje."}
+                  : p.projectionReady
+                    ? "Se continuar no mesmo ritmo real até hoje."
+                    : "Ainda é cedo para cravar o fechamento; abaixo fica o lucro atual como base segura."}
               </div>
             </div>
             <TrendingUp className="h-5 w-5 text-emerald-600" />
           </div>
           <MoneyGrid data={p.projectedPace} />
+          {!p.monthClosed && !p.projectionReady && (
+            <div className="rounded-md border p-3 text-sm">
+              <div className="text-xs text-muted-foreground">Ritmo atual indicativo</div>
+              <div className={`text-lg font-semibold tabular-nums ${p.runRateProjection.profit >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                {fmtBRL(p.runRateProjection.profit)}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -271,7 +281,9 @@ function ForecastResult({ p }: { p: Projection }) {
               <div className="text-xs text-muted-foreground">
                 {p.monthClosed
                   ? "Mesmo valor do mês fechado."
-                  : `Usando os últimos ${p.recentDays || 0} dias corridos como referência.`}
+                  : p.projectionReady
+                    ? `Usando os últimos ${p.recentDays || 0} dias corridos como referência.`
+                    : "Aparece como lucro atual até ter pelo menos 3 dias de dados."}
               </div>
             </div>
             {recentBetter ? (
