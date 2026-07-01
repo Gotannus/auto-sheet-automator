@@ -406,9 +406,10 @@ function DashboardPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={TOTAL_PRODUCT_ID}>Total</SelectItem>
-              {products.map((p: Product) => (
+              {visibleProducts.map((p: Product) => (
                 <SelectItem key={p.id} value={p.id}>
                   {p.display_name || p.name}
+                  {activeProductIds && !activeProductIds.has(p.id) ? " (sem atividade)" : ""}
                 </SelectItem>
               ))}
             </SelectContent>
