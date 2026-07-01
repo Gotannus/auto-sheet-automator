@@ -1,23 +1,30 @@
-## Ajustes na Visão Geral (`/gotannus/visao-geral`)
+## Ajustes
 
-### 1. Card "Total" das 3 empresas
-No topo da grade de empresas (antes dos cards individuais), adicionar um card destacado "Total geral" somando todas as empresas visíveis no período:
-- Faturamento (soma de `revenue`)
-- Investimento (soma de `invest_final`; também mostrar `invest_manual` somado embaixo, no mesmo padrão dos cards)
-- Lucro (soma de `profit`) — verde se ≥ 0, vermelho se < 0
-- ROI consolidado = lucro_total / invest_final_total
-- Rodapé: `X vendas · YP / ZB` somando `sales`, `principal_qty`, `ob_qty`
+### 1. Remover "Resumo do dia"
+- Em `src/routes/_authenticated/route.tsx`: remover o `<NavItem>` "Resumo do dia" (linhas 57–59) e o import de `Zap`.
+- Deletar `src/routes/_authenticated/$companySlug/hoje.tsx` para eliminar a duplicação (a Visão Geral do Gotannus e o Dashboard já cobrem o caso). A rota `/hoje` some do bundle após deletar o arquivo.
 
-Cálculo feito no cliente a partir do array `companies` que o server já retorna — sem mexer no server function.
+### 2. Investimento por produto no modo Total (por dia)
+Hoje, no modo Total (`isTotal === true`), a `DailyTable` renderiza `ReadOnlyDailyRow` e a linha expandida ("Detalhe por produto") só mostra números. Vamos permitir editar o **investimento manual daquele produto naquele dia** direto na linha expandida — o total do dia continua sem edição direta (o campo do dia agregado permanece read-only).
 
-### 2. Filtro de empresa nas "Últimas vendas"
-Acima da lista `ÚLTIMAS VENDAS`, adicionar um `<Select>` compacto com:
-- "Todas as empresas" (padrão)
-- Uma opção por empresa (usando `company_slug` como value, `company_name` como label) — geradas a partir do próprio `result.companies`
+Mudanças em `src/routes/_authenticated/$companySlug/dashboard.tsx`:
+- `DashContent` já recebe `companySlug`; passar também para `DailyTable` (já passa) e propagar até `ReadOnlyDailyRow` o `companySlug` para permitir a mutação.
+- Em `ReadOnlyDailyRow`, transformar a célula "Invest. manual" de cada linha de `by_product` em um input inline (mesmo componente `NumCell` usado hoje) com botão de lápis → confirm → salvar. Ao salvar, chamar `upsertDailyInput` com `{ company_slug, product_id: p.product_id, date: day.date, invest_manual: value }` (mesmo shape usado pelo `DailyRow` de produto único). Após sucesso: `invalidateQueries({ queryKey: ["dash", companySlug] })` — refaz tanto o Total quanto qualquer produto individual.
+- Manter as demais colunas do detalhe por produto como leitura. Bloquear edição no header do dia (linha agregada) permanece — o pedido é justamente restringir edição ao par (produto, data).
+- Recalcular os totais do dia acontece naturalmente no próximo fetch (já vem agregado do server).
 
-Filtro aplicado no cliente sobre `recent_sales` (`company_slug === selected`). Mantém o auto-refresh de 30s existente e o indicador "ao vivo".
+### 3. Filtro de produtos com atividade no período
+No `<Select>` de produto (linhas 366–378), esconder produtos sem qualquer venda **e** sem investimento manual dentro do período carregado.
 
-Observação: como hoje o server retorna as 20 vendas mais recentes no total, ao filtrar por uma empresa específica a lista pode ficar curta em períodos com poucas vendas dessa empresa. Se quiser sempre 20 por empresa selecionada, precisaria alterar o server function para aceitar `company_slug` opcional e refazer a query — me avisa se quer essa versão em vez do filtro puramente client-side.
+Abordagem:
+- Rodar uma consulta paralela leve com `productId = Total` sempre (mesmo quando o usuário já está com um produto específico selecionado), reaproveitando `getDashboard` e o cache do React Query (mesma `queryKey` do modo Total → sem duplicação quando estiver em Total).
+- Derivar `activeProductIds = union` de todos os `by_product[].product_id` em que `sales > 0 || (invest_manual ?? 0) > 0`, considerando todos os `days` do período (respeitando `range` quando ativo).
+- Filtrar `products` pelo `activeProductIds` antes do `.map` do Select. Sempre manter no dropdown o produto atualmente selecionado (mesmo que sem atividade) para não bugar o `Select` controlado; se ele estiver fora do conjunto, exibi-lo em cinza com sufixo "(sem atividade)".
+- Enquanto a query paralela está carregando, mostrar a lista completa (fallback), evitando "flash" com o dropdown vazio.
 
 ### Arquivos
-- `src/routes/_authenticated/$companySlug/visao-geral.tsx` — único arquivo alterado. Sem mudanças em server functions, schema ou outras telas.
+- `src/routes/_authenticated/route.tsx` — remover item de menu.
+- `src/routes/_authenticated/$companySlug/hoje.tsx` — deletar.
+- `src/routes/_authenticated/$companySlug/dashboard.tsx` — edição inline no breakdown por produto + filtro do Select.
+
+Sem mudanças em server functions, schema ou outras telas.

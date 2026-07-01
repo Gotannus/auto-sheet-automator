@@ -243,6 +243,19 @@ function DashboardPage() {
     })),
   });
 
+  // Always-Total queries used to derive which products have activity in the
+  // current period (for filtering the product dropdown). When the user is
+  // already in Total, React Query dedupes via the shared queryKey.
+  const totalQueries = useQueries({
+    queries: months.map((mo) => ({
+      queryKey: ["dash", company.slug, TOTAL_PRODUCT_ID, mo.year, mo.month],
+      queryFn: () =>
+        fetchDash({
+          data: { company_slug: company.slug, year: mo.year, month: mo.month },
+        }),
+    })),
+  });
+
   const isLoading = queries.some((q) => q.isLoading);
   const primary = queries[0]?.data ?? null;
 
@@ -253,6 +266,30 @@ function DashboardPage() {
     return all;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queries.map((q) => q.dataUpdatedAt).join(","), range]);
+
+  const activeProductIds = useMemo<Set<string> | null>(() => {
+    if (totalQueries.some((q) => q.isLoading && !q.data)) return null;
+    const ids = new Set<string>();
+    for (const q of totalQueries) {
+      if (!q.data) continue;
+      for (const d of q.data.days) {
+        if (range && (d.date < range.from || d.date > range.to)) continue;
+        for (const p of d.by_product ?? []) {
+          if (p.sales > 0 || (p.invest_manual ?? 0) > 0) ids.add(p.product_id);
+        }
+      }
+    }
+    return ids;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalQueries.map((q) => q.dataUpdatedAt).join(","), range]);
+
+  const visibleProducts = useMemo(() => {
+    if (!activeProductIds) return products;
+    return products.filter(
+      (p: Product) => activeProductIds.has(p.id) || p.id === productId,
+    );
+  }, [products, activeProductIds, productId]);
+
 
   if (!products.length) {
     return (
@@ -369,9 +406,10 @@ function DashboardPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={TOTAL_PRODUCT_ID}>Total</SelectItem>
-              {products.map((p: Product) => (
+              {visibleProducts.map((p: Product) => (
                 <SelectItem key={p.id} value={p.id}>
                   {p.display_name || p.name}
+                  {activeProductIds && !activeProductIds.has(p.id) ? " (sem atividade)" : ""}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -734,6 +772,7 @@ function DailyTable({
           isTotal ? (
             <ReadOnlyDailyRow
               key={`total:${d.date}`}
+              companySlug={companySlug}
               day={d}
               expanded={expanded.has(d.date)}
               onToggle={() => toggle(d.date)}
@@ -753,10 +792,12 @@ function DailyTable({
 }
 
 function ReadOnlyDailyRow({
+  companySlug,
   day,
   expanded,
   onToggle,
 }: {
+  companySlug: string;
   day: DayData;
   expanded: boolean;
   onToggle: () => void;
@@ -849,7 +890,12 @@ function ReadOnlyDailyRow({
                         {p.revenue_tax ? fmtBRL(p.revenue_tax) : "-"}
                       </TableCell>
                       <TableCell className="text-right">
-                        {p.invest_manual != null ? fmtBRL(p.invest_manual) : "-"}
+                        <ProductInvestCell
+                          companySlug={companySlug}
+                          productId={p.product_id}
+                          date={day.date}
+                          value={p.invest_manual}
+                        />
                       </TableCell>
                       <TableCell className="text-right">
                         {p.invest_final ? fmtBRL(p.invest_final) : "-"}
@@ -1154,6 +1200,76 @@ function DailyRow({
     </TableRow>
   );
 }
+
+function ProductInvestCell({
+  companySlug,
+  productId,
+  date,
+  value,
+}: {
+  companySlug: string;
+  productId: string;
+  date: string;
+  value: number | null;
+}) {
+  const qc = useQueryClient();
+  const save = useServerFn(upsertDailyInput);
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(value?.toString() ?? "");
+  useEffect(() => {
+    setText(value?.toString() ?? "");
+  }, [value, productId, date]);
+  const mut = useMutation({
+    mutationFn: (invest_manual: number | null) =>
+      save({
+        data: {
+          company_slug: companySlug,
+          product_id: productId,
+          date,
+          invest_manual,
+        } as never,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["dash", companySlug] });
+      setEditing(false);
+    },
+  });
+  const commit = (n: number | null) => {
+    if (value != null && n != null && !sameMoney(value, n)) {
+      const ok = confirm(
+        `Substituir investimento?\n\nAtual: ${fmtBRL(value)}\nNovo: ${fmtBRL(n)}`,
+      );
+      if (!ok) {
+        setText(value.toString());
+        setEditing(false);
+        return;
+      }
+    }
+    mut.mutate(n);
+  };
+  if (editing) {
+    return <NumCell value={text} onChange={setText} onCommit={commit} />;
+  }
+  return (
+    <div className="flex items-center justify-end gap-1">
+      <span>{value != null ? fmtBRL(value) : "-"}</span>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-5 w-5 text-muted-foreground/60 hover:text-foreground"
+        onClick={() => {
+          setText(value?.toString() ?? "");
+          setEditing(true);
+        }}
+        title="Editar investimento deste produto no dia"
+      >
+        <Pencil className="h-3 w-3" />
+      </Button>
+    </div>
+  );
+}
+
 
 function NumCell({
   value,

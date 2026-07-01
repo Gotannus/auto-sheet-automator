@@ -316,7 +316,7 @@ function OverviewInner() {
               {data.companies.map((c) => (
                 <Link
                   key={c.company_id}
-                  to={companyPath(c.company_slug, "hoje")}
+                  to={companyPath(c.company_slug, "dashboard")}
                   className="block group"
                 >
                   <Card className="hover:border-primary transition-colors h-full">
