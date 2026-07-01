@@ -147,6 +147,7 @@ function OverviewInner() {
   const todayYmd = useMemo(() => toYMD(brtNow()), []);
   const [customFrom, setCustomFrom] = useState(firstDayOfMonth(todayYmd));
   const [customTo, setCustomTo] = useState(todayYmd);
+  const [salesFilter, setSalesFilter] = useState<string>("all");
   const r = useMemo(
     () => rangeForPreset(preset, { from: customFrom, to: customTo }),
     [preset, customFrom, customTo],
@@ -160,6 +161,29 @@ function OverviewInner() {
   });
 
   const data = query.data;
+
+  const totals = useMemo(() => {
+    if (!data || data.companies.length === 0) return null;
+    return data.companies.reduce(
+      (a, c) => ({
+        sales: a.sales + c.sales,
+        principal_qty: a.principal_qty + c.principal_qty,
+        ob_qty: a.ob_qty + c.ob_qty,
+        revenue: a.revenue + c.revenue,
+        invest_manual: a.invest_manual + c.invest_manual,
+        invest_final: a.invest_final + c.invest_final,
+        profit: a.profit + c.profit,
+      }),
+      { sales: 0, principal_qty: 0, ob_qty: 0, revenue: 0, invest_manual: 0, invest_final: 0, profit: 0 },
+    );
+  }, [data]);
+  const totalRoi = totals && totals.invest_final > 0 ? totals.profit / totals.invest_final : 0;
+
+  const filteredSales = useMemo(() => {
+    if (!data) return [];
+    if (salesFilter === "all") return data.recent_sales;
+    return data.recent_sales.filter((s) => s.company_slug === salesFilter);
+  }, [data, salesFilter]);
 
   return (
     <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
@@ -244,7 +268,51 @@ function OverviewInner() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid sm:grid-cols-2 gap-3">
+            <div className="space-y-3">
+              {totals && (
+                <Card className="border-primary/40 bg-primary/5">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="font-semibold">Total geral</div>
+                      <div className="text-xs text-muted-foreground">
+                        {data!.companies.length} empresas
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-2 text-sm">
+                      <div>
+                        <div className="text-xs text-muted-foreground">Faturamento</div>
+                        <div className="font-medium tabular-nums">{fmtBRL(totals.revenue)}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground">Investimento</div>
+                        <div className="font-medium tabular-nums text-sky-600">
+                          {fmtBRL(totals.invest_final)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground">Lucro</div>
+                        <div
+                          className={`font-semibold tabular-nums ${totals.profit >= 0 ? "text-emerald-600" : "text-rose-600"}`}
+                        >
+                          {fmtBRL(totals.profit)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground">ROI</div>
+                        <div className="font-medium tabular-nums text-amber-600">
+                          {totals.invest_final > 0 ? fmtPct(totalRoi) : "—"}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-xs text-muted-foreground pt-1 border-t">
+                      {fmtInt(totals.sales)} vendas · {fmtInt(totals.principal_qty)}P /{" "}
+                      {fmtInt(totals.ob_qty)}B
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              <div className="grid sm:grid-cols-2 gap-3">
+
               {data.companies.map((c) => (
                 <Link
                   key={c.company_id}
@@ -290,9 +358,11 @@ function OverviewInner() {
                   </Card>
                 </Link>
               ))}
+              </div>
             </div>
           )}
         </div>
+
 
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -307,6 +377,21 @@ function OverviewInner() {
               ao vivo
             </div>
           </div>
+          {data && data.companies.length > 0 && (
+            <Select value={salesFilter} onValueChange={setSalesFilter}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as empresas</SelectItem>
+                {data.companies.map((c) => (
+                  <SelectItem key={c.company_id} value={c.company_slug}>
+                    {c.company_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Card>
             <CardContent className="p-0 max-h-[700px] overflow-y-auto">
               {!data ? (
@@ -315,11 +400,11 @@ function OverviewInner() {
                     <div key={i} className="h-12 bg-muted rounded animate-pulse" />
                   ))}
                 </div>
-              ) : data.recent_sales.length === 0 ? (
+              ) : filteredSales.length === 0 ? (
                 <div className="p-6 text-sm text-muted-foreground">Sem vendas recentes.</div>
               ) : (
                 <ul className="divide-y">
-                  {data.recent_sales.map((s) => {
+                  {filteredSales.map((s) => {
                     const isBump =
                       s.kind.toLowerCase() === "orderbump" ||
                       s.kind.toLowerCase() === "order_bump" ||
