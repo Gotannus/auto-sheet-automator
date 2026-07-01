@@ -482,3 +482,90 @@ function PartnersSection({
     </Card>
   );
 }
+
+function ByProductProjection({ days, ym }: { days: DayRow[]; ym: MonthKey }) {
+  const rows = useMemo(() => {
+    const map = new Map<string, { name: string; days: { date: string; revenue: number; invest_final: number; profit: number }[] }>();
+    for (const d of days) {
+      for (const bp of d.by_product ?? []) {
+        let entry = map.get(bp.product_id);
+        if (!entry) {
+          entry = { name: bp.product_name, days: [] };
+          map.set(bp.product_id, entry);
+        }
+        entry.days.push({
+          date: d.date,
+          revenue: Number(bp.revenue || 0),
+          invest_final: Number(bp.invest_final || 0),
+          profit: Number(bp.profit || 0),
+        });
+      }
+    }
+    const list = Array.from(map.entries()).map(([id, e]) => {
+      const proj = computeProjection(e.days, { monthYear: ym.year, monthMonth: ym.month });
+      return { id, name: e.name, proj };
+    });
+    list.sort((a, b) => b.proj.projectedPace.profit - a.proj.projectedPace.profit);
+    return list;
+  }, [days, ym.year, ym.month]);
+
+  if (rows.length === 0) return null;
+
+  const totalProjected = rows.reduce((a, r) => a + r.proj.projectedPace.profit, 0);
+
+  return (
+    <Card>
+      <CardContent className="p-5 space-y-3">
+        <div className="flex items-end justify-between gap-3 flex-wrap">
+          <div>
+            <div className="text-sm font-semibold">Projeção por produto</div>
+            <div className="text-xs text-muted-foreground">Ranking pelo lucro projetado do mês</div>
+          </div>
+          <div className="text-right">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Lucro projetado total</div>
+            <div className={`text-lg font-semibold tabular-nums ${totalProjected >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+              {fmtBRL(totalProjected)}
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          {rows.map((r) => {
+            const realized = r.proj.realized.profit;
+            const projected = r.proj.projectedPace.profit;
+            const roi = r.proj.projectedPace.invest > 0 ? roiOf(r.proj.projectedPace) : null;
+            const share = totalProjected !== 0 ? Math.max(0, Math.min(1, projected / totalProjected)) : 0;
+            return (
+              <div key={r.id} className="rounded-md border p-3 hover:bg-muted/40 transition">
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium truncate">{r.name}</div>
+                    <div className="text-[11px] text-muted-foreground">
+                      Fat proj: <span className="tabular-nums">{fmtBRL(r.proj.projectedPace.revenue)}</span>
+                      {" · "}Inv proj: <span className="tabular-nums">{fmtBRL(r.proj.projectedPace.invest)}</span>
+                      {roi !== null && <> {" · "}ROI: <span className="tabular-nums">{fmtPct(roi)}</span></>}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Realizado / Projetado</div>
+                    <div className="text-sm tabular-nums">
+                      <span className={realized >= 0 ? "text-emerald-600" : "text-rose-600"}>{fmtBRL(realized)}</span>
+                      <span className="text-muted-foreground"> → </span>
+                      <span className={`font-semibold ${projected >= 0 ? "text-emerald-600" : "text-rose-600"}`}>{fmtBRL(projected)}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className={`h-full ${projected >= 0 ? "bg-emerald-500" : "bg-rose-500"}`}
+                    style={{ width: `${share * 100}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
