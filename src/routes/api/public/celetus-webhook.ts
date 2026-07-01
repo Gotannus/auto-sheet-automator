@@ -275,8 +275,55 @@ export async function persistSaleCandidates(
     return aPrincipal - bPrincipal;
   });
 
+  // Track Principal product per transaction within this batch so any Orderbump
+  // in the same payload lands on the Principal's product, not a phantom.
+  const principalByTx = new Map<string, ProductRow>();
+
   for (const candidate of orderedCandidates) {
+    const candidateKind = norm(candidate.row.kind);
+    const isPrincipal = candidateKind === "principal" || candidateKind === "main";
+    const isOrderbump =
+      candidateKind === "orderbump" ||
+      candidateKind === "order_bump" ||
+      candidateKind === "bump";
+
     let product = findProduct(productRows, candidate);
+
+    // For Orderbumps, prefer the Principal of the same transaction (batch or DB)
+    // to avoid creating a phantom product keyed by the transaction code.
+    if (!product && isOrderbump) {
+      const batchPrincipal = principalByTx.get(candidate.transactionCode);
+      if (batchPrincipal) {
+        product = batchPrincipal;
+      } else {
+        const { data: siblingRows } = await supabaseAdmin
+          .from("celetus_sales")
+          .select("product_id, kind")
+          .eq("user_id", userId)
+          .eq("transaction_code", candidate.transactionCode)
+          .limit(20);
+        const sibling = (siblingRows ?? []).find((r) => {
+          const k = norm(r.kind as string);
+          return (k === "principal" || k === "main") && r.product_id;
+        }) ?? (siblingRows ?? []).find((r) => r.product_id);
+        if (sibling?.product_id) {
+          const match = productRows.find((p) => p.id === sibling.product_id);
+          if (match) product = match;
+          else {
+            const { data: prod } = await supabaseAdmin
+              .from("products")
+              .select("id, src, name")
+              .eq("id", sibling.product_id)
+              .maybeSingle();
+            if (prod) {
+              product = prod as ProductRow;
+              productRows.push(product);
+            }
+          }
+        }
+      }
+    }
+
     if (!product) {
       try {
         product = await createProductFromCandidate(supabaseAdmin, userId, candidate);
@@ -289,6 +336,8 @@ export async function persistSaleCandidates(
       productRows.push(product);
       autoCreatedProducts += 1;
     }
+
+    if (isPrincipal) principalByTx.set(candidate.transactionCode, product);
 
     // Promote product name when a Principal arrives for a product that was
     // auto-created from an Orderbump (name == src placeholder) or any other
