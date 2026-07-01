@@ -1394,7 +1394,7 @@ function ProjectionCard({
       <CardContent className="p-4 flex flex-wrap items-center gap-x-6 gap-y-3">
         <div className="flex items-center gap-2">
           <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Projeção do mês
+            Lucro do mês
           </div>
           <div className="text-[11px] text-muted-foreground">
             {p.daysElapsed}/{p.daysInMonth} dias
@@ -1402,21 +1402,25 @@ function ProjectionCard({
         </div>
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
           <div>
-            <span className="text-muted-foreground text-xs">Realizado </span>
+            <span className="text-muted-foreground text-xs">Atual </span>
             <span className={`font-semibold tabular-nums ${tone(p.realized.profit)}`}>
               {fmt(p.realized.profit)}
             </span>
           </div>
           <div>
-            <span className="text-muted-foreground text-xs">Projeção A </span>
-            <span className={`font-semibold tabular-nums ${tone(p.projectionAvg.profit)}`}>
-              {fmt(p.projectionAvg.profit)}
+            <span className="text-muted-foreground text-xs">
+              {p.projectionReady ? "Fecha provável " : "Base segura "}
+            </span>
+            <span className={`font-semibold tabular-nums ${tone(p.projectedPace.profit)}`}>
+              {fmt(p.projectedPace.profit)}
             </span>
           </div>
           <div>
-            <span className="text-muted-foreground text-xs">Projeção B </span>
-            <span className={`font-semibold tabular-nums ${tone(p.projectionLast7.profit)}`}>
-              {fmt(p.projectionLast7.profit)}
+            <span className="text-muted-foreground text-xs">
+              {p.projectionReady ? "Ritmo recente " : "Aguardando dados "}
+            </span>
+            <span className={`font-semibold tabular-nums ${tone(p.projectedRecent.profit)}`}>
+              {fmt(p.projectedRecent.profit)}
             </span>
           </div>
         </div>

@@ -6,8 +6,54 @@ export type DayLike = {
   profit: number;
 };
 
+export type ProjectionMoney = {
+  revenue: number;
+  invest: number;
+  profit: number;
+};
+
 function brtToday(): string {
   return new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+}
+
+function sumMoney(days: DayLike[]): ProjectionMoney {
+  return days.reduce(
+    (acc, d) => ({
+      revenue: acc.revenue + Number(d.revenue || 0),
+      invest: acc.invest + Number(d.invest_final || 0),
+      profit: acc.profit + Number(d.profit || 0),
+    }),
+    { revenue: 0, invest: 0, profit: 0 },
+  );
+}
+
+function divideMoney(v: ProjectionMoney, divisor: number): ProjectionMoney {
+  const safe = divisor > 0 ? divisor : 1;
+  return {
+    revenue: v.revenue / safe,
+    invest: v.invest / safe,
+    profit: v.profit / safe,
+  };
+}
+
+function scaleMoney(v: ProjectionMoney, factor: number): ProjectionMoney {
+  return {
+    revenue: v.revenue * factor,
+    invest: v.invest * factor,
+    profit: v.profit * factor,
+  };
+}
+
+function addMoney(a: ProjectionMoney, b: ProjectionMoney): ProjectionMoney {
+  return {
+    revenue: a.revenue + b.revenue,
+    invest: a.invest + b.invest,
+    profit: a.profit + b.profit,
+  };
+}
+
+export function roiOf(v: ProjectionMoney): number {
+  return v.invest > 0 ? v.profit / v.invest : 0;
 }
 
 export function computeProjection(
@@ -17,7 +63,6 @@ export function computeProjection(
   const today = opts?.referenceDate ?? brtToday();
   const [ty, tm, td] = today.split("-").map(Number);
 
-  // Infer month/year from days if not given
   let year = opts?.monthYear;
   let month = opts?.monthMonth;
   if ((!year || !month) && days.length > 0) {
@@ -30,53 +75,57 @@ export function computeProjection(
 
   const daysInMonth = new Date(year, month, 0).getDate();
   const isCurrentMonth = year === ty && month === tm;
+  const isFutureMonth = year > ty || (year === ty && month > tm);
 
-  // Filter to days that are within the month and up to today (if current month).
-  const upToToday = days.filter((d) => {
-    const [dy, dm, dd] = d.date.split("-").map(Number);
-    if (dy !== year || dm !== month) return false;
-    if (!isCurrentMonth) return true;
-    return dd <= td;
-  });
+  const monthDays = days
+    .filter((d) => {
+      const [dy, dm] = d.date.split("-").map(Number);
+      return dy === year && dm === month;
+    })
+    .sort((a, b) => a.date.localeCompare(b.date));
 
-  const daysElapsed = isCurrentMonth ? td : daysInMonth;
+  const currentDay = isCurrentMonth ? Math.min(Math.max(td, 1), daysInMonth) : daysInMonth;
+  const upToToday = isFutureMonth
+    ? []
+    : monthDays.filter((d) => {
+        if (!isCurrentMonth) return true;
+        const [, , dd] = d.date.split("-").map(Number);
+        return dd <= currentDay;
+      });
+
+  const daysElapsed = isFutureMonth ? 0 : currentDay;
   const daysRemaining = Math.max(0, daysInMonth - daysElapsed);
+  const monthClosed = !isCurrentMonth || daysRemaining === 0;
 
-  const realizedRevenue = upToToday.reduce((a, d) => a + d.revenue, 0);
-  const realizedInvest = upToToday.reduce((a, d) => a + d.invest_final, 0);
-  const realizedProfit = upToToday.reduce((a, d) => a + d.profit, 0);
+  const realized = sumMoney(upToToday);
 
-  // Days with any activity to avoid diluting the average with pre-launch zeros.
+  // Run-rate projection: calendar-day average up to today. This avoids inflated
+  // numbers from active-day-only averages, but still must not be treated as a
+  // probable close when the month has barely started.
+  const runningAverage = divideMoney(realized, daysElapsed || 1);
+  const runRateProjection = monthClosed
+    ? realized
+    : addMoney(realized, scaleMoney(runningAverage, daysRemaining));
+  const projectionReady = monthClosed || daysElapsed >= 3;
+  const projectedPace = projectionReady ? runRateProjection : realized;
+
+  // Secondary signal: recent calendar pace including zero days, useful when
+  // the current week changed but still grounded in real elapsed days.
+  const recentWindowSize = Math.min(7, upToToday.length);
+  const recentDays = recentWindowSize > 0 ? upToToday.slice(-recentWindowSize) : [];
+  const recentAverage = divideMoney(sumMoney(recentDays), recentDays.length || 1);
+  const recentRunRateProjection = monthClosed
+    ? realized
+    : addMoney(realized, scaleMoney(recentAverage, daysRemaining));
+  const projectedRecent = projectionReady ? recentRunRateProjection : realized;
+
+  // Reference only: active-day average can be useful, but should not be the
+  // headline projection because it usually overstates the month.
   const activeDays = upToToday.filter(
     (d) => d.revenue !== 0 || d.invest_final !== 0 || d.profit !== 0,
   );
-  const activeCount = activeDays.length || daysElapsed || 1;
-
-  const avgProfit = realizedProfit / activeCount;
-  const avgRevenue = realizedRevenue / activeCount;
-  const avgInvest = realizedInvest / activeCount;
-
-  // Projection A: average daily * days in month
-  const projA = {
-    revenue: avgRevenue * daysInMonth,
-    invest: avgInvest * daysInMonth,
-    profit: avgProfit * daysInMonth,
-  };
-
-  // Projection B: last 7 days average * days remaining + realized
-  const last7 = upToToday.slice(-7);
-  const last7Active = last7.filter(
-    (d) => d.revenue !== 0 || d.invest_final !== 0 || d.profit !== 0,
-  );
-  const l7count = last7Active.length || last7.length || 1;
-  const l7profit = last7.reduce((a, d) => a + d.profit, 0) / l7count;
-  const l7revenue = last7.reduce((a, d) => a + d.revenue, 0) / l7count;
-  const l7invest = last7.reduce((a, d) => a + d.invest_final, 0) / l7count;
-  const projB = {
-    revenue: realizedRevenue + l7revenue * daysRemaining,
-    invest: realizedInvest + l7invest * daysRemaining,
-    profit: realizedProfit + l7profit * daysRemaining,
-  };
+  const activeAverage = divideMoney(sumMoney(activeDays), activeDays.length || 1);
+  const activeProjection = monthClosed ? realized : scaleMoney(activeAverage, daysInMonth);
 
   return {
     year,
@@ -84,16 +133,26 @@ export function computeProjection(
     daysInMonth,
     daysElapsed,
     daysRemaining,
+    activeDays: activeDays.length,
+    recentDays: recentDays.length,
     isCurrentMonth,
-    realized: {
-      revenue: realizedRevenue,
-      invest: realizedInvest,
-      profit: realizedProfit,
-    },
-    avg: { revenue: avgRevenue, invest: avgInvest, profit: avgProfit },
-    last7Avg: { revenue: l7revenue, invest: l7invest, profit: l7profit },
-    projectionAvg: projA,
-    projectionLast7: projB,
+    isFutureMonth,
+    monthClosed,
+    projectionReady,
+    realized,
+    runningAverage,
+    activeAverage,
+    recentAverage,
+    runRateProjection,
+    recentRunRateProjection,
+    projectedPace,
+    projectedRecent,
+    activeProjection,
+    recommended: projectedPace,
+    avg: runningAverage,
+    last7Avg: recentAverage,
+    projectionAvg: projectedPace,
+    projectionLast7: projectedRecent,
   };
 }
 

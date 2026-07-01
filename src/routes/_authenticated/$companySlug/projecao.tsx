@@ -1,19 +1,13 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { Plus, Target, Trash2, TrendingDown, TrendingUp } from "lucide-react";
 
-import { getCompanyBySlug } from "@/lib/celetus/companies.functions";
-import { getDashboard } from "@/lib/celetus/dashboard.functions";
-import { listPartners, savePartners, type Partner } from "@/lib/celetus/partners.functions";
-import { computeProjection } from "@/lib/celetus/projection";
-import { isValidSlug } from "@/lib/celetus/workspaces";
-
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Slider } from "@/components/ui/slider";
 import {
   Select,
   SelectContent,
@@ -29,7 +23,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Trash2, TrendingUp, TrendingDown } from "lucide-react";
+import { getCompanyBySlug } from "@/lib/celetus/companies.functions";
+import { getDashboard } from "@/lib/celetus/dashboard.functions";
+import { listPartners, savePartners, type Partner } from "@/lib/celetus/partners.functions";
+import { computeProjection, roiOf, type Projection, type ProjectionMoney } from "@/lib/celetus/projection";
+import { isValidSlug } from "@/lib/celetus/workspaces";
 
 export const Route = createFileRoute("/_authenticated/$companySlug/projecao")({
   head: () => ({ meta: [{ title: "Projeção — Painel Celetus" }] }),
@@ -44,22 +42,49 @@ export const Route = createFileRoute("/_authenticated/$companySlug/projecao")({
 
 const fmtBRL = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 2 });
-const fmtPct = (v: number) => `${(v * 100).toFixed(1)}%`;
+const fmtPct = (v: number) =>
+  (v * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1, minimumFractionDigits: 1 }) + "%";
+const fmtDayValue = (v: number) => v.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
 
 const MONTHS = [
-  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+  "Janeiro",
+  "Fevereiro",
+  "Março",
+  "Abril",
+  "Maio",
+  "Junho",
+  "Julho",
+  "Agosto",
+  "Setembro",
+  "Outubro",
+  "Novembro",
+  "Dezembro",
 ];
 
 type MonthKey = { year: number; month: number };
+type Draft = { id?: string; name: string; share_pct: number; sort_order: number };
+type Scenario = ProjectionMoney & { requiredRevenue: number; targetProfit: number };
+
 function todayYM(): MonthKey {
   const s = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
   const [y, m] = s.split("-").map(Number);
   return { year: y, month: m };
 }
+
 function shiftMonth({ year, month }: MonthKey, delta: number): MonthKey {
   const idx = year * 12 + (month - 1) + delta;
   return { year: Math.floor(idx / 12), month: (idx % 12) + 1 };
+}
+
+function parseMoneyInput(value: string, fallback = 0) {
+  const normalized = value.replace(/\./g, "").replace(",", ".").trim();
+  if (!normalized) return fallback;
+  const n = Number(normalized);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function moneyInputValue(value: number) {
+  return value.toLocaleString("pt-BR", { maximumFractionDigits: 2, minimumFractionDigits: 2 });
 }
 
 function ProjecaoPage() {
@@ -90,8 +115,8 @@ function ProjecaoPage() {
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <TrendingUp className="h-6 w-6 text-primary" />
-            Projeção
+            <Target className="h-6 w-6 text-primary" />
+            Projeção de lucro
           </h1>
           <p className="text-sm text-muted-foreground">
             {company?.name ?? companySlug} · {MONTHS[ym.month - 1]} {ym.year}
@@ -109,86 +134,106 @@ function ProjecaoPage() {
       </header>
 
       {q.isLoading || !projection ? (
-        <Card><CardContent className="p-6 text-sm text-muted-foreground">Carregando...</CardContent></Card>
+        <Card>
+          <CardContent className="p-6 text-sm text-muted-foreground">Carregando...</CardContent>
+        </Card>
       ) : (
-        <>
-          <ProjectionSummary p={projection} />
-          <Simulator p={projection} />
-          <PartnersSection companySlug={companySlug} projection={projection} />
-        </>
+        <ProjectionWorkspace companySlug={companySlug} projection={projection} />
       )}
     </div>
   );
 }
 
-function KPI({ label, value, tone }: { label: string; value: string; tone?: "profit" | "invest" | "revenue" | "neutral"; }) {
-  const cls =
+function ProjectionWorkspace({ companySlug, projection }: { companySlug: string; projection: Projection }) {
+  const [scenario, setScenario] = useState<Scenario>(() => ({
+    ...projection.recommended,
+    requiredRevenue: projection.recommended.revenue,
+    targetProfit: projection.recommended.profit,
+  }));
+
+  return (
+    <>
+      <CurrentResult p={projection} />
+      <ForecastResult p={projection} />
+      <ScenarioBuilder p={projection} onScenarioChange={setScenario} />
+      <PartnersSection companySlug={companySlug} projection={projection} scenario={scenario} />
+    </>
+  );
+}
+
+function Kpi({
+  label,
+  value,
+  tone = "neutral",
+}: {
+  label: string;
+  value: string;
+  tone?: "profit" | "invest" | "revenue" | "neutral";
+}) {
+  const color =
     tone === "profit"
-      ? value.startsWith("-") || value.includes("-R$")
+      ? value.includes("-")
         ? "text-rose-600"
         : "text-emerald-600"
       : tone === "invest"
-      ? "text-sky-600"
-      : tone === "revenue"
-      ? "text-foreground"
-      : "text-foreground";
+        ? "text-sky-600"
+        : "text-foreground";
   return (
     <div>
       <div className="text-xs text-muted-foreground uppercase tracking-wide">{label}</div>
-      <div className={`text-lg font-semibold tabular-nums ${cls}`}>{value}</div>
+      <div className={`text-xl font-semibold tabular-nums ${color}`}>{value}</div>
     </div>
   );
 }
 
-function ProjectionSummary({ p }: { p: ReturnType<typeof computeProjection> }) {
-  const roiA = p.projectionAvg.invest > 0 ? p.projectionAvg.profit / p.projectionAvg.invest : 0;
-  const roiB = p.projectionLast7.invest > 0 ? p.projectionLast7.profit / p.projectionLast7.invest : 0;
-  const roiReal = p.realized.invest > 0 ? p.realized.profit / p.realized.invest : 0;
+function MoneyGrid({ data }: { data: ProjectionMoney }) {
   return (
-    <div className="grid gap-4 md:grid-cols-3">
+    <div className="grid grid-cols-2 gap-4 pt-2">
+      <Kpi label="Faturamento" value={fmtBRL(data.revenue)} tone="revenue" />
+      <Kpi label="Investimento" value={fmtBRL(data.invest)} tone="invest" />
+      <Kpi label="Lucro" value={fmtBRL(data.profit)} tone="profit" />
+      <Kpi label="ROI" value={data.invest > 0 ? fmtPct(roiOf(data)) : "—"} />
+    </div>
+  );
+}
+
+function CurrentResult({ p }: { p: Projection }) {
+  return (
+    <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+      <Card className="border-primary/30">
+        <CardContent className="p-5 space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold">Resultado atual</div>
+              <div className="text-xs text-muted-foreground">
+                {p.monthClosed
+                  ? `Mês fechado com ${p.daysInMonth} dias`
+                  : `${p.daysElapsed} de ${p.daysInMonth} dias já passaram · ${p.daysRemaining} restantes`}
+              </div>
+            </div>
+            <div className={`text-2xl font-bold tabular-nums ${p.realized.profit >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+              {fmtBRL(p.realized.profit)}
+            </div>
+          </div>
+          <MoneyGrid data={p.realized} />
+        </CardContent>
+      </Card>
+
       <Card>
-        <CardContent className="p-5 space-y-3">
-          <div className="text-sm font-semibold">Realizado</div>
-          <div className="text-xs text-muted-foreground">
-            {p.daysElapsed} de {p.daysInMonth} dias · {p.daysRemaining} restantes
+        <CardContent className="p-5 space-y-4">
+          <div>
+            <div className="text-sm font-semibold">Média real até agora</div>
+            <div className="text-xs text-muted-foreground">
+              Calculada por dia corrido, incluindo dias zerados.
+            </div>
           </div>
-          <div className="grid grid-cols-2 gap-3 pt-2">
-            <KPI label="Faturamento" value={fmtBRL(p.realized.revenue)} tone="revenue" />
-            <KPI label="Investimento" value={fmtBRL(p.realized.invest)} tone="invest" />
-            <KPI label="Lucro" value={fmtBRL(p.realized.profit)} tone="profit" />
-            <KPI label="ROI" value={p.realized.invest > 0 ? fmtPct(roiReal) : "—"} />
-          </div>
-        </CardContent>
-      </Card>
-      <Card className="border-primary/40">
-        <CardContent className="p-5 space-y-3">
-          <div className="text-sm font-semibold flex items-center gap-2">
-            Projeção A <span className="text-xs font-normal text-muted-foreground">Média × dias do mês</span>
+          <div className="grid grid-cols-3 gap-3">
+            <Kpi label="Fat./dia" value={fmtBRL(p.runningAverage.revenue)} tone="revenue" />
+            <Kpi label="Inv./dia" value={fmtBRL(p.runningAverage.invest)} tone="invest" />
+            <Kpi label="Lucro/dia" value={fmtBRL(p.runningAverage.profit)} tone="profit" />
           </div>
           <div className="text-xs text-muted-foreground">
-            Baseada na média diária dos dias com atividade
-          </div>
-          <div className="grid grid-cols-2 gap-3 pt-2">
-            <KPI label="Faturamento" value={fmtBRL(p.projectionAvg.revenue)} tone="revenue" />
-            <KPI label="Investimento" value={fmtBRL(p.projectionAvg.invest)} tone="invest" />
-            <KPI label="Lucro" value={fmtBRL(p.projectionAvg.profit)} tone="profit" />
-            <KPI label="ROI" value={p.projectionAvg.invest > 0 ? fmtPct(roiA) : "—"} />
-          </div>
-        </CardContent>
-      </Card>
-      <Card className="border-primary/40">
-        <CardContent className="p-5 space-y-3">
-          <div className="text-sm font-semibold flex items-center gap-2">
-            Projeção B <span className="text-xs font-normal text-muted-foreground">Últimos 7 dias</span>
-          </div>
-          <div className="text-xs text-muted-foreground">
-            Realizado + média dos últimos 7d × dias restantes
-          </div>
-          <div className="grid grid-cols-2 gap-3 pt-2">
-            <KPI label="Faturamento" value={fmtBRL(p.projectionLast7.revenue)} tone="revenue" />
-            <KPI label="Investimento" value={fmtBRL(p.projectionLast7.invest)} tone="invest" />
-            <KPI label="Lucro" value={fmtBRL(p.projectionLast7.profit)} tone="profit" />
-            <KPI label="ROI" value={p.projectionLast7.invest > 0 ? fmtPct(roiB) : "—"} />
+            Dias com movimentação: {p.activeDays} · Dias usados no cálculo: {fmtDayValue(p.daysElapsed || 0)}
           </div>
         </CardContent>
       </Card>
@@ -196,95 +241,187 @@ function ProjectionSummary({ p }: { p: ReturnType<typeof computeProjection> }) {
   );
 }
 
-function Simulator({ p }: { p: ReturnType<typeof computeProjection> }) {
-  const [revBoost, setRevBoost] = useState(0); // -20..+100 %
-  const [invCut, setInvCut] = useState(0); // -50..+50 % (positive = cut)
+function ForecastResult({ p }: { p: Projection }) {
+  const deltaRecent = p.projectedRecent.profit - p.projectedPace.profit;
+  const recentBetter = deltaRecent >= 0;
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      <Card className="border-emerald-500/30">
+        <CardContent className="p-5 space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold">Fechamento provável</div>
+              <div className="text-xs text-muted-foreground">
+                {p.monthClosed
+                  ? "Resultado final do mês selecionado."
+                  : p.projectionReady
+                    ? "Se continuar no mesmo ritmo real até hoje."
+                    : "Ainda é cedo para cravar o fechamento; abaixo fica o lucro atual como base segura."}
+              </div>
+            </div>
+            <TrendingUp className="h-5 w-5 text-emerald-600" />
+          </div>
+          <MoneyGrid data={p.projectedPace} />
+        </CardContent>
+      </Card>
 
-  const base = p.projectionAvg;
-  const simRevenue = base.revenue * (1 + revBoost / 100);
-  const simInvest = base.invest * (1 - invCut / 100);
-  // Preserve tax margin from baseline: profit = revenue - (base.revenue - base.profit - base.invest) - invest
-  const fixedCostBase = base.revenue - base.profit - base.invest; // ~ taxa + despesas absorvidas
-  const simProfit = simRevenue - fixedCostBase * (simRevenue / (base.revenue || 1)) - simInvest;
-  const simRoi = simInvest > 0 ? simProfit / simInvest : 0;
+      <Card>
+        <CardContent className="p-5 space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold">Ritmo recente</div>
+              <div className="text-xs text-muted-foreground">
+                {p.monthClosed
+                  ? "Mesmo valor do mês fechado."
+                  : p.projectionReady
+                    ? `Usando os últimos ${p.recentDays || 0} dias corridos como referência.`
+                    : "Aparece como lucro atual até ter pelo menos 3 dias de dados."}
+              </div>
+            </div>
+            {recentBetter ? (
+              <TrendingUp className="h-5 w-5 text-emerald-600" />
+            ) : (
+              <TrendingDown className="h-5 w-5 text-rose-600" />
+            )}
+          </div>
+          <MoneyGrid data={p.projectedRecent} />
+          {!p.monthClosed && (
+            <div className={`text-sm ${recentBetter ? "text-emerald-600" : "text-rose-600"}`}>
+              Diferença contra o provável: <span className="font-semibold tabular-nums">{fmtBRL(deltaRecent)}</span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
-  const deltaProfit = simProfit - base.profit;
-  const isGain = deltaProfit >= 0;
+function ScenarioBuilder({
+  p,
+  onScenarioChange,
+}: {
+  p: Projection;
+  onScenarioChange: (scenario: Scenario) => void;
+}) {
+  const [targetProfitText, setTargetProfitText] = useState(() => moneyInputValue(p.recommended.profit));
+  const [plannedInvestText, setPlannedInvestText] = useState(() => moneyInputValue(p.recommended.invest));
+
+  useEffect(() => {
+    setTargetProfitText(moneyInputValue(p.recommended.profit));
+    setPlannedInvestText(moneyInputValue(p.recommended.invest));
+  }, [p.recommended.profit, p.recommended.invest]);
+
+  const targetProfit = parseMoneyInput(targetProfitText, p.recommended.profit);
+  const plannedInvest = Math.max(0, parseMoneyInput(plannedInvestText, p.recommended.invest));
+  const variableCostRate = p.recommended.revenue > 0
+    ? Math.max(0, Math.min(0.95, (p.recommended.revenue - p.recommended.invest - p.recommended.profit) / p.recommended.revenue))
+    : 0;
+  const netRevenueRate = Math.max(0.05, 1 - variableCostRate);
+  const requiredRevenue = Math.max(0, (targetProfit + plannedInvest) / netRevenueRate);
+  const scenario: Scenario = {
+    revenue: requiredRevenue,
+    invest: plannedInvest,
+    profit: targetProfit,
+    requiredRevenue,
+    targetProfit,
+  };
+  const profitDelta = scenario.profit - p.projectedPace.profit;
+  const revenueDelta = scenario.revenue - p.projectedPace.revenue;
+  const investDelta = scenario.invest - p.projectedPace.invest;
+
+  useEffect(() => {
+    onScenarioChange(scenario);
+  }, [scenario.revenue, scenario.invest, scenario.profit, scenario.requiredRevenue, scenario.targetProfit, onScenarioChange]);
+
+  const applyProfitDelta = (delta: number) => setTargetProfitText(moneyInputValue(p.projectedPace.profit + delta));
 
   return (
     <Card>
       <CardContent className="p-5 space-y-5">
-        <div>
-          <div className="text-sm font-semibold">Simulador de cenários</div>
-          <div className="text-xs text-muted-foreground">
-            Baseline: Projeção A do mês. Ajuste faturamento e investimento para ver o impacto.
-          </div>
-        </div>
-
-        <div className="grid gap-6 md:grid-cols-2">
-          <div className="space-y-3">
-            <div className="flex justify-between text-sm">
-              <span>Aumento de faturamento</span>
-              <span className="font-medium tabular-nums">{revBoost >= 0 ? "+" : ""}{revBoost}%</span>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold">Meta e simulação</div>
+            <div className="text-xs text-muted-foreground">
+              Defina quanto quer lucrar no mês e o investimento previsto. O sistema mostra o faturamento necessário.
             </div>
-            <Slider
-              min={-20} max={100} step={1}
-              value={[revBoost]}
-              onValueChange={(v) => setRevBoost(v[0])}
-            />
           </div>
-          <div className="space-y-3">
-            <div className="flex justify-between text-sm">
-              <span>Redução de investimento</span>
-              <span className="font-medium tabular-nums">{invCut >= 0 ? "-" : "+"}{Math.abs(invCut)}%</span>
-            </div>
-            <Slider
-              min={-50} max={50} step={1}
-              value={[invCut]}
-              onValueChange={(v) => setInvCut(v[0])}
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4 border-t">
-          <KPI label="Faturamento sim." value={fmtBRL(simRevenue)} tone="revenue" />
-          <KPI label="Investimento sim." value={fmtBRL(simInvest)} tone="invest" />
-          <KPI label="Lucro simulado" value={fmtBRL(simProfit)} tone="profit" />
-          <KPI label="ROI simulado" value={simInvest > 0 ? fmtPct(simRoi) : "—"} />
-        </div>
-
-        <div className={`flex items-center gap-2 text-sm ${isGain ? "text-emerald-600" : "text-rose-600"}`}>
-          {isGain ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-          <span>
-            {isGain ? "Ganho" : "Perda"} vs. projeção base: <span className="font-semibold">{fmtBRL(deltaProfit)}</span>
-          </span>
-          <Button size="sm" variant="ghost" className="ml-auto" onClick={() => { setRevBoost(0); setInvCut(0); }}>
-            Resetar
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setTargetProfitText(moneyInputValue(p.recommended.profit));
+              setPlannedInvestText(moneyInputValue(p.recommended.invest));
+            }}
+          >
+            Resetar provável
           </Button>
         </div>
 
-        <PartnersSimHint />
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="space-y-2">
+            <span className="text-sm font-medium">Lucro alvo do mês</span>
+            <Input
+              inputMode="decimal"
+              value={targetProfitText}
+              onChange={(e) => setTargetProfitText(e.target.value)}
+            />
+          </label>
+          <label className="space-y-2">
+            <span className="text-sm font-medium">Investimento planejado no mês</span>
+            <Input
+              inputMode="decimal"
+              value={plannedInvestText}
+              onChange={(e) => setPlannedInvestText(e.target.value)}
+            />
+          </label>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {[1000, 3000, 5000, 10000].map((delta) => (
+            <Button key={delta} type="button" size="sm" variant="secondary" onClick={() => applyProfitDelta(delta)}>
+              +{fmtBRL(delta)} de lucro
+            </Button>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t">
+          <Kpi label="Faturamento necessário" value={fmtBRL(scenario.revenue)} tone="revenue" />
+          <Kpi label="Investimento" value={fmtBRL(scenario.invest)} tone="invest" />
+          <Kpi label="Lucro alvo" value={fmtBRL(scenario.profit)} tone="profit" />
+          <Kpi label="ROI alvo" value={scenario.invest > 0 ? fmtPct(roiOf(scenario)) : "—"} />
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-3 text-sm">
+          <ScenarioDelta label="Lucro vs. provável" value={profitDelta} />
+          <ScenarioDelta label="Faturamento vs. provável" value={revenueDelta} />
+          <ScenarioDelta label="Investimento vs. provável" value={investDelta} inverse />
+        </div>
       </CardContent>
     </Card>
   );
 }
 
-function PartnersSimHint() {
+function ScenarioDelta({ label, value, inverse = false }: { label: string; value: number; inverse?: boolean }) {
+  const good = inverse ? value <= 0 : value >= 0;
   return (
-    <div className="text-xs text-muted-foreground">
-      A tabela abaixo mostra como o lucro simulado se divide entre os sócios.
+    <div className="rounded-md border p-3">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className={`text-lg font-semibold tabular-nums ${good ? "text-emerald-600" : "text-rose-600"}`}>
+        {value >= 0 ? "+" : ""}{fmtBRL(value)}
+      </div>
     </div>
   );
 }
 
-type Draft = { id?: string; name: string; share_pct: number; sort_order: number };
-
 function PartnersSection({
   companySlug,
   projection,
+  scenario,
 }: {
   companySlug: string;
-  projection: ReturnType<typeof computeProjection>;
+  projection: Projection;
+  scenario: Scenario;
 }) {
   const qc = useQueryClient();
   const fetchList = useServerFn(listPartners);
@@ -331,26 +468,20 @@ function PartnersSection({
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const realized = projection.realized.profit;
-  const projA = projection.projectionAvg.profit;
-  const projB = projection.projectionLast7.profit;
-
   return (
     <Card>
       <CardContent className="p-5 space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-sm font-semibold">Divisão entre sócios</div>
             <div className="text-xs text-muted-foreground">
-              Configure nomes e % de participação. Total deve somar 100%.
+              Valores calculados sobre lucro atual, fechamento provável e cenário simulado.
             </div>
           </div>
           <Button
             size="sm"
             variant="outline"
-            onClick={() =>
-              setDrafts((d) => [...d, { name: "", share_pct: 0, sort_order: d.length }])
-            }
+            onClick={() => setDrafts((d) => [...d, { name: "", share_pct: 0, sort_order: d.length }])}
           >
             <Plus className="h-4 w-4 mr-1" /> Adicionar sócio
           </Button>
@@ -361,9 +492,9 @@ function PartnersSection({
             <TableRow>
               <TableHead>Nome</TableHead>
               <TableHead className="w-[110px]">%</TableHead>
-              <TableHead className="text-right">Realizado</TableHead>
-              <TableHead className="text-right">Projeção A</TableHead>
-              <TableHead className="text-right">Projeção B</TableHead>
+              <TableHead className="text-right">Atual</TableHead>
+              <TableHead className="text-right">Provável</TableHead>
+              <TableHead className="text-right">Simulado</TableHead>
               <TableHead className="w-[50px]" />
             </TableRow>
           </TableHeader>
@@ -406,15 +537,9 @@ function PartnersSection({
                         }
                       />
                     </TableCell>
-                    <TableCell className={`text-right tabular-nums ${realized * pct >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-                      {fmtBRL(realized * pct)}
-                    </TableCell>
-                    <TableCell className={`text-right tabular-nums ${projA * pct >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-                      {fmtBRL(projA * pct)}
-                    </TableCell>
-                    <TableCell className={`text-right tabular-nums ${projB * pct >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-                      {fmtBRL(projB * pct)}
-                    </TableCell>
+                    <PartnerMoneyCell value={projection.realized.profit * pct} />
+                    <PartnerMoneyCell value={projection.projectedPace.profit * pct} />
+                    <PartnerMoneyCell value={scenario.profit * pct} />
                     <TableCell>
                       <Button
                         size="icon"
@@ -446,5 +571,13 @@ function PartnersSection({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function PartnerMoneyCell({ value }: { value: number }) {
+  return (
+    <TableCell className={`text-right tabular-nums ${value >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+      {fmtBRL(value)}
+    </TableCell>
   );
 }
