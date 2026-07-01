@@ -268,7 +268,51 @@ function OverviewInner() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid sm:grid-cols-2 gap-3">
+            <div className="space-y-3">
+              {totals && (
+                <Card className="border-primary/40 bg-primary/5">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="font-semibold">Total geral</div>
+                      <div className="text-xs text-muted-foreground">
+                        {data!.companies.length} empresas
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-2 text-sm">
+                      <div>
+                        <div className="text-xs text-muted-foreground">Faturamento</div>
+                        <div className="font-medium tabular-nums">{fmtBRL(totals.revenue)}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground">Investimento</div>
+                        <div className="font-medium tabular-nums text-sky-600">
+                          {fmtBRL(totals.invest_final)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground">Lucro</div>
+                        <div
+                          className={`font-semibold tabular-nums ${totals.profit >= 0 ? "text-emerald-600" : "text-rose-600"}`}
+                        >
+                          {fmtBRL(totals.profit)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground">ROI</div>
+                        <div className="font-medium tabular-nums text-amber-600">
+                          {totals.invest_final > 0 ? fmtPct(totalRoi) : "—"}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-xs text-muted-foreground pt-1 border-t">
+                      {fmtInt(totals.sales)} vendas · {fmtInt(totals.principal_qty)}P /{" "}
+                      {fmtInt(totals.ob_qty)}B
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              <div className="grid sm:grid-cols-2 gap-3">
+
               {data.companies.map((c) => (
                 <Link
                   key={c.company_id}
