@@ -1417,10 +1417,10 @@ function ProjectionCard({
           </div>
           <div>
             <span className="text-muted-foreground text-xs">
-              {p.projectionReady ? "Ritmo recente " : "Ritmo indicativo "}
+              {p.projectionReady ? "Ritmo recente " : "Aguardando dados "}
             </span>
-            <span className={`font-semibold tabular-nums ${tone((p.projectionReady ? p.projectedRecent : p.runRateProjection).profit)}`}>
-              {fmt((p.projectionReady ? p.projectedRecent : p.runRateProjection).profit)}
+            <span className={`font-semibold tabular-nums ${tone(p.projectedRecent.profit)}`}>
+              {fmt(p.projectedRecent.profit)}
             </span>
           </div>
         </div>
