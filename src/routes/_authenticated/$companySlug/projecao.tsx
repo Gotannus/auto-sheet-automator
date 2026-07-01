@@ -154,12 +154,13 @@ function ProjectionWorkspace({ companySlug, projection }: { companySlug: string;
   return (
     <>
       <CurrentResult p={projection} />
-      <ForecastResult p={projection} />
       <ScenarioBuilder p={projection} onScenarioChange={setScenario} />
+      <GoalComparison p={projection} scenario={scenario} />
       <PartnersSection companySlug={companySlug} projection={projection} scenario={scenario} />
     </>
   );
 }
+
 
 function Kpi({
   label,
