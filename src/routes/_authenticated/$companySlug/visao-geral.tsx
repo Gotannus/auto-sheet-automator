@@ -147,6 +147,7 @@ function OverviewInner() {
   const todayYmd = useMemo(() => toYMD(brtNow()), []);
   const [customFrom, setCustomFrom] = useState(firstDayOfMonth(todayYmd));
   const [customTo, setCustomTo] = useState(todayYmd);
+  const [salesFilter, setSalesFilter] = useState<string>("all");
   const r = useMemo(
     () => rangeForPreset(preset, { from: customFrom, to: customTo }),
     [preset, customFrom, customTo],
@@ -160,6 +161,29 @@ function OverviewInner() {
   });
 
   const data = query.data;
+
+  const totals = useMemo(() => {
+    if (!data || data.companies.length === 0) return null;
+    return data.companies.reduce(
+      (a, c) => ({
+        sales: a.sales + c.sales,
+        principal_qty: a.principal_qty + c.principal_qty,
+        ob_qty: a.ob_qty + c.ob_qty,
+        revenue: a.revenue + c.revenue,
+        invest_manual: a.invest_manual + c.invest_manual,
+        invest_final: a.invest_final + c.invest_final,
+        profit: a.profit + c.profit,
+      }),
+      { sales: 0, principal_qty: 0, ob_qty: 0, revenue: 0, invest_manual: 0, invest_final: 0, profit: 0 },
+    );
+  }, [data]);
+  const totalRoi = totals && totals.invest_final > 0 ? totals.profit / totals.invest_final : 0;
+
+  const filteredSales = useMemo(() => {
+    if (!data) return [];
+    if (salesFilter === "all") return data.recent_sales;
+    return data.recent_sales.filter((s) => s.company_slug === salesFilter);
+  }, [data, salesFilter]);
 
   return (
     <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
