@@ -1201,6 +1201,76 @@ function DailyRow({
   );
 }
 
+function ProductInvestCell({
+  companySlug,
+  productId,
+  date,
+  value,
+}: {
+  companySlug: string;
+  productId: string;
+  date: string;
+  value: number | null;
+}) {
+  const qc = useQueryClient();
+  const save = useServerFn(upsertDailyInput);
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(value?.toString() ?? "");
+  useEffect(() => {
+    setText(value?.toString() ?? "");
+  }, [value, productId, date]);
+  const mut = useMutation({
+    mutationFn: (invest_manual: number | null) =>
+      save({
+        data: {
+          company_slug: companySlug,
+          product_id: productId,
+          date,
+          invest_manual,
+        } as never,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["dash", companySlug] });
+      setEditing(false);
+    },
+  });
+  const commit = (n: number | null) => {
+    if (value != null && n != null && !sameMoney(value, n)) {
+      const ok = confirm(
+        `Substituir investimento?\n\nAtual: ${fmtBRL(value)}\nNovo: ${fmtBRL(n)}`,
+      );
+      if (!ok) {
+        setText(value.toString());
+        setEditing(false);
+        return;
+      }
+    }
+    mut.mutate(n);
+  };
+  if (editing) {
+    return <NumCell value={text} onChange={setText} onCommit={commit} />;
+  }
+  return (
+    <div className="flex items-center justify-end gap-1">
+      <span>{value != null ? fmtBRL(value) : "-"}</span>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-5 w-5 text-muted-foreground/60 hover:text-foreground"
+        onClick={() => {
+          setText(value?.toString() ?? "");
+          setEditing(true);
+        }}
+        title="Editar investimento deste produto no dia"
+      >
+        <Pencil className="h-3 w-3" />
+      </Button>
+    </div>
+  );
+}
+
+
 function NumCell({
   value,
   onChange,
