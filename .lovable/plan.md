@@ -1,21 +1,31 @@
 ## Objetivo
-Fazer o "Fechamento provável" sempre mostrar a projeção real (média do mês até hoje × dias restantes + realizado), inclusive nos primeiros dias do mês, em vez de cair para o lucro atual como "base segura".
+1. No simulador, trocar o campo "Investimento planejado no mês" por "ROI do mês" (meta de ROI em %). Investimento passa a ser calculado a partir do lucro alvo e do ROI (`invest = lucro / ROI`).
+2. Substituir o bloco atual "Fechamento provável / Ritmo recente" por dois cards de comparação com a meta:
+   - **Realizado × Meta do mês** — o que já foi feito vs. o alvo do simulador.
+   - **Fechamento provável × Meta projetada** — projeção (média × dias restantes) vs. o alvo do simulador.
 
-## Mudanças
+## Mudanças em `src/routes/_authenticated/$companySlug/projecao.tsx`
 
-**1. `src/lib/celetus/projection.ts`**
-- Remover o gate `daysElapsed >= 3` do `projectedPace` e `projectedRecent`.
-- `projectedPace` = `runRateProjection` sempre (realizado + média diária × dias restantes).
-- `projectedRecent` = `recentRunRateProjection` sempre (realizado + média dos últimos 7 dias × dias restantes).
-- Manter o campo `projectionReady` só como sinal informativo (para a UI mostrar um aviso "poucos dias de dados, projeção pode variar"), mas sem zerar a projeção.
+**Simulador (`ScenarioBuilder`)**
+- Remover state `plannedInvestText`; adicionar `targetRoiText` (default = ROI do `projection.recommended`, exibido como percentual, ex. `216,5`).
+- Novo cálculo:
+  - `targetRoi = parseFloat(targetRoiText) / 100`
+  - `plannedInvest = targetRoi > 0 ? targetProfit / targetRoi : 0`
+  - `requiredRevenue = (targetProfit + plannedInvest) / netRevenueRate`
+- Trocar o label/Input "Investimento planejado no mês" por "ROI do mês (%)".
+- Botão "Resetar provável" volta ambos para os valores do `projection.recommended` (lucro e ROI).
+- KPIs finais e deltas continuam iguais (agora "Investimento" reflete o valor derivado).
 
-**2. `src/routes/_authenticated/$companySlug/projecao.tsx`**
-- "Fechamento provável" passa a exibir sempre os valores de `projectedPace` (faturamento, invest, lucro, ROI) com verde/vermelho.
-- Substituir o texto "Ainda é cedo…/base segura" por um aviso mais leve quando `!projectionReady`: "Baseado em poucos dias, tende a variar bastante." — mas os números da projeção continuam visíveis.
-- Idem para o card "Ritmo recente".
+**Comparações (substituir `ForecastResult`)**
+- Levar `scenario` como prop e criar novo componente `GoalComparison` com dois cards lado a lado:
+  - Card 1 "Realizado × Meta do mês": mostra Lucro / Faturamento / Investimento realizados, o alvo abaixo, e o `Δ` (verde se ≥ meta em lucro/faturamento, vermelho se abaixo; para invest é inverso: menor = melhor). Inclui % da meta atingida no lucro.
+  - Card 2 "Fechamento provável × Meta projetada": mesma estrutura mas usando `p.projectedPace` no lugar do realizado; mantém o aviso curto quando `!p.projectionReady`.
+- Manter a nota "Se continuar no mesmo ritmo…" no card de projeção.
+- Ordem na página: Resultado atual → **Meta e simulação** (`ScenarioBuilder`) → **Comparações com a meta** (`GoalComparison`) → Sócios. (Mover o simulador para cima do comparador para que o alvo já esteja definido quando a comparação for lida; sócios continuam no fim.)
 
-**3. `src/routes/_authenticated/$companySlug/dashboard.tsx`**
-- Card superior "Projeção do mês": sempre usar `projectedPace.profit` e `projectedRecent.profit`. Trocar o label condicional "Base segura / Ritmo indicativo" por "Fecha provável / Ritmo recente" fixo, mantendo apenas uma nota curta quando `!projectionReady`.
+**Workspace**
+- Já tem `scenario` em state; passar para `GoalComparison`.
+- Remover import não usado (`TrendingDown` se sobrar).
 
 ## Fora do escopo
-- Simulador de metas, tabela de sócios e cálculo de custos variáveis permanecem como estão.
+- Lógica de projeção em `src/lib/celetus/projection.ts`, card do dashboard, sócios e demais telas ficam como estão.
