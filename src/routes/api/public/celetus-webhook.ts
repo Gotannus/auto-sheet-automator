@@ -342,7 +342,7 @@ export async function persistSaleCandidates(
     // Promote product name when a Principal arrives for a product that was
     // auto-created from an Orderbump (name == src placeholder) or any other
     // non-Principal candidate. Never overrides a user-customized display_name.
-    const isPrincipal = norm(candidate.row.kind) === "principal" || norm(candidate.row.kind) === "main";
+    // (isPrincipal computed above)
     if (
       isPrincipal &&
       candidate.productName &&
