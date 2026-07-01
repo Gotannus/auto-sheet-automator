@@ -772,6 +772,7 @@ function DailyTable({
           isTotal ? (
             <ReadOnlyDailyRow
               key={`total:${d.date}`}
+              companySlug={companySlug}
               day={d}
               expanded={expanded.has(d.date)}
               onToggle={() => toggle(d.date)}
