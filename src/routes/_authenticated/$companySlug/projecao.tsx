@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Target, Trash2 } from "lucide-react";
+import { Plus, Target, Trash2, TrendingUp, TrendingDown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -96,26 +96,30 @@ function ProjecaoPage() {
   }, [q.data, ym.year, ym.month]);
 
   return (
-    <div className="p-4 md:p-6 space-y-5 max-w-[1100px] mx-auto">
+    <div className="p-4 md:p-6 space-y-4 max-w-[1400px] mx-auto">
       <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
+        <div className="min-w-0">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
             <Target className="h-6 w-6 text-primary" />
-            Projeção
+            Projeção do mês
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground mt-1">
             {company?.name ?? companySlug} · {MONTHS[ym.month - 1]} {ym.year}
           </p>
         </div>
-        <Select value={target} onValueChange={(v) => setTarget(v as "this" | "last")}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="this">Este mês</SelectItem>
-            <SelectItem value="last">Mês passado</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Chip label="Empresa" value={company?.name ?? companySlug} />
+          <Chip label="Mês" value={`${MONTHS[ym.month - 1]} ${ym.year}`} />
+          <Select value={target} onValueChange={(v) => setTarget(v as "this" | "last")}>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="this">Este mês</SelectItem>
+              <SelectItem value="last">Mês passado</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </header>
 
       {q.isLoading || !projection ? (
@@ -123,113 +127,604 @@ function ProjecaoPage() {
           <CardContent className="p-6 text-sm text-muted-foreground">Carregando...</CardContent>
         </Card>
       ) : (
-        <>
-          <HeroCard p={projection} />
-          <div className="grid gap-4 md:grid-cols-2">
-            <MoneyCard title="Realizado" subtitle="O que já aconteceu" data={projection.realized} highlight />
-            <MoneyCard title="Projetado" subtitle="Estimativa até o fim do mês" data={projection.projectedPace} />
-          </div>
-          <ByProductProjection days={q.data!.days} ym={ym} />
-          <GoalCard p={projection} />
-          <PartnersSection companySlug={companySlug} projection={projection} />
-        </>
+        <ProjectionBoard
+          projection={projection}
+          days={q.data!.days}
+          ym={ym}
+          companySlug={companySlug}
+        />
       )}
     </div>
   );
 }
 
-function HeroCard({ p }: { p: Projection }) {
-  const profit = p.realized.profit;
-  const positive = profit >= 0;
-  const pctMonth = p.daysInMonth > 0 ? Math.min(1, p.daysElapsed / p.daysInMonth) : 0;
-  const roi = p.realized.invest > 0 ? roiOf(p.realized) : null;
-
+function Chip({ label, value }: { label: string; value: string }) {
   return (
-    <Card className="border-primary/30">
-      <CardContent className="p-6 space-y-4">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <div className="text-sm text-muted-foreground">Lucro do mês</div>
-            <div className={`text-4xl md:text-5xl font-bold tabular-nums ${positive ? "text-emerald-600" : "text-rose-600"}`}>
-              {fmtBRL(profit)}
-            </div>
-          </div>
-          <div className="text-right space-y-1">
-            <div className="text-xs text-muted-foreground uppercase tracking-wide">Fecha provável</div>
-            <div className={`text-2xl font-semibold tabular-nums ${p.projectedPace.profit >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-              {fmtBRL(p.projectedPace.profit)}
-            </div>
-            {roi !== null && (
-              <div className="text-xs text-muted-foreground">ROI atual: <span className="font-semibold text-foreground">{fmtPct(roi)}</span></div>
-            )}
-          </div>
-        </div>
-        <div>
-          <div className="h-2 rounded-full bg-muted overflow-hidden">
-            <div className="h-full bg-primary" style={{ width: `${pctMonth * 100}%` }} />
-          </div>
-          <div className="mt-1 text-xs text-muted-foreground">
-            {p.monthClosed
-              ? `Mês fechado (${p.daysInMonth} dias).`
-              : `Dia ${p.daysElapsed} de ${p.daysInMonth} · faltam ${p.daysRemaining} dias`}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function MoneyCard({
-  title,
-  subtitle,
-  data,
-  highlight = false,
-}: {
-  title: string;
-  subtitle: string;
-  data: ProjectionMoney;
-  highlight?: boolean;
-}) {
-  const roi = data.invest > 0 ? roiOf(data) : null;
-  return (
-    <Card className={highlight ? "border-emerald-500/20" : undefined}>
-      <CardContent className="p-5 space-y-3">
-        <div>
-          <div className="text-sm font-semibold">{title}</div>
-          <div className="text-xs text-muted-foreground">{subtitle}</div>
-        </div>
-        <Row label="Faturamento" value={fmtBRL(data.revenue)} />
-        <Row label="Investimento" value={fmtBRL(data.invest)} />
-        <Row
-          label="Lucro"
-          value={fmtBRL(data.profit)}
-          valueClass={data.profit >= 0 ? "text-emerald-600" : "text-rose-600"}
-          strong
-        />
-        <Row label="ROI" value={roi !== null ? fmtPct(roi) : "—"} />
-      </CardContent>
-    </Card>
-  );
-}
-
-function Row({ label, value, valueClass = "", strong = false }: { label: string; value: string; valueClass?: string; strong?: boolean }) {
-  return (
-    <div className="flex items-center justify-between text-sm border-b last:border-b-0 pb-1.5">
+    <div className="hidden md:flex items-center gap-2 px-3 py-2 rounded-xl bg-muted/50 border text-xs font-semibold">
       <span className="text-muted-foreground">{label}</span>
-      <span className={`tabular-nums ${strong ? "font-semibold text-base" : ""} ${valueClass}`}>{value}</span>
+      <span className="text-foreground truncate max-w-[160px]">{value}</span>
     </div>
   );
 }
 
-function GoalCard({ p }: { p: Projection }) {
+function ProjectionBoard({
+  projection,
+  days,
+  ym,
+  companySlug,
+}: {
+  projection: Projection;
+  days: DayRow[];
+  ym: MonthKey;
+  companySlug: string;
+}) {
   const [goalText, setGoalText] = useState(() =>
-    moneyInputValue(Math.max(p.projectedPace.profit, p.realized.profit)),
+    moneyInputValue(Math.max(projection.projectedPace.profit, projection.realized.profit, 1000)),
   );
-  useEffect(() => {
-    setGoalText(moneyInputValue(Math.max(p.projectedPace.profit, p.realized.profit)));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [p.realized.profit, p.projectedPace.profit]);
+  const goal = parseMoneyInput(goalText, 0);
 
+  return (
+    <div className="space-y-4">
+      <KpiRow p={projection} goal={goal} />
+      <div className="grid gap-4 lg:grid-cols-[1.32fr_.98fr]">
+        <DailyChart p={projection} days={days} />
+        <ExecutiveReading p={projection} goal={goal} days={days} ym={ym} />
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <CompareBars p={projection} goal={goal} />
+        <ByProductProjection days={days} ym={ym} />
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <GoalCard p={projection} goalText={goalText} setGoalText={setGoalText} />
+        <PartnersSection companySlug={companySlug} projection={projection} />
+      </div>
+    </div>
+  );
+}
+
+/* ============ KPI ROW ============ */
+
+function KpiRow({ p, goal }: { p: Projection; goal: number }) {
+  const roiRealized = p.realized.invest > 0 ? roiOf(p.realized) : null;
+  const roiProj = p.projectedPace.invest > 0 ? roiOf(p.projectedPace) : null;
+  const goalDelta = goal > 0 ? (p.projectedPace.profit - goal) / goal : null;
+
+  return (
+    <section className="grid gap-3 grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+      <KpiCard
+        label="Lucro do mês"
+        value={fmtBRL(p.realized.profit)}
+        tone={p.realized.profit >= 0 ? "success" : "alert"}
+        sub={`Dia ${p.daysElapsed} de ${p.daysInMonth}`}
+        trend={roiRealized !== null ? { label: `ROI ${fmtPct(roiRealized)}`, tone: "good" } : undefined}
+      />
+      <KpiCard
+        label="Fecha provável"
+        value={fmtBRL(p.projectedPace.profit)}
+        tone={p.projectedPace.profit >= 0 ? "success" : "alert"}
+        sub={p.monthClosed ? "Mês fechado" : `+${p.daysRemaining} dias restantes`}
+        trend={
+          goalDelta !== null
+            ? {
+                label: `${goalDelta >= 0 ? "+" : ""}${(goalDelta * 100).toFixed(1)}% vs meta`,
+                tone: goalDelta >= 0 ? "good" : "bad",
+              }
+            : undefined
+        }
+      />
+      <KpiCard
+        label="ROI projetado"
+        value={roiProj !== null ? fmtPct(roiProj) : "—"}
+        tone="info"
+        sub={roiRealized !== null ? `Atual: ${fmtPct(roiRealized)}` : "Sem investimento"}
+      />
+      <KpiCard
+        label="Faturamento mês"
+        value={fmtBRL(p.realized.revenue)}
+        tone="info"
+        sub={`Proj: ${fmtBRL(p.projectedPace.revenue)}`}
+      />
+      <KpiCard
+        label="Investimento"
+        value={fmtBRL(p.realized.invest)}
+        tone="warn"
+        sub={`Proj: ${fmtBRL(p.projectedPace.invest)}`}
+      />
+    </section>
+  );
+}
+
+function KpiCard({
+  label,
+  value,
+  sub,
+  tone,
+  trend,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  tone: "success" | "alert" | "warn" | "info";
+  trend?: { label: string; tone: "good" | "bad" | "mid" | "blue" };
+}) {
+  const toneClass =
+    tone === "success"
+      ? "text-emerald-500"
+      : tone === "alert"
+        ? "text-rose-500"
+        : tone === "warn"
+          ? "text-amber-500"
+          : "text-sky-400";
+  const trendClass =
+    trend?.tone === "good"
+      ? "bg-emerald-500/10 text-emerald-500"
+      : trend?.tone === "bad"
+        ? "bg-rose-500/10 text-rose-500"
+        : trend?.tone === "mid"
+          ? "bg-amber-500/10 text-amber-500"
+          : "bg-sky-500/10 text-sky-400";
+  return (
+    <Card className="relative overflow-hidden">
+      <CardContent className="p-4 md:p-5">
+        <div className="text-[10px] font-bold tracking-[0.12em] uppercase text-muted-foreground">
+          {label}
+        </div>
+        <div className={`mt-2 text-2xl md:text-3xl font-extrabold tabular-nums leading-none tracking-tight ${toneClass}`}>
+          {value}
+        </div>
+        {sub && <div className="mt-2 text-xs text-muted-foreground">{sub}</div>}
+        {trend && (
+          <div className={`mt-2 inline-flex px-2 py-1 rounded-full text-[11px] font-bold ${trendClass}`}>
+            {trend.label}
+          </div>
+        )}
+        <div className="pointer-events-none absolute -right-6 -bottom-6 h-20 w-20 rounded-full bg-foreground/[0.03]" />
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ============ DAILY CHART ============ */
+
+function DailyChart({ p, days }: { p: Projection; days: DayRow[] }) {
+  const chart = useMemo(() => {
+    const monthDays = days
+      .filter((d) => {
+        const [dy, dm] = d.date.split("-").map(Number);
+        return dy === p.year && dm === p.month;
+      })
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    // cumulative profit per day-of-month
+    const byDom = new Map<number, number>();
+    for (const d of monthDays) {
+      const dom = Number(d.date.split("-")[2]);
+      byDom.set(dom, (byDom.get(dom) ?? 0) + Number(d.profit || 0));
+    }
+    let cum = 0;
+    const realizedPoints: { dom: number; cum: number }[] = [];
+    for (let i = 1; i <= p.daysElapsed; i++) {
+      cum += byDom.get(i) ?? 0;
+      realizedPoints.push({ dom: i, cum });
+    }
+
+    // projected line from last realized to end of month
+    const lastCum = realizedPoints.length ? realizedPoints[realizedPoints.length - 1].cum : 0;
+    const projectedEnd = p.projectedPace.profit;
+    const projectedPoints: { dom: number; cum: number }[] = [];
+    if (!p.monthClosed && p.daysRemaining > 0) {
+      const startDom = p.daysElapsed;
+      const step = (projectedEnd - lastCum) / p.daysRemaining;
+      projectedPoints.push({ dom: startDom, cum: lastCum });
+      for (let i = 1; i <= p.daysRemaining; i++) {
+        projectedPoints.push({ dom: startDom + i, cum: lastCum + step * i });
+      }
+    }
+
+    const allVals = [
+      0,
+      ...realizedPoints.map((r) => r.cum),
+      ...projectedPoints.map((r) => r.cum),
+    ];
+    const maxV = Math.max(...allVals, 1);
+    const minV = Math.min(...allVals, 0);
+    return { realizedPoints, projectedPoints, maxV, minV, monthClosed: p.monthClosed };
+  }, [days, p.year, p.month, p.daysElapsed, p.daysRemaining, p.projectedPace.profit, p.monthClosed]);
+
+  const W = 840;
+  const H = 300;
+  const padL = 60;
+  const padR = 20;
+  const padT = 20;
+  const padB = 34;
+  const innerW = W - padL - padR;
+  const innerH = H - padT - padB;
+  const xFor = (dom: number) => padL + ((dom - 1) / (p.daysInMonth - 1 || 1)) * innerW;
+  const range = chart.maxV - chart.minV || 1;
+  const yFor = (v: number) => padT + innerH - ((v - chart.minV) / range) * innerH;
+
+  const realizedPath = chart.realizedPoints.length
+    ? "M " + chart.realizedPoints.map((r) => `${xFor(r.dom).toFixed(1)},${yFor(r.cum).toFixed(1)}`).join(" L ")
+    : "";
+  const areaPath = chart.realizedPoints.length
+    ? `M ${xFor(1).toFixed(1)},${yFor(0).toFixed(1)} L ` +
+      chart.realizedPoints.map((r) => `${xFor(r.dom).toFixed(1)},${yFor(r.cum).toFixed(1)}`).join(" L ") +
+      ` L ${xFor(chart.realizedPoints[chart.realizedPoints.length - 1].dom).toFixed(1)},${yFor(0).toFixed(1)} Z`
+    : "";
+  const projectedPath = chart.projectedPoints.length
+    ? "M " + chart.projectedPoints.map((r) => `${xFor(r.dom).toFixed(1)},${yFor(r.cum).toFixed(1)}`).join(" L ")
+    : "";
+
+  // Y axis ticks
+  const ticks = 4;
+  const tickVals: number[] = [];
+  for (let i = 0; i <= ticks; i++) tickVals.push(chart.minV + (range * i) / ticks);
+
+  const positive = p.projectedPace.profit >= 0;
+
+  return (
+    <Card>
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <div>
+            <h3 className="text-lg font-semibold tracking-tight">Curva diária de lucro</h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              Lucro acumulado dia a dia · linha pontilhada é a projeção até o fim do mês.
+            </p>
+          </div>
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border bg-muted/40 text-[11px] font-bold whitespace-nowrap">
+            <span className={`h-2 w-2 rounded-full ${positive ? "bg-emerald-500" : "bg-rose-500"} animate-pulse`} />
+            {p.monthClosed ? "Mês fechado" : "Projeção ao vivo"}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border bg-muted/20 p-3">
+          <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label="Lucro acumulado por dia">
+            <defs>
+              <linearGradient id="fillProfit" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="currentColor" stopOpacity="0.35" className="text-sky-400" />
+                <stop offset="100%" stopColor="currentColor" stopOpacity="0.02" className="text-sky-400" />
+              </linearGradient>
+            </defs>
+            {tickVals.map((v, i) => (
+              <g key={i}>
+                <line
+                  x1={padL}
+                  x2={W - padR}
+                  y1={yFor(v)}
+                  y2={yFor(v)}
+                  stroke="currentColor"
+                  className="text-muted-foreground/25"
+                  strokeDasharray="4 6"
+                  strokeWidth={1}
+                />
+                <text
+                  x={padL - 8}
+                  y={yFor(v) + 4}
+                  textAnchor="end"
+                  className="fill-muted-foreground text-[10px] font-semibold"
+                >
+                  {fmtBRL(v)}
+                </text>
+              </g>
+            ))}
+            {/* zero baseline */}
+            {chart.minV < 0 && chart.maxV > 0 && (
+              <line
+                x1={padL}
+                x2={W - padR}
+                y1={yFor(0)}
+                y2={yFor(0)}
+                stroke="currentColor"
+                className="text-muted-foreground/60"
+                strokeWidth={1.2}
+              />
+            )}
+            {/* x axis labels every ~5 days */}
+            {Array.from({ length: p.daysInMonth }, (_, i) => i + 1)
+              .filter((d) => d === 1 || d === p.daysInMonth || d % 5 === 0)
+              .map((d) => (
+                <text
+                  key={d}
+                  x={xFor(d)}
+                  y={H - 12}
+                  textAnchor="middle"
+                  className="fill-muted-foreground text-[10px] font-semibold"
+                >
+                  {String(d).padStart(2, "0")}
+                </text>
+              ))}
+            {areaPath && (
+              <path d={areaPath} fill="url(#fillProfit)" />
+            )}
+            {realizedPath && (
+              <path
+                d={realizedPath}
+                fill="none"
+                stroke="currentColor"
+                className="text-sky-400"
+                strokeWidth={3}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            )}
+            {projectedPath && (
+              <path
+                d={projectedPath}
+                fill="none"
+                stroke="currentColor"
+                className="text-emerald-500"
+                strokeWidth={2.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeDasharray="6 6"
+              />
+            )}
+            {/* today dot */}
+            {chart.realizedPoints.length > 0 && (
+              <circle
+                cx={xFor(chart.realizedPoints[chart.realizedPoints.length - 1].dom)}
+                cy={yFor(chart.realizedPoints[chart.realizedPoints.length - 1].cum)}
+                r={6}
+                className="fill-emerald-500 stroke-background"
+                strokeWidth={2}
+              />
+            )}
+            {/* projected end dot */}
+            {chart.projectedPoints.length > 0 && (
+              <circle
+                cx={xFor(chart.projectedPoints[chart.projectedPoints.length - 1].dom)}
+                cy={yFor(chart.projectedPoints[chart.projectedPoints.length - 1].cum)}
+                r={5}
+                className="fill-background stroke-emerald-500"
+                strokeWidth={2}
+              />
+            )}
+          </svg>
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-4 text-xs font-semibold text-muted-foreground">
+          <span className="flex items-center gap-2">
+            <i className="inline-block h-1 w-4 rounded-full bg-sky-400" /> Lucro realizado
+          </span>
+          <span className="flex items-center gap-2">
+            <i className="inline-block h-1 w-4 rounded-full bg-emerald-500" /> Projeção
+          </span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ============ EXECUTIVE READING ============ */
+
+function ExecutiveReading({
+  p,
+  goal,
+  days,
+  ym,
+}: {
+  p: Projection;
+  goal: number;
+  days: DayRow[];
+  ym: MonthKey;
+}) {
+  const perDay = p.daysElapsed > 0 ? p.realized.profit / p.daysElapsed : 0;
+  const willHitGoal = goal > 0 ? p.projectedPace.profit >= goal : null;
+
+  const topProduct = useMemo(() => {
+    const map = new Map<string, { name: string; profit: number }>();
+    for (const d of days) {
+      for (const bp of d.by_product ?? []) {
+        const cur = map.get(bp.product_id) ?? { name: bp.product_name, profit: 0 };
+        cur.profit += Number(bp.profit || 0);
+        map.set(bp.product_id, cur);
+      }
+    }
+    const arr = Array.from(map.values()).sort((a, b) => b.profit - a.profit);
+    return arr[0] ?? null;
+  }, [days]);
+
+  const roi = p.realized.invest > 0 ? roiOf(p.realized) : null;
+
+  return (
+    <Card>
+      <CardContent className="p-5 space-y-3">
+        <div>
+          <h3 className="text-lg font-semibold tracking-tight">Leitura executiva</h3>
+          <p className="text-xs text-muted-foreground mt-1">
+            Resumo automático do desempenho do mês.
+          </p>
+        </div>
+
+        <ReadCard tone="blue" num="01" title="Ritmo atual" text={
+          <>
+            Você está fazendo <strong>{fmtBRL(perDay)}</strong> de lucro por dia.
+            {p.daysRemaining > 0 && <> Faltam <strong>{p.daysRemaining} dias</strong> no mês.</>}
+          </>
+        } />
+
+        {goal > 0 && (
+          <ReadCard
+            tone={willHitGoal ? "green" : "red"}
+            num="02"
+            title={willHitGoal ? "Meta no ritmo" : "Meta em risco"}
+            text={
+              <>
+                Projeção fecha em <strong>{fmtBRL(p.projectedPace.profit)}</strong> {" vs meta de "}
+                <strong>{fmtBRL(goal)}</strong>.
+              </>
+            }
+          />
+        )}
+
+        {topProduct && (
+          <ReadCard tone="yellow" num="03" title="Produto líder" text={
+            <>
+              <strong>{topProduct.name}</strong> puxa o mês com <strong>{fmtBRL(topProduct.profit)}</strong> de lucro.
+            </>
+          } />
+        )}
+
+        <div className="p-4 rounded-2xl border bg-gradient-to-br from-emerald-500/10 via-transparent to-sky-500/10">
+          <div className="text-[10px] font-bold tracking-[0.12em] uppercase text-muted-foreground mb-2">
+            Conclusão
+          </div>
+          <p className="text-sm md:text-base leading-relaxed">
+            {p.monthClosed ? (
+              <>Mês fechado com <b>{fmtBRL(p.realized.profit)}</b> de lucro{roi !== null ? <> e ROI de <b>{fmtPct(roi)}</b></> : null}.</>
+            ) : p.projectedPace.profit >= 0 ? (
+              <>Mantendo o ritmo de <b>{MONTHS[ym.month - 1]}</b>, o mês fecha em torno de <b className="text-emerald-500">{fmtBRL(p.projectedPace.profit)}</b>.</>
+            ) : (
+              <>No ritmo atual, o mês fecha em <b className="text-rose-500">{fmtBRL(p.projectedPace.profit)}</b>. Ajuste investimento ou performance.</>
+            )}
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ReadCard({
+  tone,
+  num,
+  title,
+  text,
+}: {
+  tone: "blue" | "red" | "yellow" | "green";
+  num: string;
+  title: string;
+  text: React.ReactNode;
+}) {
+  const iconClass = {
+    blue: "bg-sky-500/15 text-sky-400",
+    red: "bg-rose-500/15 text-rose-500",
+    yellow: "bg-amber-500/15 text-amber-500",
+    green: "bg-emerald-500/15 text-emerald-500",
+  }[tone];
+  return (
+    <div className="p-3.5 rounded-xl border bg-muted/30">
+      <div className="flex items-center gap-2.5 mb-1.5">
+        <span className={`h-7 w-7 rounded-lg grid place-items-center text-[11px] font-extrabold ${iconClass}`}>
+          {num}
+        </span>
+        <h4 className="text-sm font-semibold">{title}</h4>
+      </div>
+      <p className="text-sm text-muted-foreground leading-snug">{text}</p>
+    </div>
+  );
+}
+
+/* ============ COMPARE BARS ============ */
+
+function CompareBars({ p, goal }: { p: Projection; goal: number }) {
+  const roiR = p.realized.invest > 0 ? roiOf(p.realized) : 0;
+  const roiP = p.projectedPace.invest > 0 ? roiOf(p.projectedPace) : 0;
+  const roiGoalPct = p.projectedPace.invest > 0 && goal > 0 ? goal / p.projectedPace.invest : 0;
+
+  const rows: {
+    label: string;
+    realized: number;
+    projected: number;
+    goal: number | null;
+    fmt: (v: number) => string;
+  }[] = [
+    { label: "Faturamento", realized: p.realized.revenue, projected: p.projectedPace.revenue, goal: null, fmt: fmtBRL },
+    { label: "Investimento", realized: p.realized.invest, projected: p.projectedPace.invest, goal: null, fmt: fmtBRL },
+    { label: "Lucro", realized: p.realized.profit, projected: p.projectedPace.profit, goal: goal > 0 ? goal : null, fmt: fmtBRL },
+    { label: "ROI", realized: roiR, projected: roiP, goal: roiGoalPct > 0 ? roiGoalPct : null, fmt: fmtPct },
+  ];
+
+  return (
+    <Card>
+      <CardContent className="p-5 space-y-2">
+        <div className="mb-3">
+          <h3 className="text-lg font-semibold tracking-tight">Realizado × Projetado × Meta</h3>
+          <p className="text-xs text-muted-foreground mt-1">
+            Comparação por métrica. Barras proporcionais ao maior valor da linha.
+          </p>
+        </div>
+        {rows.map((r) => {
+          const values = [r.realized, r.projected, r.goal ?? 0].map(Math.abs);
+          const max = Math.max(...values, 0.0001);
+          const wR = (Math.abs(r.realized) / max) * 100;
+          const wP = (Math.abs(r.projected) / max) * 100;
+          const wG = r.goal !== null ? (Math.abs(r.goal) / max) * 100 : 0;
+          const delta =
+            r.goal !== null && r.goal !== 0
+              ? ((r.projected - r.goal) / Math.abs(r.goal)) * 100
+              : null;
+          return (
+            <div key={r.label} className="grid grid-cols-[100px_1fr] gap-3 items-center py-2.5 border-b last:border-b-0">
+              <div className="text-sm font-bold">{r.label}</div>
+              <div className="space-y-2">
+                <BarLine label="Realizado" value={r.fmt(r.realized)} pct={wR} tone="base" />
+                <BarLine label="Projetado" value={r.fmt(r.projected)} pct={wP} tone="proj" />
+                {r.goal !== null && (
+                  <BarLine
+                    label="Meta"
+                    value={r.fmt(r.goal)}
+                    pct={wG}
+                    tone="goal"
+                    delta={delta !== null ? { value: delta, good: delta >= 0 } : undefined}
+                  />
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
+  );
+}
+
+function BarLine({
+  label,
+  value,
+  pct,
+  tone,
+  delta,
+}: {
+  label: string;
+  value: string;
+  pct: number;
+  tone: "base" | "proj" | "goal";
+  delta?: { value: number; good: boolean };
+}) {
+  const fill =
+    tone === "base"
+      ? "bg-gradient-to-r from-sky-500 to-sky-300"
+      : tone === "proj"
+        ? "bg-gradient-to-r from-emerald-500 to-emerald-300"
+        : "bg-gradient-to-r from-amber-500 to-orange-400";
+  return (
+    <div>
+      <div className="flex justify-between items-baseline gap-2 mb-1 text-xs">
+        <span className="text-muted-foreground">{label} <strong className="text-foreground tabular-nums">{value}</strong></span>
+        {delta && (
+          <span className={`text-[11px] font-extrabold ${delta.good ? "text-emerald-500" : "text-rose-500"}`}>
+            {delta.value >= 0 ? "+" : ""}{delta.value.toFixed(1)}%
+          </span>
+        )}
+      </div>
+      <div className="h-2 rounded-full bg-muted overflow-hidden">
+        <div className={`h-full rounded-full ${fill}`} style={{ width: `${Math.min(100, Math.max(0, pct))}%` }} />
+      </div>
+    </div>
+  );
+}
+
+/* ============ GOAL CARD ============ */
+
+function GoalCard({
+  p,
+  goalText,
+  setGoalText,
+}: {
+  p: Projection;
+  goalText: string;
+  setGoalText: (v: string) => void;
+}) {
   const goal = parseMoneyInput(goalText, 0);
   const missing = Math.max(0, goal - p.realized.profit);
   const daysLeft = Math.max(0, p.daysRemaining);
@@ -240,27 +735,20 @@ function GoalCard({ p }: { p: Projection }) {
   return (
     <Card>
       <CardContent className="p-5 space-y-4">
-        <div>
-          <div className="text-sm font-semibold">Minha meta de lucro</div>
-          <div className="text-xs text-muted-foreground">Quanto você quer lucrar esse mês?</div>
-        </div>
-
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">R$</span>
-            <Input
-              inputMode="decimal"
-              value={goalText}
-              onChange={(e) => setGoalText(e.target.value)}
-              className="w-40 text-lg font-semibold"
-            />
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-semibold tracking-tight">Minha meta de lucro</h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              Quanto você quer lucrar esse mês?
+            </p>
           </div>
           {goal > 0 && (
             <span
-              className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                onPace ? "bg-emerald-500/10 text-emerald-700" : "bg-rose-500/10 text-rose-700"
+              className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full ${
+                onPace ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"
               }`}
             >
+              {onPace ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
               {p.monthClosed
                 ? goal <= p.realized.profit
                   ? "Meta batida"
@@ -272,14 +760,24 @@ function GoalCard({ p }: { p: Projection }) {
           )}
         </div>
 
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">R$</span>
+          <Input
+            inputMode="decimal"
+            value={goalText}
+            onChange={(e) => setGoalText(e.target.value)}
+            className="w-40 text-lg font-semibold tabular-nums"
+          />
+        </div>
+
         {goal > 0 && !p.monthClosed && (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pt-2 border-t">
-            <Stat label="Falta" value={fmtBRL(missing)} />
-            <Stat label="Precisa/dia" value={daysLeft > 0 ? fmtBRL(needPerDay) : "—"} />
-            <Stat
+          <div className="grid grid-cols-3 gap-3 pt-3 border-t">
+            <MiniStat label="Falta" value={fmtBRL(missing)} />
+            <MiniStat label="Precisa/dia" value={daysLeft > 0 ? fmtBRL(needPerDay) : "—"} />
+            <MiniStat
               label="Ritmo atual/dia"
               value={fmtBRL(currentPerDay)}
-              valueClass={onPace ? "text-emerald-600" : "text-rose-600"}
+              valueClass={onPace ? "text-emerald-500" : "text-rose-500"}
             />
           </div>
         )}
@@ -288,14 +786,16 @@ function GoalCard({ p }: { p: Projection }) {
   );
 }
 
-function Stat({ label, value, valueClass = "" }: { label: string; value: string; valueClass?: string }) {
+function MiniStat({ label, value, valueClass = "" }: { label: string; value: string; valueClass?: string }) {
   return (
-    <div>
-      <div className="text-xs text-muted-foreground uppercase tracking-wide">{label}</div>
-      <div className={`text-lg font-semibold tabular-nums ${valueClass}`}>{value}</div>
+    <div className="p-3 rounded-xl bg-muted/40 border">
+      <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">{label}</div>
+      <div className={`text-base font-bold tabular-nums ${valueClass}`}>{value}</div>
     </div>
   );
 }
+
+/* ============ PARTNERS ============ */
 
 function PartnersSection({
   companySlug,
@@ -358,13 +858,13 @@ function PartnersSection({
       <CardContent className="p-5 space-y-3">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-sm font-semibold">Divisão entre sócios</div>
-            <div className="text-xs text-muted-foreground">
-              Com base no lucro projetado: <span className="font-semibold text-foreground">{fmtBRL(baseProfit)}</span>
-            </div>
+            <h3 className="text-lg font-semibold tracking-tight">Divisão entre sócios</h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              Base: lucro projetado <span className="font-semibold text-foreground">{fmtBRL(baseProfit)}</span>
+            </p>
           </div>
           <Button size="sm" variant="outline" onClick={() => setEditing((v) => !v)}>
-            {editing ? "Fechar" : "Editar sócios"}
+            {editing ? "Fechar" : "Editar"}
           </Button>
         </div>
 
@@ -388,7 +888,7 @@ function PartnersSection({
                     <TableRow key={d.id ?? `v-${i}`}>
                       <TableCell className="font-medium">{d.name || "—"}</TableCell>
                       <TableCell className="text-right tabular-nums">{Number(d.share_pct).toFixed(2)}%</TableCell>
-                      <TableCell className={`text-right tabular-nums font-semibold ${val >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                      <TableCell className={`text-right tabular-nums font-semibold ${val >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
                         {fmtBRL(val)}
                       </TableCell>
                     </TableRow>
@@ -446,7 +946,7 @@ function PartnersSection({
                           variant="ghost"
                           onClick={() => setDrafts((arr) => arr.filter((_, j) => j !== i))}
                         >
-                          <Trash2 className="h-4 w-4 text-rose-600" />
+                          <Trash2 className="h-4 w-4 text-rose-500" />
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -464,7 +964,7 @@ function PartnersSection({
                 >
                   <Plus className="h-4 w-4 mr-1" /> Adicionar
                 </Button>
-                <span className={`text-xs ${balanced ? "text-emerald-600" : "text-amber-600"}`}>
+                <span className={`text-xs ${balanced ? "text-emerald-500" : "text-amber-500"}`}>
                   Total: {totalPct.toFixed(2)}% {!balanced && "(deve somar 100%)"}
                 </span>
               </div>
@@ -482,6 +982,8 @@ function PartnersSection({
     </Card>
   );
 }
+
+/* ============ BY PRODUCT ============ */
 
 function ByProductProjection({ days, ym }: { days: DayRow[]; ym: MonthKey }) {
   const rows = useMemo(() => {
@@ -509,55 +1011,70 @@ function ByProductProjection({ days, ym }: { days: DayRow[]; ym: MonthKey }) {
     return list;
   }, [days, ym.year, ym.month]);
 
-  if (rows.length === 0) return null;
+  if (rows.length === 0) {
+    return (
+      <Card>
+        <CardContent className="p-5">
+          <h3 className="text-lg font-semibold tracking-tight">Projeção por produto</h3>
+          <p className="text-sm text-muted-foreground mt-3">Nenhum produto no período.</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
-  const totalProjected = rows.reduce((a, r) => a + r.proj.projectedPace.profit, 0);
+  const totalProjectedProfit = rows.reduce((a, r) => a + r.proj.projectedPace.profit, 0);
+  const totalProjectedRev = rows.reduce((a, r) => a + r.proj.projectedPace.revenue, 0);
+  const totalProjectedInv = rows.reduce((a, r) => a + r.proj.projectedPace.invest, 0);
 
   return (
     <Card>
       <CardContent className="p-5 space-y-3">
-        <div className="flex items-end justify-between gap-3 flex-wrap">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
-            <div className="text-sm font-semibold">Projeção por produto</div>
-            <div className="text-xs text-muted-foreground">Ranking pelo lucro projetado do mês</div>
-          </div>
-          <div className="text-right">
-            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Lucro projetado total</div>
-            <div className={`text-lg font-semibold tabular-nums ${totalProjected >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-              {fmtBRL(totalProjected)}
-            </div>
+            <h3 className="text-lg font-semibold tracking-tight">Projeção por produto</h3>
+            <p className="text-xs text-muted-foreground mt-1">Ranking pelo lucro projetado do mês</p>
           </div>
         </div>
 
-        <div className="space-y-2">
+        <div className="grid grid-cols-3 gap-2">
+          <MiniStat label="Fat proj" value={fmtBRL(totalProjectedRev)} />
+          <MiniStat label="Inv proj" value={fmtBRL(totalProjectedInv)} />
+          <MiniStat
+            label="Lucro proj"
+            value={fmtBRL(totalProjectedProfit)}
+            valueClass={totalProjectedProfit >= 0 ? "text-emerald-500" : "text-rose-500"}
+          />
+        </div>
+
+        <div className="space-y-2 pt-1">
           {rows.map((r) => {
             const realized = r.proj.realized.profit;
             const projected = r.proj.projectedPace.profit;
             const roi = r.proj.projectedPace.invest > 0 ? roiOf(r.proj.projectedPace) : null;
-            const share = totalProjected !== 0 ? Math.max(0, Math.min(1, projected / totalProjected)) : 0;
+            const share = totalProjectedProfit > 0 ? Math.max(0, Math.min(1, projected / totalProjectedProfit)) : 0;
             return (
-              <div key={r.id} className="rounded-md border p-3 hover:bg-muted/40 transition">
+              <div key={r.id} className="rounded-xl border p-3 hover:bg-muted/40 transition">
                 <div className="flex items-center justify-between gap-3 mb-2">
                   <div className="min-w-0">
-                    <div className="text-sm font-medium truncate">{r.name}</div>
+                    <div className="text-sm font-semibold truncate">{r.name}</div>
                     <div className="text-[11px] text-muted-foreground">
-                      Fat proj: <span className="tabular-nums">{fmtBRL(r.proj.projectedPace.revenue)}</span>
-                      {" · "}Inv proj: <span className="tabular-nums">{fmtBRL(r.proj.projectedPace.invest)}</span>
+                      Fat: <span className="tabular-nums">{fmtBRL(r.proj.projectedPace.revenue)}</span>
+                      {" · "}Inv: <span className="tabular-nums">{fmtBRL(r.proj.projectedPace.invest)}</span>
                       {roi !== null && <> {" · "}ROI: <span className="tabular-nums">{fmtPct(roi)}</span></>}
                     </div>
                   </div>
                   <div className="text-right shrink-0">
-                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Realizado / Projetado</div>
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Real → Proj</div>
                     <div className="text-sm tabular-nums">
-                      <span className={realized >= 0 ? "text-emerald-600" : "text-rose-600"}>{fmtBRL(realized)}</span>
+                      <span className={realized >= 0 ? "text-emerald-500" : "text-rose-500"}>{fmtBRL(realized)}</span>
                       <span className="text-muted-foreground"> → </span>
-                      <span className={`font-semibold ${projected >= 0 ? "text-emerald-600" : "text-rose-600"}`}>{fmtBRL(projected)}</span>
+                      <span className={`font-bold ${projected >= 0 ? "text-emerald-500" : "text-rose-500"}`}>{fmtBRL(projected)}</span>
                     </div>
                   </div>
                 </div>
                 <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                   <div
-                    className={`h-full ${projected >= 0 ? "bg-emerald-500" : "bg-rose-500"}`}
+                    className={`h-full ${projected >= 0 ? "bg-gradient-to-r from-emerald-500 to-emerald-300" : "bg-rose-500"}`}
                     style={{ width: `${share * 100}%` }}
                   />
                 </div>
