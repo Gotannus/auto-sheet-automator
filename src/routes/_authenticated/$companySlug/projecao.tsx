@@ -353,16 +353,22 @@ function ScenarioBuilder({
   p: Projection;
   onScenarioChange: (scenario: Scenario) => void;
 }) {
+  const recommendedRoi = roiOf(p.recommended);
+  const roiInputValue = (v: number) =>
+    (v * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+
   const [targetProfitText, setTargetProfitText] = useState(() => moneyInputValue(p.recommended.profit));
-  const [plannedInvestText, setPlannedInvestText] = useState(() => moneyInputValue(p.recommended.invest));
+  const [targetRoiText, setTargetRoiText] = useState(() => roiInputValue(recommendedRoi));
 
   useEffect(() => {
     setTargetProfitText(moneyInputValue(p.recommended.profit));
-    setPlannedInvestText(moneyInputValue(p.recommended.invest));
-  }, [p.recommended.profit, p.recommended.invest]);
+    setTargetRoiText(roiInputValue(recommendedRoi));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p.recommended.profit, p.recommended.invest, p.recommended.revenue]);
 
   const targetProfit = parseMoneyInput(targetProfitText, p.recommended.profit);
-  const plannedInvest = Math.max(0, parseMoneyInput(plannedInvestText, p.recommended.invest));
+  const targetRoi = Math.max(0, parseMoneyInput(targetRoiText, recommendedRoi * 100) / 100);
+  const plannedInvest = targetRoi > 0 ? targetProfit / targetRoi : 0;
   const variableCostRate = p.recommended.revenue > 0
     ? Math.max(0, Math.min(0.95, (p.recommended.revenue - p.recommended.invest - p.recommended.profit) / p.recommended.revenue))
     : 0;
@@ -392,7 +398,7 @@ function ScenarioBuilder({
           <div>
             <div className="text-sm font-semibold">Meta e simulação</div>
             <div className="text-xs text-muted-foreground">
-              Defina quanto quer lucrar no mês e o investimento previsto. O sistema mostra o faturamento necessário.
+              Defina o lucro alvo e o ROI desejado. O sistema calcula quanto investir e o faturamento necessário.
             </div>
           </div>
           <Button
@@ -401,7 +407,7 @@ function ScenarioBuilder({
             variant="outline"
             onClick={() => {
               setTargetProfitText(moneyInputValue(p.recommended.profit));
-              setPlannedInvestText(moneyInputValue(p.recommended.invest));
+              setTargetRoiText(roiInputValue(recommendedRoi));
             }}
           >
             Resetar provável
@@ -418,14 +424,15 @@ function ScenarioBuilder({
             />
           </label>
           <label className="space-y-2">
-            <span className="text-sm font-medium">Investimento planejado no mês</span>
+            <span className="text-sm font-medium">ROI do mês (%)</span>
             <Input
               inputMode="decimal"
-              value={plannedInvestText}
-              onChange={(e) => setPlannedInvestText(e.target.value)}
+              value={targetRoiText}
+              onChange={(e) => setTargetRoiText(e.target.value)}
             />
           </label>
         </div>
+
 
         <div className="flex flex-wrap gap-2">
           {[1000, 3000, 5000, 10000].map((delta) => (
