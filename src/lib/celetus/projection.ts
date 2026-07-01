@@ -99,12 +99,15 @@ export function computeProjection(
 
   const realized = sumMoney(upToToday);
 
-  // Main projection: calendar-day average up to today. This avoids inflated
-  // numbers when only days with sales/spend are counted.
+  // Run-rate projection: calendar-day average up to today. This avoids inflated
+  // numbers from active-day-only averages, but still must not be treated as a
+  // probable close when the month has barely started.
   const runningAverage = divideMoney(realized, daysElapsed || 1);
-  const projectedPace = monthClosed
+  const runRateProjection = monthClosed
     ? realized
     : addMoney(realized, scaleMoney(runningAverage, daysRemaining));
+  const projectionReady = monthClosed || daysElapsed >= 3;
+  const projectedPace = projectionReady ? runRateProjection : realized;
 
   // Secondary signal: recent calendar pace including zero days, useful when
   // the current week changed but still grounded in real elapsed days.
@@ -134,10 +137,12 @@ export function computeProjection(
     isCurrentMonth,
     isFutureMonth,
     monthClosed,
+    projectionReady,
     realized,
     runningAverage,
     activeAverage,
     recentAverage,
+    runRateProjection,
     projectedPace,
     projectedRecent,
     activeProjection,
