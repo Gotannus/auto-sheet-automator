@@ -1,41 +1,21 @@
-Vou corrigir a projeção para ela virar uma tela útil de decisão, não só números automáticos irreais.
+## Objetivo
+Fazer o "Fechamento provável" sempre mostrar a projeção real (média do mês até hoje × dias restantes + realizado), inclusive nos primeiros dias do mês, em vez de cair para o lucro atual como "base segura".
 
-Plano:
+## Mudanças
 
-1. **Trocar a lógica principal da projeção**
-   - Parar de usar “média só dos dias com atividade” como base principal, porque isso infla demais quando o mês ainda tem poucos dias.
-   - Mostrar claramente:
-     - lucro já realizado até agora;
-     - média diária real até hoje;
-     - projeção conservadora até o fim do mês;
-     - projeção por ritmo recente quando fizer sentido.
-   - Em mês passado, mostrar como mês fechado, sem tentar projetar dias restantes.
+**1. `src/lib/celetus/projection.ts`**
+- Remover o gate `daysElapsed >= 3` do `projectedPace` e `projectedRecent`.
+- `projectedPace` = `runRateProjection` sempre (realizado + média diária × dias restantes).
+- `projectedRecent` = `recentRunRateProjection` sempre (realizado + média dos últimos 7 dias × dias restantes).
+- Manter o campo `projectionReady` só como sinal informativo (para a UI mostrar um aviso "poucos dias de dados, projeção pode variar"), mas sem zerar a projeção.
 
-2. **Melhorar o card do Dashboard**
-   - Deixar o Dashboard mostrar algo direto: “Lucro atual” e “se continuar nesse ritmo, fecha em X”.
-   - Remover nomes confusos tipo “Projeção A / B” como destaque principal.
+**2. `src/routes/_authenticated/$companySlug/projecao.tsx`**
+- "Fechamento provável" passa a exibir sempre os valores de `projectedPace` (faturamento, invest, lucro, ROI) com verde/vermelho.
+- Substituir o texto "Ainda é cedo…/base segura" por um aviso mais leve quando `!projectionReady`: "Baseado em poucos dias, tende a variar bastante." — mas os números da projeção continuam visíveis.
+- Idem para o card "Ritmo recente".
 
-3. **Refazer a aba Projeção**
-   - Criar uma tela mais prática com três blocos:
-     - **Resultado atual:** faturamento, investimento, lucro e ROI já feitos.
-     - **Fechamento provável:** quanto deve fechar no mês com base no ritmo atual.
-     - **Meta/Simulação:** o usuário escolhe quanto quer melhorar o lucro ou ROI e vê quanto precisa faturar/investir.
-   - O simulador deve partir do resultado atual/projeção realista, não de número inflado.
+**3. `src/routes/_authenticated/$companySlug/dashboard.tsx`**
+- Card superior "Projeção do mês": sempre usar `projectedPace.profit` e `projectedRecent.profit`. Trocar o label condicional "Base segura / Ritmo indicativo" por "Fecha provável / Ritmo recente" fixo, mantendo apenas uma nota curta quando `!projectionReady`.
 
-4. **Corrigir o simulador**
-   - Trocar sliders confusos por campos diretos:
-     - meta de lucro no mês;
-     - ou aumento de lucro desejado;
-     - ou investimento planejado até o fim do mês.
-   - Mostrar: lucro final estimado, diferença contra o ritmo atual e divisão entre sócios.
-
-5. **Sócios continuam, mas com números úteis**
-   - A divisão entre sócios vai mostrar valores por:
-     - lucro já realizado;
-     - fechamento provável;
-     - cenário simulado.
-
-Detalhes técnicos:
-- Ajustar `computeProjection` para retornar métricas mais claras: realizado, média por dia corrido, média por dia com dado, fechamento provável, cenário recente e mês fechado.
-- Atualizar `dashboard.tsx` para exibir a projeção principal com a nova métrica realista.
-- Refatorar `projecao.tsx` para usar os novos cálculos e uma UI mais objetiva.
+## Fora do escopo
+- Simulador de metas, tabela de sócios e cálculo de custos variáveis permanecem como estão.
