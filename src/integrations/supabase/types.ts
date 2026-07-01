@@ -201,6 +201,44 @@ export type Database = {
           },
         ]
       }
+      company_partners: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          name: string
+          share_pct: number
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          name: string
+          share_pct: number
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+          share_pct?: number
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_partners_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_manual_inputs: {
         Row: {
           checkouts: number | null
