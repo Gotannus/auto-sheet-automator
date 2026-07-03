@@ -887,7 +887,15 @@ function ReadOnlyDailyRow({
                 <TableBody>
                   {day.by_product!.map((p) => (
                     <TableRow key={p.product_id}>
-                      <TableCell className="font-medium">{p.product_name}</TableCell>
+                      <TableCell className="font-medium">
+                        <Link
+                          to="/$companySlug/produto/$productId"
+                          params={{ companySlug, productId: p.product_id }}
+                          className="hover:underline"
+                        >
+                          {p.product_name}
+                        </Link>
+                      </TableCell>
                       <TableCell className="text-right">{p.sales || "-"}</TableCell>
                       <TableCell className="text-right">
                         {p.revenue ? fmtBRL(p.revenue) : "-"}
