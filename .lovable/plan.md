@@ -1,61 +1,64 @@
 
 ## Objetivo
 
-Reestilizar a página `/projecao` seguindo o layout do HTML enviado (dashboard escuro estilo "CVR Intelligence"), mantendo toda a lógica atual (dados vindos de `computeProjection`, meta, sócios, projeção por produto). Apenas apresentação — nenhuma mudança em `projection.ts`, `dashboard.functions.ts` ou server functions.
+Permitir gerenciar cada produto individualmente — inclusive lançar gasto em dias sem venda — sem poluir a tela com produtos parados. Solução: flag manual `is_active` no produto + nova página de dashboard por produto acessível pela linha da Projeção e por um item lateral "Produtos".
 
-## Escopo
+## 1. Marcador manual de "ativo neste mês"
 
-Arquivo único: `src/routes/_authenticated/$companySlug/projecao.tsx`.
+**Migração** — adicionar coluna em `products`:
 
-Sem sidebar (o app já tem navegação própria) — aproveitamos apenas o **conteúdo principal** do modelo. Cores/superfícies via tokens do design system (`bg-card`, `border`, `text-emerald-500`, `text-rose-500`, `text-primary`) para respeitar tema escuro/claro do projeto, não hard-code de `#070b14`.
-
-## Nova estrutura da página
-
-```text
-┌─ Topbar ────────────────────────────────────────────────┐
-│  Projeção · Empresa · Mês         [Este mês ▾]  [chips] │
-├─ KPI row (5 cards) ─────────────────────────────────────┤
-│ Lucro mês │ Fecha provável │ ROI atual │ Fat. mês │ Inv│
-│  (verde/  │  (verde grande)│  (azul)   │  (info)  │(warn)
-│  vermelho │  + Δ vs meta   │           │          │    │
-├─ Main grid (1.3fr / 1fr) ───────────────────────────────┤
-│ Curva diária de lucro       │  Leitura executiva       │
-│ (SVG line + área, ponto     │  · 3 read-cards dinâmicos│
-│  "hoje" destacado, linha    │  · bloco conclusão       │
-│  pontilhada projetada)      │    (on pace / off pace)  │
-├─ Bottom grid (1fr / 1fr) ───────────────────────────────┤
-│ Realizado × Projetado ×     │ Projeção por produto     │
-│ Meta (triple-bars por       │ (tabela + mini strip:    │
-│ métrica: Fat, Inv, Lucro,   │  Fat, Inv, Lucro, ROI)   │
-│ ROI)                        │                          │
-├─ Meta de lucro + Sócios ────────────────────────────────┤
-│ (mantém componentes atuais, estilizados como cards)     │
-└─────────────────────────────────────────────────────────┘
+```
+ALTER TABLE public.products
+  ADD COLUMN is_active boolean NOT NULL DEFAULT true;
 ```
 
-## Detalhes de UI
+Padrão `true` para não esconder nada que já existe hoje. RLS/GRANTs da tabela permanecem.
 
-- **KPI cards**: mesmo formato do modelo (label uppercase pequena, valor 34px bold, sub, trend pill). Cores por semântica: `success` para lucro positivo, `alert` para negativo, `info`/`warn` para faturamento/investimento.
-- **Curva diária (SVG)**: gerada a partir de `q.data.days` acumulando lucro por dia. Área com gradient azul, ponto de "hoje" verde. Se `daysRemaining > 0`, linha pontilhada estendida até `projectedPace.profit` no último dia do mês.
-- **Leitura executiva**: 3 cards gerados por regras simples:
-  1. Ritmo atual (lucro/dia realizado)
-  2. Fecha provável × meta (bate/não bate)
-  3. Produto líder projetado
-  + bloco conclusão colorido (verde se on-pace, âmbar se abaixo).
-- **Triple-bars comparativas**: substitui os cards "Realizado" e "Projetado" atuais. Para cada métrica (Faturamento, Investimento, Lucro, ROI): barras Realizado / Projetado / Meta com % relativo ao maior.
-- **Projeção por produto**: reaproveita cálculo do `ByProductProjection` atual, apenas re-renderizado como tabela compacta no card, com strip de mini-KPIs no topo (totais).
-- **Meta de lucro** (`GoalCard`) e **Sócios** (`PartnersSection`): mantidos, apenas com espaçamento/tipografia alinhados ao novo visual.
+**`src/lib/celetus/products.functions.ts`**
+- `listProducts`: passar a retornar `is_active`.
+- `updateProduct`: aceitar `is_active` opcional no schema e patch.
+- Novo `setProductActive({ id, is_active })` (thin wrapper) para o toggle rápido.
+
+**`products.tsx` (página de produtos existente)**
+- Adicionar `Switch` "Ativo" em cada linha, ligado a `setProductActive`.
+- Filtro no topo: `Todos | Ativos | Inativos` (default `Ativos`).
+
+## 2. Filtro na Projeção
+
+- Em `projecao.tsx`, o `ByProductProjection` passa a considerar apenas produtos com `is_active = true` (usa a lista de produtos já carregável — buscar via `listProducts` num `queryOptions` e cruzar com `by_product` do dashboard).
+- Cada linha do produto vira `Link` para o novo dashboard do produto (ícone/afordância de "abrir").
+
+## 3. Nova rota: dashboard do produto
+
+Arquivo: `src/routes/_authenticated/$companySlug/produto.$productId.tsx`
+
+Loader chama `getDashboard` (já suporta `product_id`) + `listProducts` para nome/header. Conteúdo, todos filtrados no produto:
+
+- **Header**: nome do produto + seletor de mês + botão "Ativar/Desativar".
+- **KPIs do mês**: Faturamento, Investimento, Lucro, ROI (mesmos cartões da Projeção, minimalistas).
+- **Curva diária de lucro**: mesmo SVG usado em `projecao.tsx`, só do produto.
+- **Projeção fim do mês**: aplica `computeProjection` nos `days` do produto e mostra "Fecha provável" (fat / lucro / ROI).
+- **Tabela diária editável** (uma linha por dia do mês, mesmo em dias sem venda):
+  - Colunas: Data · Vendas (readonly, do webhook/override) · Faturamento (readonly) · Investimento (editável inline) · Lucro (calc) · ROI (calc).
+  - Salva via `upsertDailyManualInput` já usado no dashboard atual (mesmo padrão do `sales.tsx`), com `product_id` = produto atual. Isso resolve o caso da Cecília: dá pra lançar gasto do dia 01 no Reconquista mesmo sem venda.
+  - Após salvar, invalida a query do dashboard do produto.
+
+Estilo minimalista: cards `bg-card border`, tipografia consistente com `projecao.tsx`. Sem nova lib.
+
+## 4. Navegação
+
+- **Menu lateral**: novo item "Produtos" (permanece a página `products.tsx` como raiz), e submenu opcional listando os produtos ativos do mês corrente (query `listProducts` filtrada por `is_active`). Clique → `/$companySlug/produto/$productId`.
+- **Projeção**: cada linha de produto ativa vira `Link` para a mesma rota.
 
 ## O que NÃO muda
 
-- `computeProjection`, `projection.ts`, servidor, queries.
-- Componentes `GoalCard` e `PartnersSection` (só ajustes visuais leves).
-- Não adiciono sidebar/nav do modelo — o app já tem a sua.
-- Sem novos pacotes.
+- `dashboard.functions.ts`, `projection.ts`, cálculo de lucro/ROI, webhook, RLS.
+- `computeProjection`, KPI row e curva já existentes em `projecao.tsx` — apenas reaproveitados.
+- Nenhum produto some automaticamente; visibilidade é 100% controlada pelo toggle.
 
-## Riscos
+## Riscos / notas
 
-- Layout denso pode ficar apertado em telas médias; usarei os mesmos breakpoints do modelo (`@media 1260px` e `780px`) via Tailwind (`lg:` / `md:`).
-- SVG inline sem lib; simples e sem dependências.
+- Produtos antigos ficam todos `is_active=true` por default; usuário desliga o que não roda mais. Alternativa (não recomendada aqui): default `false` — obrigaria mexer em tudo hoje.
+- A tabela diária reusa exatamente o endpoint de manual input já existente (product_id + date + invest_manual), sem novo backend.
 
-Se aprovar, implemento tudo em uma edição do `projecao.tsx`.
+Se aprovar, implemento na ordem: migração → server fns → página do produto → toggles na página de produtos → link na Projeção → item no menu.
