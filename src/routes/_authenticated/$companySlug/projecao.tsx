@@ -169,14 +169,12 @@ function ProjectionBoard({
   return (
     <div className="space-y-4">
       <KpiRow p={projection} goal={goal} />
+      <ByProductProjection days={days} ym={ym} companySlug={companySlug} />
       <div className="grid gap-4 lg:grid-cols-[1.32fr_.98fr]">
         <DailyChart p={projection} days={days} />
         <ExecutiveReading p={projection} goal={goal} days={days} ym={ym} />
       </div>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <CompareBars p={projection} goal={goal} />
-        <ByProductProjection days={days} ym={ym} companySlug={companySlug} />
-      </div>
+      <CompareBars p={projection} goal={goal} />
       <div className="grid gap-4 lg:grid-cols-2">
         <GoalCard p={projection} goalText={goalText} setGoalText={setGoalText} />
         <PartnersSection companySlug={companySlug} projection={projection} />
