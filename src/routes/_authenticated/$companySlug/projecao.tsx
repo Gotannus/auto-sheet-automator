@@ -175,7 +175,7 @@ function ProjectionBoard({
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <CompareBars p={projection} goal={goal} />
-        <ByProductProjection days={days} ym={ym} />
+        <ByProductProjection days={days} ym={ym} companySlug={companySlug} />
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <GoalCard p={projection} goalText={goalText} setGoalText={setGoalText} />
