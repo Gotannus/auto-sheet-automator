@@ -988,7 +988,24 @@ function PartnersSection({
 
 /* ============ BY PRODUCT ============ */
 
-function ByProductProjection({ days, ym }: { days: DayRow[]; ym: MonthKey }) {
+function ByProductProjection({
+  days,
+  ym,
+  companySlug,
+}: {
+  days: DayRow[];
+  ym: MonthKey;
+  companySlug: string;
+}) {
+  const productsQ = useQuery({
+    queryKey: ["products", companySlug],
+    queryFn: () => listProducts({ data: { company_slug: companySlug } }),
+  });
+  const activeIds = useMemo(() => {
+    if (!productsQ.data) return null;
+    return new Set(productsQ.data.filter((p) => p.is_active).map((p) => p.id));
+  }, [productsQ.data]);
+
   const rows = useMemo(() => {
     const map = new Map<string, { name: string; days: { date: string; revenue: number; invest_final: number; profit: number }[] }>();
     for (const d of days) {
@@ -1006,20 +1023,25 @@ function ByProductProjection({ days, ym }: { days: DayRow[]; ym: MonthKey }) {
         });
       }
     }
-    const list = Array.from(map.entries()).map(([id, e]) => {
+    let list = Array.from(map.entries()).map(([id, e]) => {
       const proj = computeProjection(e.days, { monthYear: ym.year, monthMonth: ym.month });
       return { id, name: e.name, proj };
     });
+    if (activeIds) list = list.filter((r) => activeIds.has(r.id));
     list.sort((a, b) => b.proj.projectedPace.profit - a.proj.projectedPace.profit);
     return list;
-  }, [days, ym.year, ym.month]);
+  }, [days, ym.year, ym.month, activeIds]);
 
   if (rows.length === 0) {
     return (
       <Card>
         <CardContent className="p-5">
           <h3 className="text-lg font-semibold tracking-tight">Projeção por produto</h3>
-          <p className="text-sm text-muted-foreground mt-3">Nenhum produto no período.</p>
+          <p className="text-sm text-muted-foreground mt-3">
+            {productsQ.data && productsQ.data.some((p) => p.is_active)
+              ? "Nenhum produto ativo teve movimento neste período."
+              : "Nenhum produto marcado como ativo. Ative na página de Produtos."}
+          </p>
         </CardContent>
       </Card>
     );
@@ -1035,7 +1057,9 @@ function ByProductProjection({ days, ym }: { days: DayRow[]; ym: MonthKey }) {
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
             <h3 className="text-lg font-semibold tracking-tight">Projeção por produto</h3>
-            <p className="text-xs text-muted-foreground mt-1">Ranking pelo lucro projetado do mês</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Só produtos ativos · clique para abrir o dashboard do produto
+            </p>
           </div>
         </div>
 
@@ -1056,10 +1080,17 @@ function ByProductProjection({ days, ym }: { days: DayRow[]; ym: MonthKey }) {
             const roi = r.proj.projectedPace.invest > 0 ? roiOf(r.proj.projectedPace) : null;
             const share = totalProjectedProfit > 0 ? Math.max(0, Math.min(1, projected / totalProjectedProfit)) : 0;
             return (
-              <div key={r.id} className="rounded-xl border p-3 hover:bg-muted/40 transition">
+              <Link
+                key={r.id}
+                to={`/${companySlug}/produto/${r.id}`}
+                className="block rounded-xl border p-3 hover:bg-muted/50 hover:border-primary/50 transition group"
+              >
                 <div className="flex items-center justify-between gap-3 mb-2">
                   <div className="min-w-0">
-                    <div className="text-sm font-semibold truncate">{r.name}</div>
+                    <div className="text-sm font-semibold truncate flex items-center gap-1.5">
+                      {r.name}
+                      <ArrowRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-70 transition" />
+                    </div>
                     <div className="text-[11px] text-muted-foreground">
                       Fat: <span className="tabular-nums">{fmtBRL(r.proj.projectedPace.revenue)}</span>
                       {" · "}Inv: <span className="tabular-nums">{fmtBRL(r.proj.projectedPace.invest)}</span>
@@ -1081,7 +1112,7 @@ function ByProductProjection({ days, ym }: { days: DayRow[]; ym: MonthKey }) {
                     style={{ width: `${share * 100}%` }}
                   />
                 </div>
-              </div>
+              </Link>
             );
           })}
         </div>
@@ -1089,3 +1120,4 @@ function ByProductProjection({ days, ym }: { days: DayRow[]; ym: MonthKey }) {
     </Card>
   );
 }
+
