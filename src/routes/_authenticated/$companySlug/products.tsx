@@ -196,8 +196,7 @@ function ProductsPage() {
                   </TableCell>
                   <TableCell className="font-medium">
                     <Link
-                      to="/_authenticated/$companySlug/produto/$productId"
-                      params={{ companySlug, productId: p.id }}
+                      to={`/${companySlug}/produto/${p.id}`}
                       className="inline-flex items-center gap-1.5 hover:text-primary transition"
                     >
                       {p.display_name || (
@@ -206,6 +205,7 @@ function ProductsPage() {
                       <ArrowRight className="h-3.5 w-3.5 opacity-60" />
                     </Link>
                   </TableCell>
+
                   <TableCell className="text-muted-foreground text-sm">{p.name}</TableCell>
                   <TableCell className="font-mono text-xs">{p.src}</TableCell>
                   <TableCell className="text-right space-x-1">
