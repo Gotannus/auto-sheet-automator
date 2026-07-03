@@ -1,9 +1,10 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Target, Trash2, TrendingUp, TrendingDown } from "lucide-react";
+import { ArrowRight, Plus, Target, Trash2, TrendingUp, TrendingDown } from "lucide-react";
+
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,6 +27,8 @@ import {
 import { getCompanyBySlug } from "@/lib/celetus/companies.functions";
 import { getDashboard, type DayRow } from "@/lib/celetus/dashboard.functions";
 import { listPartners, savePartners, type Partner } from "@/lib/celetus/partners.functions";
+import { listProducts } from "@/lib/celetus/products.functions";
+
 import { computeProjection, roiOf, type Projection, type ProjectionMoney } from "@/lib/celetus/projection";
 import { isValidSlug } from "@/lib/celetus/workspaces";
 
