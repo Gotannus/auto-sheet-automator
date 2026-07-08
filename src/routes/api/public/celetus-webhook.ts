@@ -684,8 +684,15 @@ function findProduct(products: ProductRow[], candidate: SaleCandidate) {
 }
 
 function findProductBySrc(products: ProductRow[], candidates: string[]) {
-  const normalized = new Set(candidates.map((value) => norm(value)).filter(Boolean));
-  return products.find((product) => normalized.has(norm(product.src))) ?? null;
+  // Iterate candidates in order so callers can prioritize a preferred src
+  // (e.g. an Orderbump's parent product) over the item's own src.
+  for (const candidate of candidates) {
+    const key = norm(candidate);
+    if (!key) continue;
+    const match = products.find((product) => norm(product.src) === key);
+    if (match) return match;
+  }
+  return null;
 }
 
 async function createProductFromCandidate(
