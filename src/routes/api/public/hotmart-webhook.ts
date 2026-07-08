@@ -137,6 +137,37 @@ export const Route = createFileRoute("/api/public/hotmart-webhook")({
           return json({ ok: false, error: result.errorMessage });
         }
 
+        // Reconciliation: if this is a Principal, backfill any Orderbump
+        // siblings that were persisted earlier (race with parallel Hotmart
+        // webhooks) so they inherit this Principal's src/product_id.
+        if (!parsed.parentTransactionCode) {
+          const principal = parsed.candidates[0];
+          if (principal?.row?.src && principal?.row?.product_name !== undefined) {
+            const { data: principalRow } = await supabaseAdmin
+              .from("celetus_sales")
+              .select("src, product_id")
+              .eq("user_id", userId)
+              .eq("transaction_code", parsed.transactionCode)
+              .neq("kind", "Orderbump")
+              .maybeSingle();
+
+            if (principalRow?.src && principalRow?.product_id) {
+              await supabaseAdmin
+                .from("celetus_sales")
+                .update({ src: principalRow.src, product_id: principalRow.product_id })
+                .eq("user_id", userId)
+                .eq("kind", "Orderbump")
+                .filter(
+                  "raw->data->purchase->order_bump->>parent_purchase_transaction",
+                  "eq",
+                  parsed.transactionCode,
+                )
+                .or(`src.neq.${principalRow.src},product_id.neq.${principalRow.product_id}`);
+            }
+          }
+        }
+
+
         await logWebhookEvent(supabaseAdmin, {
           user_id: userId,
           status: "ok",
