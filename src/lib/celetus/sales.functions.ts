@@ -24,6 +24,8 @@ export type SaleRow = {
   buyer_email: string | null;
   src: string;
   payment_method: string | null;
+  original_currency: string | null;
+  fx_rate: number | null;
 };
 
 export const listSales = createServerFn({ method: "POST" })
@@ -62,7 +64,7 @@ export const listSales = createServerFn({ method: "POST" })
     let q = supabase
       .from("celetus_sales")
       .select(
-        "id, sale_date, transaction_code, line_item_code, product_name, offer_name, kind, status, recipient, quantity, commission_value, net_value, gross_value, buyer_name, buyer_email, src, payment_method",
+        "id, sale_date, transaction_code, line_item_code, product_name, offer_name, kind, status, recipient, quantity, commission_value, net_value, gross_value, buyer_name, buyer_email, src, payment_method, original_currency, fx_rate",
         { count: "exact" },
       )
       .eq("user_id", userId);

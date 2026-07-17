@@ -465,7 +465,18 @@ function SaleRowItem({ row }: { row: SaleRow }) {
         {row.transaction_code}
       </TableCell>
       <TableCell className="max-w-[200px] truncate" title={row.product_name ?? ""}>
-        {row.product_name ?? "—"}
+        <div className="flex items-center gap-1.5">
+          <span className="truncate">{row.product_name ?? "—"}</span>
+          {row.original_currency && row.original_currency !== "BRL" ? (
+            <Badge
+              variant="outline"
+              className="shrink-0 border-amber-500/50 bg-amber-500/10 text-amber-600 text-[10px] px-1.5 py-0"
+              title={`Venda original em ${row.original_currency} — convertida × ${row.fx_rate ?? 5}`}
+            >
+              {row.original_currency} ×{row.fx_rate ?? 5}
+            </Badge>
+          ) : null}
+        </div>
       </TableCell>
       <TableCell className="max-w-[180px] truncate text-xs text-muted-foreground" title={row.offer_name ?? ""}>
         {row.offer_name ?? "—"}
