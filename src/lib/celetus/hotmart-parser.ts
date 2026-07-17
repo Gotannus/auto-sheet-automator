@@ -134,7 +134,14 @@ export function parseHotmartPayload(rawBody: unknown): HotmartParseResult {
   );
 
 
-  const grossValue = num(price.value ?? (record(purchase.full_price)?.value));
+  const currency = String(
+    price.currency_value ?? record(purchase.full_price)?.currency_value ?? "BRL",
+  )
+    .toUpperCase()
+    .trim();
+  const fxRate = currency && currency !== "BRL" ? 5 : 1;
+
+  const grossValue = num(price.value ?? (record(purchase.full_price)?.value)) * fxRate;
   // Producer commission: prefer source === PRODUCER
   let producerCommission = 0;
   for (const c of commissions) {
@@ -150,8 +157,9 @@ export function parseHotmartPayload(rawBody: unknown): HotmartParseResult {
       const v = num((record(c.value) as AnyRecord | null)?.value ?? c.value);
       return s + v;
     }, 0);
-    producerCommission = totalCommission || grossValue;
+    producerCommission = totalCommission || (grossValue / fxRate);
   }
+  producerCommission = producerCommission * fxRate;
 
   const orderBump = record(purchase.order_bump) ?? {};
   const parentTransactionCode = txt(orderBump.parent_purchase_transaction) || null;
