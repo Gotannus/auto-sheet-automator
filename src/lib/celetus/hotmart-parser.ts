@@ -210,6 +210,8 @@ export function parseHotmartPayload(rawBody: unknown): HotmartParseResult {
       campaign_id: txt(origin.xcod, origin.utm_campaign) || null,
       adset_id: txt(origin.utm_medium) || null,
       ad_id: txt(origin.utm_content) || null,
+      original_currency: currency || "BRL",
+      fx_rate: fxRate,
       raw: payload,
     },
   };
