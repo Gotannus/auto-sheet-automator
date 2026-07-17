@@ -24,6 +24,8 @@ export type SaleRow = {
   buyer_email: string | null;
   src: string;
   payment_method: string | null;
+  original_currency: string | null;
+  fx_rate: number | null;
 };
 
 export const listSales = createServerFn({ method: "POST" })
