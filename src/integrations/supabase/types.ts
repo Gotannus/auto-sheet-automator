@@ -27,6 +27,7 @@ export type Database = {
           created_at: string
           doc_type: string | null
           fees: number | null
+          fx_rate: number | null
           gross_value: number | null
           id: string
           item_type: string | null
@@ -34,6 +35,7 @@ export type Database = {
           line_item_code: string
           net_value: number | null
           offer_name: string | null
+          original_currency: string | null
           payment_method: string | null
           product_id: string
           product_name: string | null
@@ -64,6 +66,7 @@ export type Database = {
           created_at?: string
           doc_type?: string | null
           fees?: number | null
+          fx_rate?: number | null
           gross_value?: number | null
           id?: string
           item_type?: string | null
@@ -71,6 +74,7 @@ export type Database = {
           line_item_code?: string
           net_value?: number | null
           offer_name?: string | null
+          original_currency?: string | null
           payment_method?: string | null
           product_id: string
           product_name?: string | null
@@ -101,6 +105,7 @@ export type Database = {
           created_at?: string
           doc_type?: string | null
           fees?: number | null
+          fx_rate?: number | null
           gross_value?: number | null
           id?: string
           item_type?: string | null
@@ -108,6 +113,7 @@ export type Database = {
           line_item_code?: string
           net_value?: number | null
           offer_name?: string | null
+          original_currency?: string | null
           payment_method?: string | null
           product_id?: string
           product_name?: string | null
