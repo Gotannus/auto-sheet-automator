@@ -111,7 +111,7 @@ function ProductPage() {
 
   const projection = useMemo(() => {
     if (!q.data) return null;
-    return computeProjection(q.data.days, { monthYear: ym.year, monthMonth: ym.month });
+    return computeProjection(q.data.days, { monthYear: ym.year, monthMonth: ym.month, activeStart: true });
   }, [q.data, ym.year, ym.month]);
 
   const productName = product?.display_name || product?.name || "Produto";
