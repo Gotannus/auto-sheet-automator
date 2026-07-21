@@ -1,21 +1,35 @@
 ## Problema
 
-A venda `HP2864577102` (Sussurros, Tannus Labs) chegou da Hotmart em **EUR** (`price.currency_value: "EUR"`, value 9.70) e foi gravada como se fosse R$ 9,70. Precisamos converter moeda estrangeira → BRL no webhook, com taxa fixa de **5x**.
+Em **Projeção por produto**, um produto que começou a rodar no dia 15 e fez R$ 500 de lucro em 5 dias aparece com projeção baixa porque `computeProjection` divide o realizado pelos **dias corridos do mês** (ex.: 20), não pelos dias em que o produto realmente rodou (5). Média fica R$ 25/dia em vez de R$ 100/dia.
 
-## Mudanças
+## Causa
 
-### 1. `src/lib/celetus/hotmart-parser.ts`
-- Ler `price.currency_value` (fallback `full_price.currency_value`).
-- Se a moeda **não for BRL** (ex.: USD, EUR), aplicar multiplicador **× 5** em:
-  - `grossValue`
-  - `producerCommission` (comissões somadas antes do arredondamento)
-- Não mexer em BRL/vazio (comportamento atual preservado).
-- Guardar a moeda original + taxa aplicada dentro de `row.raw` (nada visível na UI, só rastreabilidade — o payload cru já vai pra `raw`, então só garantir que fica salvo).
+`src/lib/celetus/projection.ts` calcula `daysElapsed = currentDay` (dia do mês). Serve para a empresa toda (roda o mês inteiro), mas erra por produto quando a oferta começou depois do dia 1.
 
-### 2. Correção retroativa
-- Atualizar a linha `HP2864577102`: multiplicar `gross_value`, `net_value`, `commission_value`, `fees` por 5 (9,70 → 48,50; 9,48 → 47,40).
+## Correção
+
+### 1. `src/lib/celetus/projection.ts`
+Adicionar opção `activeStart?: boolean` em `computeProjection`. Quando `true`:
+- Detectar `firstActiveDay` = primeiro dia do mês (dentro de `upToToday`) com `revenue || invest_final || profit` ≠ 0.
+- Se existir: `daysElapsed = currentDay - firstActiveDay + 1` (clampeado ≥ 1).
+- `daysRemaining` continua sendo `daysInMonth - currentDay` (não muda — resto do mês real).
+- Se nenhum dia ativo: comportamento atual (evita divisão por zero).
+
+Comportamento padrão (`activeStart` ausente/false) fica idêntico ao atual — não afeta projeção da empresa nem do dashboard.
+
+### 2. `src/routes/_authenticated/$companySlug/projecao.tsx`
+Na seção **`ByProductProjection`** (linha ~1025), passar `activeStart: true` para `computeProjection`:
+
+```ts
+const proj = computeProjection(e.days, {
+  monthYear: ym.year,
+  monthMonth: ym.month,
+  activeStart: true,
+});
+```
+
+Projeção da empresa (KPIs de cima, gráfico, comparativos) permanece inalterada.
 
 ## Fora do escopo
-- Celetus (opera em BRL).
-- Taxa dinâmica de câmbio — usuário pediu fixa em 5.
-- Reprocessar histórico além dessa venda (só há 1 registro em moeda estrangeira).
+- Mudar projeção global da empresa.
+- Detectar pausas no meio do mês (produto que rodou dia 5–10 e voltou dia 20) — média continua sobre o intervalo primeiro-ativo→hoje, aceitável para low ticket.
