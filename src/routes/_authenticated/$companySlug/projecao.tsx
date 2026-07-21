@@ -1022,7 +1022,7 @@ function ByProductProjection({
       }
     }
     let list = Array.from(map.entries()).map(([id, e]) => {
-      const proj = computeProjection(e.days, { monthYear: ym.year, monthMonth: ym.month });
+      const proj = computeProjection(e.days, { monthYear: ym.year, monthMonth: ym.month, activeStart: true });
       return { id, name: e.name, proj };
     });
     if (activeIds) list = list.filter((r) => activeIds.has(r.id));
