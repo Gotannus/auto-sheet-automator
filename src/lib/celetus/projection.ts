@@ -58,7 +58,7 @@ export function roiOf(v: ProjectionMoney): number {
 
 export function computeProjection(
   days: DayLike[],
-  opts?: { referenceDate?: string; monthYear?: number; monthMonth?: number },
+  opts?: { referenceDate?: string; monthYear?: number; monthMonth?: number; activeStart?: boolean },
 ) {
   const today = opts?.referenceDate ?? brtToday();
   const [ty, tm, td] = today.split("-").map(Number);
@@ -93,8 +93,17 @@ export function computeProjection(
         return dd <= currentDay;
       });
 
-  const daysElapsed = isFutureMonth ? 0 : currentDay;
-  const daysRemaining = Math.max(0, daysInMonth - daysElapsed);
+  let daysElapsed = isFutureMonth ? 0 : currentDay;
+  if (opts?.activeStart && !isFutureMonth) {
+    const firstActive = upToToday.find(
+      (d) => Number(d.revenue || 0) !== 0 || Number(d.invest_final || 0) !== 0 || Number(d.profit || 0) !== 0,
+    );
+    if (firstActive) {
+      const [, , fd] = firstActive.date.split("-").map(Number);
+      daysElapsed = Math.max(1, currentDay - fd + 1);
+    }
+  }
+  const daysRemaining = Math.max(0, daysInMonth - (isFutureMonth ? 0 : currentDay));
   const monthClosed = !isCurrentMonth || daysRemaining === 0;
 
   const realized = sumMoney(upToToday);
