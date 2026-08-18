@@ -196,7 +196,8 @@ function ProductsPage() {
                   </TableCell>
                   <TableCell className="font-medium">
                     <Link
-                      to={`/${companySlug}/produto/${p.id}`}
+                      to="/$companySlug/produto/$productId"
+                      params={{ companySlug, productId: p.id }}
                       className="inline-flex items-center gap-1.5 hover:text-primary transition"
                     >
                       {p.display_name || (

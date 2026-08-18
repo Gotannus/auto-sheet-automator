@@ -120,7 +120,8 @@ function ProductPage() {
     <div className="p-4 md:p-6 space-y-4 max-w-[1400px] mx-auto">
       <div>
         <Link
-          to={`/${companySlug}/products`}
+          to="/$companySlug/products"
+          params={{ companySlug }}
           className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-3 w-3" /> Voltar para Produtos
