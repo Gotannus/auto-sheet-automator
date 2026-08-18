@@ -310,7 +310,13 @@ export const listOverviewCompanySettings = createServerFn({ method: "POST" })
       .select("id, slug, name, show_in_overview")
       .order("name", { ascending: true });
     if (error) throw new Error(error.message);
-    return (data ?? []).map((c) => ({
+    const rows = (data ?? []) as unknown as Array<{
+      id: string;
+      slug: string;
+      name: string;
+      show_in_overview: boolean | null;
+    }>;
+    return rows.map((c) => ({
       id: c.id,
       slug: c.slug,
       name: c.name,
@@ -326,7 +332,7 @@ export const setCompanyOverviewVisibility = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase
       .from("companies")
-      .update({ show_in_overview: data.show })
+      .update({ show_in_overview: data.show } as never)
       .eq("id", data.companyId);
     if (error) throw new Error(error.message);
     return { ok: true };
