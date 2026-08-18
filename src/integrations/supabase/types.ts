@@ -149,6 +149,7 @@ export type Database = {
           id: string
           name: string
           owner_user_id: string
+          show_in_overview: boolean
           slug: string
           updated_at: string
           webhook_secret: string
@@ -159,6 +160,7 @@ export type Database = {
           id?: string
           name: string
           owner_user_id: string
+          show_in_overview?: boolean
           slug: string
           updated_at?: string
           webhook_secret?: string
@@ -169,6 +171,7 @@ export type Database = {
           id?: string
           name?: string
           owner_user_id?: string
+          show_in_overview?: boolean
           slug?: string
           updated_at?: string
           webhook_secret?: string

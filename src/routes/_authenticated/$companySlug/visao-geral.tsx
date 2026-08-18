@@ -1,7 +1,11 @@
 import { createFileRoute, redirect, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { getAdminOverview } from "@/lib/celetus/admin-overview.functions";
+import {
+  getAdminOverview,
+  listOverviewCompanySettings,
+  setCompanyOverviewVisibility,
+} from "@/lib/celetus/admin-overview.functions";
 import { companyPath } from "@/lib/celetus/workspaces";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,7 +17,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { RefreshCw, CalendarDays, ArrowRight } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Switch } from "@/components/ui/switch";
+import { RefreshCw, CalendarDays, ArrowRight, SlidersHorizontal } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/$companySlug/visao-geral")({
   head: () => ({ meta: [{ title: "Visão Geral - Gotannus" }] }),
@@ -142,6 +148,63 @@ function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
   );
 }
 
+function CompanyVisibilityMenu() {
+  const qc = useQueryClient();
+  const q = useQuery({
+    queryKey: ["overview-company-settings"],
+    queryFn: () => listOverviewCompanySettings(),
+  });
+  const mut = useMutation({
+    mutationFn: (v: { companyId: string; show: boolean }) =>
+      setCompanyOverviewVisibility({ data: v }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["overview-company-settings"] });
+      qc.invalidateQueries({ queryKey: ["admin-overview"] });
+    },
+  });
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" className="gap-2">
+          <SlidersHorizontal className="h-4 w-4" />
+          Empresas exibidas
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-72 p-2">
+        <div className="px-2 py-1.5 text-xs text-muted-foreground">
+          Escolha quais empresas aparecem nesta visão geral.
+        </div>
+        {!q.data ? (
+          <div className="p-2 space-y-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="h-8 bg-muted rounded animate-pulse" />
+            ))}
+          </div>
+        ) : q.data.length === 0 ? (
+          <div className="p-2 text-sm text-muted-foreground">Nenhuma empresa.</div>
+        ) : (
+          <ul className="space-y-0.5">
+            {q.data.map((c) => (
+              <li
+                key={c.id}
+                className="flex items-center justify-between gap-3 px-2 py-1.5 rounded-md hover:bg-muted/60"
+              >
+                <span className="text-sm truncate">{c.name}</span>
+                <Switch
+                  checked={c.show_in_overview}
+                  disabled={mut.isPending}
+                  onCheckedChange={(v) => mut.mutate({ companyId: c.id, show: v })}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function OverviewInner() {
   const [preset, setPreset] = useState<Preset>("today");
   const todayYmd = useMemo(() => toYMD(brtNow()), []);
@@ -228,6 +291,7 @@ function OverviewInner() {
               />
             </div>
           )}
+          <CompanyVisibilityMenu />
           <Button
             variant="outline"
             size="icon"

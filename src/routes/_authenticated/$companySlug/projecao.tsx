@@ -1080,7 +1080,8 @@ function ByProductProjection({
             return (
               <Link
                 key={r.id}
-                to={`/${companySlug}/produto/${r.id}`}
+                to="/$companySlug/produto/$productId"
+                params={{ companySlug, productId: r.id }}
                 className="block rounded-xl border p-3 hover:bg-muted/50 hover:border-primary/50 transition group"
               >
                 <div className="flex items-center justify-between gap-3 mb-2">
