@@ -76,6 +76,7 @@ export const getAdminOverview = createServerFn({ method: "POST" })
     const { data: companies, error: cErr } = await supabase
       .from("companies")
       .select("id, slug, name")
+      .eq("show_in_overview", true)
       .order("name", { ascending: true });
     if (cErr) throw new Error(cErr.message);
     const companyList = (companies ?? []) as Array<{ id: string; slug: string; name: string }>;
@@ -292,4 +293,41 @@ export const getAdminOverview = createServerFn({ method: "POST" })
       companies: out,
       recent_sales: recentOut,
     };
+  });
+
+export type OverviewCompanySetting = {
+  id: string;
+  slug: string;
+  name: string;
+  show_in_overview: boolean;
+};
+
+export const listOverviewCompanySettings = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<OverviewCompanySetting[]> => {
+    const { data, error } = await context.supabase
+      .from("companies")
+      .select("id, slug, name, show_in_overview")
+      .order("name", { ascending: true });
+    if (error) throw new Error(error.message);
+    return (data ?? []).map((c) => ({
+      id: c.id,
+      slug: c.slug,
+      name: c.name,
+      show_in_overview: c.show_in_overview !== false,
+    }));
+  });
+
+export const setCompanyOverviewVisibility = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ companyId: z.string().uuid(), show: z.boolean() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("companies")
+      .update({ show_in_overview: data.show })
+      .eq("id", data.companyId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
