@@ -1,32 +1,20 @@
-## Problema
+# Escolher quais empresas aparecem na Visão Geral
 
-No dashboard individual de um produto (`/produto/$productId`), a projeção "Fim do mês" usa média diária dividida pelos **dias corridos do mês**. Produto que começou dia 17 e fez R$ 451,75 em 5 dias mostra média de R$ 21,51/dia (451,75 ÷ 21) em vez de R$ 90/dia (451,75 ÷ 5). Resultado: Lucro Proj vem R$ 666,88 quando o correto seria ~R$ 1.350.
+Hoje a Visão Geral (Gotannus) mostra todas as empresas que você tem acesso. Você quer poder esconder algumas (ex.: a do Bruno, que é de mentorado) do seu painel de administrador.
 
-## Causa
+## Como vai funcionar
 
-`src/routes/_authenticated/$companySlug/produto.$productId.tsx` (linha ~114) chama:
+- Cada empresa ganha uma marcação "mostrar na Visão Geral", guardada no banco e controlada por você (administrador). Vale em qualquer navegador/dispositivo.
+- Um botão "Empresas exibidas" no topo da Visão Geral abre uma lista com todas as empresas e um interruptor para cada uma. Desligou, some.
+- A empresa desligada some de tudo nessa tela: cards de empresa, Total geral e a lista de Últimas vendas da lateral.
+- Isso não afeta nada mais: a empresa continua funcionando normalmente, com dashboard, webhooks e vendas intactos. Ela só não aparece na Visão Geral.
 
-```ts
-computeProjection(q.data.days, { monthYear: ym.year, monthMonth: ym.month })
-```
+## Detalhes técnicos
 
-sem `activeStart: true`. A opção já existe em `projection.ts` e já é usada na página `projecao.tsx` (seção "Projeção por produto") — só falta aplicá-la aqui.
+- Migração: adicionar `show_in_overview boolean not null default true` em `public.companies` (políticas atuais de dono já cobrem leitura/edição).
+- `src/lib/celetus/admin-overview.functions.ts`: filtrar `show_in_overview = true` na consulta de empresas; como os agregados e as vendas recentes derivam dessa lista, cards, Total geral e feed já ficam consistentes. Adicionar uma função `listOverviewCompanySettings` (todas as empresas + flag) e `setCompanyOverviewVisibility({ companyId, show })`, ambas com `requireSupabaseAuth`.
+- `src/routes/_authenticated/$companySlug/visao-geral.tsx`: botão/`Popover` "Empresas exibidas" com `Switch` por empresa; ao alternar, chamar a mutação e invalidar as queries `admin-overview` e a de configuração.
 
-## Correção
+## Correção de build pendente
 
-Uma linha em `src/routes/_authenticated/$companySlug/produto.$productId.tsx`:
-
-```ts
-computeProjection(q.data.days, {
-  monthYear: ym.year,
-  monthMonth: ym.month,
-  activeStart: true,
-})
-```
-
-Efeito: `daysElapsed` passa a contar a partir do primeiro dia com venda ou investimento no mês; `daysRemaining` continua sendo o resto do calendário. Média diária, Lucro Proj, Fat Proj, Inv Proj e ROI Proj recalculam sozinhos.
-
-## Fora do escopo
-
-- Projeção da empresa (KPIs de cima do dashboard e página Projeção) segue com base em dias corridos — comportamento intencional.
-- Detectar pausas no meio do mês (produto que rodou dia 5–10 e voltou dia 20).
+Três links de produto (`products.tsx`, `produto.$productId.tsx`, `projecao.tsx`) usam caminhos montados por string, que o roteador tipado rejeita. Ajustar esses `Link` para usar rota + parâmetros (`to="/$companySlug/produto/$productId"` com `params`) como primeiro passo, para o projeto voltar a compilar.
