@@ -1,0 +1,1 @@
+ALTER TABLE public.companies ADD COLUMN IF NOT EXISTS show_in_overview boolean NOT NULL DEFAULT true;
