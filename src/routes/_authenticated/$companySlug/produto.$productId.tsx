@@ -37,7 +37,7 @@ export const Route = createFileRoute("/_authenticated/$companySlug/produto/$prod
     }
   },
   component: ProductPage,
-  errorComponent: ({ error }) => <div className="p-6">Erro: {error.message}</div>,
+  errorComponent: ({ error }) => <div className="p-6">Erro: {(error as Error).message}</div>,
 });
 
 const MONTHS = [

@@ -9,9 +9,15 @@ export type Product = {
   display_name: string | null;
   src: string;
   is_active: boolean;
+  pinned_month: string | null;
   created_at: string;
 };
 
+
+export function currentMonthSP() {
+  const d = new Date(Date.now() - 3 * 3600 * 1000);
+  return d.toISOString().slice(0, 7);
+}
 
 const CompanyInput = z.object({
   company_slug: z.string().optional(),
@@ -25,7 +31,7 @@ export const listProducts = createServerFn({ method: "GET" })
     const userId = await resolveCompanyId(context.supabase, data.company_slug);
     const { data: rows, error } = await supabase
       .from("products")
-      .select("id, name, display_name, src, is_active, created_at")
+      .select("id, name, display_name, src, is_active, pinned_month, created_at")
       .eq("user_id", userId)
       .not("name", "ilike", "sem-src-%")
       .order("created_at", { ascending: true });
@@ -42,15 +48,20 @@ export const createProduct = createServerFn({ method: "POST" })
         company_slug: z.string().optional(),
         name: z.string().min(1).max(120),
         src: z.string().min(1).max(120),
+        display_name: z.string().max(120).nullable().optional(),
+        pinned: z.boolean().optional(),
       })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
     const userId = await resolveCompanyId(context.supabase, data.company_slug);
+    const ins: Record<string, unknown> = { user_id: userId, name: data.name, src: data.src.trim() };
+    if (data.display_name?.trim()) ins.display_name = data.display_name.trim();
+    if (data.pinned) { ins.pinned_month = currentMonthSP(); ins.is_active = true; }
     const { data: row, error } = await supabase
       .from("products")
-      .insert({ user_id: userId, name: data.name, src: data.src.trim() })
+      .insert(ins as never)
       .select()
       .single();
     if (error) throw new Error(error.message);
@@ -68,6 +79,7 @@ export const updateProduct = createServerFn({ method: "POST" })
         src: z.string().min(1).max(120),
         display_name: z.string().max(120).nullable().optional(),
         is_active: z.boolean().optional(),
+        pinned: z.boolean().optional(),
       })
       .parse(input),
   )
@@ -80,6 +92,10 @@ export const updateProduct = createServerFn({ method: "POST" })
       patch.display_name = v.length > 0 ? v : null;
     }
     if (data.is_active !== undefined) patch.is_active = data.is_active;
+    if (data.pinned !== undefined) {
+      patch.pinned_month = data.pinned ? currentMonthSP() : null;
+      if (data.pinned) patch.is_active = true;
+    }
     const { error } = await supabase
       .from("products")
       .update(patch)
@@ -125,6 +141,24 @@ export const deleteProduct = createServerFn({ method: "POST" })
     const { error } = await supabase
       .from("products")
       .delete()
+      .eq("id", data.id)
+      .eq("user_id", userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const setProductPinned = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ company_slug: z.string().optional(), id: z.string().uuid(), pinned: z.boolean() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const userId = await resolveCompanyId(context.supabase, data.company_slug);
+    const patch: Record<string, unknown> = { pinned_month: data.pinned ? currentMonthSP() : null };
+    if (data.pinned) patch.is_active = true;
+    const { error } = await context.supabase
+      .from("products")
+      .update(patch as never)
       .eq("id", data.id)
       .eq("user_id", userId);
     if (error) throw new Error(error.message);

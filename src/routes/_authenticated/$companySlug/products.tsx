@@ -8,6 +8,8 @@ import {
   updateProduct,
   deleteProduct,
   setProductActive,
+  setProductPinned,
+  currentMonthSP,
   type Product,
 } from "@/lib/celetus/products.functions";
 import { Card, CardContent } from "@/components/ui/card";
@@ -31,7 +33,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Trash2, Pencil, ArrowRight } from "lucide-react";
+import { Plus, Trash2, Pencil, ArrowRight, Pin } from "lucide-react";
 import { toast } from "sonner";
 import { isValidSlug } from "@/lib/celetus/workspaces";
 
@@ -51,7 +53,7 @@ export const Route = createFileRoute("/_authenticated/$companySlug/products")({
   loader: ({ context, params }) =>
     context.queryClient.ensureQueryData(productsQO(params.companySlug)),
   component: ProductsPage,
-  errorComponent: ({ error }) => <div className="p-6">Erro: {error.message}</div>,
+  errorComponent: ({ error }) => <div className="p-6">Erro: {(error as Error).message}</div>,
 });
 
 type Filter = "active" | "inactive" | "all";
@@ -64,6 +66,8 @@ function ProductsPage() {
   const update = useServerFn(updateProduct);
   const del = useServerFn(deleteProduct);
   const toggle = useServerFn(setProductActive);
+  const pin = useServerFn(setProductPinned);
+  const curMonth = currentMonthSP();
 
   const [filter, setFilter] = useState<Filter>("active");
 
@@ -83,8 +87,8 @@ function ProductsPage() {
   );
 
   const createMut = useMutation({
-    mutationFn: (v: { name: string; src: string; display_name: string | null }) =>
-      create({ data: { name: v.name, src: v.src, company_slug: companySlug } }),
+    mutationFn: (v: { name: string; src: string; display_name: string | null; pinned: boolean }) =>
+      create({ data: { ...v, company_slug: companySlug } }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["products", companySlug] });
       toast.success("Produto cadastrado");
@@ -92,7 +96,7 @@ function ProductsPage() {
     onError: (e: Error) => toast.error(e.message),
   });
   const updateMut = useMutation({
-    mutationFn: (v: { id: string; name: string; src: string; display_name: string | null }) =>
+    mutationFn: (v: { id: string; name: string; src: string; display_name: string | null; pinned: boolean }) =>
       update({ data: { ...v, company_slug: companySlug } }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["products", companySlug] });
@@ -116,6 +120,28 @@ function ProductsPage() {
       const prev = qc.getQueryData<Product[]>(["products", companySlug]);
       qc.setQueryData<Product[]>(["products", companySlug], (arr) =>
         (arr ?? []).map((p) => (p.id === v.id ? { ...p, is_active: v.is_active } : p)),
+      );
+      return { prev };
+    },
+    onError: (e: Error, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(["products", companySlug], ctx.prev);
+      toast.error(e.message);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["products", companySlug] }),
+  });
+
+  const pinMut = useMutation({
+    mutationFn: (v: { id: string; pinned: boolean }) =>
+      pin({ data: { ...v, company_slug: companySlug } }),
+    onMutate: async (v) => {
+      await qc.cancelQueries({ queryKey: ["products", companySlug] });
+      const prev = qc.getQueryData<Product[]>(["products", companySlug]);
+      qc.setQueryData<Product[]>(["products", companySlug], (arr) =>
+        (arr ?? []).map((p) =>
+          p.id === v.id
+            ? { ...p, pinned_month: v.pinned ? curMonth : null, is_active: v.pinned ? true : p.is_active }
+            : p,
+        ),
       );
       return { prev };
     },
@@ -170,6 +196,7 @@ function ProductsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-24">Ativo</TableHead>
+                <TableHead className="w-20">Fixado</TableHead>
                 <TableHead>Nome visível</TableHead>
                 <TableHead>Nome interno</TableHead>
                 <TableHead>SRC</TableHead>
@@ -179,7 +206,7 @@ function ProductsPage() {
             <TableBody>
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                     Nenhum produto neste filtro.
                   </TableCell>
                 </TableRow>
@@ -193,6 +220,16 @@ function ProductsPage() {
                         toggleMut.mutate({ id: p.id, is_active: v })
                       }
                     />
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      title={p.pinned_month === curMonth ? "Fixado neste mês (clique para soltar)" : "Fixar no mês atual"}
+                      onClick={() => pinMut.mutate({ id: p.id, pinned: p.pinned_month !== curMonth })}
+                    >
+                      <Pin className={`h-4 w-4 ${p.pinned_month === curMonth ? "fill-primary text-primary" : "opacity-40"}`} />
+                    </Button>
                   </TableCell>
                   <TableCell className="font-medium">
                     <Link
@@ -221,6 +258,7 @@ function ProductsPage() {
                         name: p.name,
                         src: p.src,
                         display_name: p.display_name ?? "",
+                        pinned: p.pinned_month === curMonth,
                       }}
                       onSubmit={(v) => updateMut.mutateAsync({ id: p.id, ...v })}
                     />
@@ -258,13 +296,14 @@ function ProductDialog({
 }: {
   trigger: React.ReactNode;
   title: string;
-  initial?: { name: string; src: string; display_name?: string };
-  onSubmit: (v: { name: string; src: string; display_name: string | null }) => Promise<unknown>;
+  initial?: { name: string; src: string; display_name?: string; pinned?: boolean };
+  onSubmit: (v: { name: string; src: string; display_name: string | null; pinned: boolean }) => Promise<unknown>;
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(initial?.name ?? "");
   const [src, setSrc] = useState(initial?.src ?? "");
   const [displayName, setDisplayName] = useState(initial?.display_name ?? "");
+  const [pinned, setPinned] = useState(initial?.pinned ?? false);
 
   return (
     <Dialog
@@ -275,6 +314,7 @@ function ProductDialog({
           setName(initial?.name ?? "");
           setSrc(initial?.src ?? "");
           setDisplayName(initial?.display_name ?? "");
+          setPinned(initial?.pinned ?? false);
         }
       }}
     >
@@ -311,6 +351,15 @@ function ProductDialog({
               placeholder="palavras-tentacao"
             />
           </div>
+          <label className="flex items-start gap-3 rounded-md border p-3 cursor-pointer">
+            <Switch checked={pinned} onCheckedChange={setPinned} />
+            <span className="text-sm">
+              <b>Fixar no mês atual</b>
+              <span className="block text-muted-foreground text-xs">
+                Aparece no Dashboard e na Projeção este mês mesmo sem vendas, para lançar o gasto.
+              </span>
+            </span>
+          </label>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>
@@ -323,6 +372,7 @@ function ProductDialog({
                 name: name.trim(),
                 src: src.trim(),
                 display_name: displayName.trim() ? displayName.trim() : null,
+                pinned,
               });
               setOpen(false);
             }}

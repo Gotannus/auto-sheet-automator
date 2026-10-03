@@ -33,7 +33,7 @@ export const Route = createFileRoute("/tannus")({
   component: CompaniesPage,
   errorComponent: ({ error }) => (
     <div className="p-8 text-destructive">
-      Erro ao carregar empresas: {error.message}
+      Erro ao carregar empresas: {(error as Error).message}
     </div>
   ),
 });
