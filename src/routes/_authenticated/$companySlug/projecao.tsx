@@ -1025,10 +1025,13 @@ function ByProductProjection({
       const proj = computeProjection(e.days, { monthYear: ym.year, monthMonth: ym.month, activeStart: true });
       return { id, name: e.name, proj };
     });
-    if (activeIds) list = list.filter((r) => activeIds.has(r.id));
     const ymKey = `${ym.year}-${String(ym.month).padStart(2, "0")}`;
+    const pinnedIds = new Set(
+      (productsQ.data ?? []).filter((p) => p.is_active && p.pinned_month === ymKey).map((p) => p.id),
+    );
+    if (activeIds) list = list.filter((r) => activeIds.has(r.id) || pinnedIds.has(r.id));
     for (const p of productsQ.data ?? []) {
-      if (p.is_active && p.pinned_month === ymKey && !map.has(p.id)) {
+      if (pinnedIds.has(p.id) && !map.has(p.id)) {
         const proj = computeProjection([], { monthYear: ym.year, monthMonth: ym.month, activeStart: true });
         list.push({ id: p.id, name: p.display_name || p.name, proj });
       }
