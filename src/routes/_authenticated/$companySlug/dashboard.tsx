@@ -814,7 +814,23 @@ function ReadOnlyDailyRow({
   expanded: boolean;
   onToggle: () => void;
 }) {
-  const hasBreakdown = (day.by_product?.length ?? 0) > 0;
+  const { data: allProducts } = useSuspenseQuery(productsQO(companySlug));
+  const breakdown = useMemo(() => {
+    const list = [...(day.by_product ?? [])];
+    const have = new Set(list.map((p) => p.product_id));
+    const ym = day.date.slice(0, 7);
+    for (const p of allProducts as Product[]) {
+      if (p.is_active && p.pinned_month === ym && !have.has(p.id)) {
+        list.push({
+          product_id: p.id, product_name: p.display_name || p.name, sales: 0, revenue: 0,
+          revenue_tax: 0, ob_qty: 0, ob_revenue: 0, invest_manual: null, invest_final: 0,
+          profit: 0, roi: 0, cpa: 0, ticket: 0, ob_pct: 0,
+        });
+      }
+    }
+    return list;
+  }, [day, allProducts]);
+  const hasBreakdown = breakdown.length > 0;
   return (
     <>
       <TableRow>
@@ -891,7 +907,7 @@ function ReadOnlyDailyRow({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {day.by_product!.map((p) => (
+                  {breakdown.map((p) => (
                     <TableRow key={p.product_id}>
                       <TableCell className="font-medium">
                         <Link
