@@ -50,7 +50,7 @@ export const Route = createFileRoute("/_authenticated/$companySlug/dashboard")({
   loader: ({ context, params }) =>
     context.queryClient.ensureQueryData(productsQO(params.companySlug)),
   component: DashboardPage,
-  errorComponent: ({ error }) => <div className="p-6">Erro: {error.message}</div>,
+  errorComponent: ({ error }) => <div className="p-6">Erro: {(error as Error).message}</div>,
 });
 
 const productsQO = (companySlug: string) =>

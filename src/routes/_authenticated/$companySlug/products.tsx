@@ -53,7 +53,7 @@ export const Route = createFileRoute("/_authenticated/$companySlug/products")({
   loader: ({ context, params }) =>
     context.queryClient.ensureQueryData(productsQO(params.companySlug)),
   component: ProductsPage,
-  errorComponent: ({ error }) => <div className="p-6">Erro: {error.message}</div>,
+  errorComponent: ({ error }) => <div className="p-6">Erro: {(error as Error).message}</div>,
 });
 
 type Filter = "active" | "inactive" | "all";

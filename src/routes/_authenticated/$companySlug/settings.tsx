@@ -56,7 +56,7 @@ export const Route = createFileRoute("/_authenticated/$companySlug/settings")({
   loader: ({ context, params }) =>
     context.queryClient.ensureQueryData(settingsQO(params.companySlug)),
   component: SettingsPage,
-  errorComponent: ({ error }) => <div className="p-6">Erro: {error.message}</div>,
+  errorComponent: ({ error }) => <div className="p-6">Erro: {(error as Error).message}</div>,
 });
 
 function SettingsPage() {

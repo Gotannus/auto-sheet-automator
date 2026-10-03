@@ -86,7 +86,7 @@ export const Route = createFileRoute("/_authenticated/$companySlug/expenses")({
     );
   },
   component: ExpensesPage,
-  errorComponent: ({ error }) => <div className="p-6">Erro: {error.message}</div>,
+  errorComponent: ({ error }) => <div className="p-6">Erro: {(error as Error).message}</div>,
 });
 
 function ExpensesPage() {
