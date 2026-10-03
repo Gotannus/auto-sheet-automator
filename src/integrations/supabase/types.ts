@@ -431,6 +431,7 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          pinned_month: string | null
           src: string
           updated_at: string
           user_id: string
@@ -441,6 +442,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
+          pinned_month?: string | null
           src: string
           updated_at?: string
           user_id: string
@@ -451,6 +453,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          pinned_month?: string | null
           src?: string
           updated_at?: string
           user_id?: string
