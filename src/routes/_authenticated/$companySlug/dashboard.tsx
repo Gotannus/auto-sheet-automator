@@ -286,10 +286,16 @@ function DashboardPage() {
 
   const visibleProducts = useMemo(() => {
     if (!activeProductIds) return products;
-    return products.filter(
-      (p: Product) => activeProductIds.has(p.id) || p.id === productId,
+    const pinnedMonths = new Set(
+      months.map((m) => `${m.year}-${String(m.month).padStart(2, "0")}`),
     );
-  }, [products, activeProductIds, productId]);
+    return products.filter(
+      (p: Product) =>
+        activeProductIds.has(p.id) ||
+        p.id === productId ||
+        (p.pinned_month != null && pinnedMonths.has(p.pinned_month)),
+    );
+  }, [products, activeProductIds, productId, months]);
 
 
   if (!products.length) {
@@ -410,7 +416,7 @@ function DashboardPage() {
               {visibleProducts.map((p: Product) => (
                 <SelectItem key={p.id} value={p.id}>
                   {p.display_name || p.name}
-                  {activeProductIds && !activeProductIds.has(p.id) ? " (sem atividade)" : ""}
+                  {activeProductIds && !activeProductIds.has(p.id) && !p.pinned_month ? " (sem atividade)" : ""}
                 </SelectItem>
               ))}
             </SelectContent>

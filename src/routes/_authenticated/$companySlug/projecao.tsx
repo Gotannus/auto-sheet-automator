@@ -1026,9 +1026,16 @@ function ByProductProjection({
       return { id, name: e.name, proj };
     });
     if (activeIds) list = list.filter((r) => activeIds.has(r.id));
+    const ymKey = `${ym.year}-${String(ym.month).padStart(2, "0")}`;
+    for (const p of productsQ.data ?? []) {
+      if (p.is_active && p.pinned_month === ymKey && !map.has(p.id)) {
+        const proj = computeProjection([], { monthYear: ym.year, monthMonth: ym.month, activeStart: true });
+        list.push({ id: p.id, name: p.display_name || p.name, proj });
+      }
+    }
     list.sort((a, b) => b.proj.projectedPace.profit - a.proj.projectedPace.profit);
     return list;
-  }, [days, ym.year, ym.month, activeIds]);
+  }, [days, ym.year, ym.month, activeIds, productsQ.data]);
 
   if (rows.length === 0) {
     return (
