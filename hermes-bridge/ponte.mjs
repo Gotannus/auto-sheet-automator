@@ -44,6 +44,11 @@ function loadConfig() {
     claude_extra_args: [],
     claude_timeout_min: 30,
     celetus_auto: true,
+    imagens_auto: true,
+    imagens_site: "gemini", // "gemini" ou "chatgpt" (pelo Chrome, sem API)
+    imagem_timeout_min: 10,
+    downloads_dir: path.join(home, "Downloads"),
+    referencias_dir: path.join(home, "Documents", "OperacaoIA", "knowledge", "criativos-validados"),
     work_dir: path.join(HERE, "pedidos"),
     poll_seconds: 30,
     ...raw,
@@ -106,7 +111,12 @@ function run(bin, args, { cwd, timeoutMin, onTick }) {
     let out = "";
     let err = "";
     let done = false;
-    const child = spawn(bin, args, { cwd, windowsHide: true, env: process.env });
+    const child = spawn(bin, args, {
+      cwd,
+      windowsHide: true,
+      env: process.env,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
     const started = Date.now();
     const tick = onTick
       ? setInterval(() => onTick(Math.round((Date.now() - started) / 60000)), 5 * 60 * 1000)
@@ -159,6 +169,193 @@ function extractJson(text) {
   return null;
 }
 
+// ---------- Chrome: um uso por vez (imagens e cadastro dividem o mesmo navegador) ----------
+
+let chromeQueue = Promise.resolve();
+function withChrome(fn) {
+  const next = chromeQueue.then(fn, fn);
+  chromeQueue = next.catch(() => {});
+  return next;
+}
+
+// ---------- Imagens: Gemini / ChatGPT pelo Chrome, sem API ----------
+
+const IMAGE_EXT = /\.(png|jpe?g|jfif|webp)$/i; // o Gemini baixa como .jfif (JPEG)
+
+const SITES = {
+  gemini: { nome: "Gemini", url: "https://gemini.google.com/app" },
+  chatgpt: { nome: "ChatGPT", url: "https://chatgpt.com/" },
+};
+
+function imagePromptForClaude(item, refs, site) {
+  const s = SITES[site] || SITES.gemini;
+  const anexos = refs.length
+    ? `Antes de enviar, anexe estas imagens de referência na conversa (ferramenta de upload de arquivo):\n${refs.map((r) => `- ${r}`).join("\n")}\n`
+    : "";
+  const pedido = [
+    `Crie uma imagem no formato ${item.formato || "4:5"} (vertical) para anúncio de Instagram/Facebook.`,
+    refs.length
+      ? "Use as imagens anexadas como referência de estilo, composição e qualidade (são criativos que já venderam). Não copie textos delas."
+      : "",
+    item.prompt,
+    "Todo texto na imagem em português do Brasil, escrito corretamente e legível no celular.",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  return `Gere UMA imagem no ${s.nome} usando o Chrome do usuário (Claude in Chrome) e baixe o arquivo.
+
+Passos:
+1. Abra uma aba nova em ${s.url} (conversa nova).
+2. Se pedir login, senha ou código, NÃO digite nada: pare e responda "FALHOU: precisa fazer login no ${s.nome} no Chrome".
+3. ${anexos || "Não há imagens de referência."}
+4. Cole e envie exatamente este pedido:
+"""
+${pedido}
+"""
+5. Espere a imagem aparecer (pode levar alguns minutos). Se o ${s.nome} responder só com texto, peça uma vez: "Gere a imagem agora."
+6. Baixe a imagem no tamanho original pelo botão de download do próprio ${s.nome}. Clique UMA vez só. Você não precisa conferir a pasta Downloads: a ponte confere o arquivo sozinha.
+7. Não gere outras imagens, não mude configurações, não assine nada.
+
+Na última linha da resposta escreva só: BAIXADA  ou  FALHOU: motivo curto`;
+}
+
+function listDownloads() {
+  try {
+    return fs
+      .readdirSync(cfg.downloads_dir)
+      .filter((f) => IMAGE_EXT.test(f))
+      .map((f) => {
+        const full = path.join(cfg.downloads_dir, f);
+        return { full, mtime: fs.statSync(full).mtimeMs };
+      });
+  } catch {
+    return [];
+  }
+}
+
+async function waitNewDownload(before, sinceMs, seconds = 30) {
+  const known = new Set(before.map((d) => d.full));
+  for (let i = 0; i < seconds; i++) {
+    const fresh = listDownloads()
+      .filter((d) => !known.has(d.full) || d.mtime > sinceMs)
+      .filter((d) => d.mtime >= sinceMs - 2000)
+      .sort((a, b) => b.mtime - a.mtime);
+    if (fresh.length) return fresh[0].full;
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  return null;
+}
+
+function moveFile(from, to) {
+  try {
+    fs.renameSync(from, to);
+  } catch {
+    fs.copyFileSync(from, to);
+    fs.unlinkSync(from);
+  }
+}
+
+function findImagePrompts(dir) {
+  for (const f of [path.join(dir, "criativos", "prompts_imagens.json"), path.join(dir, "prompts_imagens.json")]) {
+    if (!fs.existsSync(f)) continue;
+    try {
+      const v = JSON.parse(fs.readFileSync(f, "utf8"));
+      const list = Array.isArray(v) ? v : Array.isArray(v?.imagens) ? v.imagens : [];
+      return list.filter((i) => i && typeof i.prompt === "string" && i.prompt.trim());
+    } catch (e) {
+      log(`prompts_imagens.json inválido em ${f}: ${e.message}`);
+    }
+  }
+  return [];
+}
+
+async function generateImages(dir, jobId) {
+  const items = findImagePrompts(dir);
+  if (!items.length) return { gerados: [], falhas: [], total: 0 };
+  const outDir = path.join(dir, "criativos");
+  fs.mkdirSync(outDir, { recursive: true });
+  const site = SITES[cfg.imagens_site] ? cfg.imagens_site : "gemini";
+  const gerados = [];
+  const falhas = [];
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    const base = safeName(String(item.arquivo || `criativo-${String(i + 1).padStart(2, "0")}`).replace(IMAGE_EXT, ""));
+    const exists = fs.readdirSync(outDir).find((f) => f.replace(IMAGE_EXT, "") === base && IMAGE_EXT.test(f));
+    if (exists) {
+      gerados.push(path.join(outDir, exists));
+      continue;
+    }
+    const refs = (Array.isArray(item.referencias) ? item.referencias : [])
+      .map(String)
+      .filter((r) => fs.existsSync(r))
+      .slice(0, 3);
+    if (jobId) await progress(jobId, `Gerando imagem ${i + 1}/${items.length} no ${SITES[site].nome}: ${base}`);
+    log(`Imagem ${i + 1}/${items.length}: ${base}`);
+
+    const r = await withChrome(async () => {
+      const before = listDownloads();
+      const started = Date.now();
+      let res;
+      if (FAKE) {
+        const fake = path.join(cfg.downloads_dir, `fake-${Date.now()}.png`);
+        fs.mkdirSync(cfg.downloads_dir, { recursive: true });
+        fs.writeFileSync(fake, "fake");
+        res = { code: 0, out: "BAIXADA", err: "" };
+      } else {
+        const dirs = [...new Set([outDir, ...refs.map((r) => path.dirname(r))])];
+        res = await run(
+          cfg.claude_bin,
+          [
+            "-p",
+            imagePromptForClaude(item, refs, site),
+            "--chrome",
+            "--permission-mode",
+            "dontAsk",
+            "--allowedTools",
+            "mcp__claude-in-chrome",
+            "Read",
+            "--add-dir",
+            ...dirs,
+            "--output-format",
+            "json",
+            "--no-session-persistence",
+            ...cfg.claude_extra_args,
+          ],
+          { cwd: outDir, timeoutMin: cfg.imagem_timeout_min },
+        );
+      }
+      const file = await waitNewDownload(before, started, 30);
+      return { ...res, file };
+    });
+
+    let text = r.out;
+    try {
+      const j = JSON.parse(r.out);
+      if (typeof j.result === "string") text = j.result;
+    } catch {}
+    try {
+      fs.writeFileSync(path.join(outDir, `_saida_${base}.txt`), `${text}\n\n--- stderr ---\n${r.err}`);
+    } catch {}
+
+    if (r.file) {
+      let ext = path.extname(r.file).toLowerCase() || ".png";
+      if (ext === ".jfif" || ext === ".jpeg") ext = ".jpg";
+      const dest = path.join(outDir, base + ext);
+      moveFile(r.file, dest);
+      gerados.push(dest);
+      log(`  salva: ${dest}`);
+    } else {
+      const motivo = text.match(/FALHOU:\s*(.+)/i)?.[1]?.trim() || `nenhum download apareceu (${tail(r.err || text, 300)})`;
+      falhas.push({ arquivo: base, motivo });
+      log(`  falhou: ${motivo}`);
+      if (/login/i.test(motivo)) break; // sem login não adianta tentar as outras
+    }
+  }
+  return { gerados, falhas, total: items.length };
+}
+
 // ---------- Hermes: criar o produto ----------
 
 function hermesPrompt(job, dir) {
@@ -177,6 +374,17 @@ REGRAS DESTA EXECUÇÃO
 - Esta execução é automática: não há ninguém para responder perguntas. Decida com bom senso e registre as decisões.
 - Salve TODOS os entregáveis nesta pasta: ${dir}
 - NÃO publique nada, NÃO cadastre na Celetus, NÃO gaste dinheiro. O cadastro é feito depois, com aprovação do usuário.
+
+CRIATIVOS (IMPORTANTE)
+- NÃO desenhe as artes dos anúncios em HTML/CSS/código nem tire print. As imagens finais serão geradas depois no ${(SITES[cfg.imagens_site] || SITES.gemini).nome}, a partir dos prompts que você escrever.
+- O agente de criativos escreve, para cada criativo, um prompt de imagem completo e visual: cena, enquadramento, pessoas/objetos, luz, estilo (foto real, UGC de celular, flat lay etc.), cores, e o texto exato que deve aparecer na arte (headline, preço, CTA). Siga os modelos validados de knowledge/registro_modelos.json e cite o modelo_id.
+- Referências visuais: se existir a pasta ${cfg.referencias_dir}\\<modelo_id>\\, escolha até 3 imagens de lá para cada criativo e coloque os caminhos completos em "referencias".
+- Salve a lista em criativos/prompts_imagens.json nesta pasta, neste formato:
+[
+  { "arquivo": "c01-gancho-dor-4x5", "formato": "4:5", "modelo_id": "...", "angulo": "...",
+    "prompt": "prompt completo da imagem", "referencias": ["C:\\\\...\\\\ref1.png"] }
+]
+- Faça de 3 a 6 criativos, cada um com ângulo diferente. Prévias do produto (capas, páginas do PDF) podem ser feitas por código, porque são o próprio produto.
 
 AO TERMINAR, crie dois arquivos nesta pasta:
 
@@ -270,6 +478,26 @@ async function processCreateJob(job) {
   }
 
   result.pasta_no_pc = dir;
+
+  if (cfg.imagens_auto) {
+    try {
+      const img = await generateImages(dir, job.id);
+      if (img.total) {
+        result.imagens = img.gerados.map((f) => path.basename(f));
+        if (img.falhas.length) result.imagens_falhas = img.falhas;
+        await progress(
+          job.id,
+          `Imagens: ${img.gerados.length} de ${img.total} geradas${img.falhas.length ? ` (${img.falhas.length} falharam)` : ""}`,
+        );
+      } else {
+        await progress(job.id, "O Hermes não deixou prompts de imagem (criativos/prompts_imagens.json)");
+      }
+    } catch (e) {
+      log("erro nas imagens:", e.message);
+      result.imagens_falhas = [{ arquivo: "*", motivo: String(e.message).slice(0, 300) }];
+    }
+  }
+
   await api("POST", `jobs/${job.id}/result`, { result, celetus_prompt: celetusPrompt.slice(0, 20000) });
   log(`Hermes: ${job.src} pronto, aguardando aprovação do cadastro`);
 }
@@ -376,7 +604,7 @@ async function cycle() {
       let job = null;
       try {
         job = await api("GET", "jobs/approved/next");
-        if (job) await processRegisterJob(job);
+        if (job) await withChrome(() => processRegisterJob(job));
       } catch (e) {
         log("erro no cadastro:", e.message);
         if (job) {
@@ -414,11 +642,29 @@ async function check() {
   }
   log(`Pasta dos pedidos: ${cfg.work_dir}`);
   log(`Cadastro automático na Celetus: ${cfg.celetus_auto ? "ligado" : "desligado"}`);
+  log(
+    `Imagens pelo Chrome: ${cfg.imagens_auto ? `ligado (${(SITES[cfg.imagens_site] || SITES.gemini).nome})` : "desligado"}; downloads em ${cfg.downloads_dir}`,
+  );
+  if (!fs.existsSync(cfg.downloads_dir)) {
+    ok = false;
+    log(`Pasta de downloads NÃO encontrada: ${cfg.downloads_dir}`);
+  }
   return ok;
 }
 
 if (ARGS.has("--check")) {
   process.exit((await check()) ? 0 : 1);
+}
+
+// node ponte.mjs --imagens <pasta>   gera (ou completa) as imagens de uma pasta de pedido
+if (ARGS.has("--imagens")) {
+  const argv = process.argv.slice(2);
+  const dir = path.resolve(argv[argv.indexOf("--imagens") + 1] || ".");
+  log(`Gerando imagens de ${dir} no ${(SITES[cfg.imagens_site] || SITES.gemini).nome}`);
+  const r = await generateImages(dir, null);
+  log(`Pronto: ${r.gerados.length} de ${r.total} geradas.`);
+  r.falhas.forEach((f) => log(`  falhou ${f.arquivo}: ${f.motivo}`));
+  process.exit(r.falhas.length ? 1 : 0);
 }
 
 log(`Ponte ligada${FAKE ? " (MODO TESTE)" : ""}. Olhando a fila a cada ${cfg.poll_seconds}s.`);

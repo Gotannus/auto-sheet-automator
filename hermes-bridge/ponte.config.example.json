@@ -5,5 +5,7 @@
   "hermes_timeout_min": 180,
   "claude_timeout_min": 30,
   "celetus_auto": true,
+  "imagens_auto": true,
+  "imagens_site": "gemini",
   "poll_seconds": 30
 }
