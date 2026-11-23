@@ -3,17 +3,19 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Copy, ExternalLink, RotateCcw } from "lucide-react";
+import { ArrowLeft, Check, Copy, ExternalLink, RotateCcw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  approveProductJob,
   getProductJob,
   markProductJobRegistered,
   retryProductJob,
   type ProductJob,
+  type ProductJobStatus,
 } from "@/lib/celetus/product-jobs.functions";
 import { JobStatusBadge } from "@/components/product-jobs/ProductJobParts";
 import { isValidSlug } from "@/lib/celetus/workspaces";
@@ -46,6 +48,14 @@ async function copy(text: string, label: string) {
     toast.error("Não deu para copiar. Selecione e copie à mão.");
   }
 }
+
+const WORKING: ProductJobStatus[] = ["na_fila", "criando", "aprovado", "cadastrando"];
+const WORKING_HINT: Partial<Record<ProductJobStatus, string>> = {
+  na_fila: "Esperando o Hermes pegar o pedido (a ponte precisa estar rodando no seu PC).",
+  criando: "O Hermes está trabalhando. Esta página atualiza sozinha.",
+  aprovado: "Esperando a ponte no seu PC chamar o Claude (Chrome precisa estar aberto e logado na Celetus).",
+  cadastrando: "O Claude está cadastrando na Celetus pelo seu Chrome. Esta página atualiza sozinha.",
+};
 
 const RESULT_LABELS: Record<string, string> = {
   nome: "Nome",
@@ -102,7 +112,7 @@ function ProductJobPage() {
     queryFn: () => fetchJob({ data: { company_slug: companySlug, id: jobId } }),
     refetchInterval: (q) => {
       const s = q.state.data?.status;
-      return s === "na_fila" || s === "criando" ? 10000 : false;
+      return s && WORKING.includes(s) ? 10000 : false;
     },
   });
 
@@ -198,12 +208,8 @@ function ProductJobPage() {
                 ))}
               </ol>
             )}
-            {(job.status === "na_fila" || job.status === "criando") && (
-              <p className="text-xs text-muted-foreground">
-                {job.status === "na_fila"
-                  ? "Esperando o Hermes pegar o pedido (ele precisa estar rodando no seu PC)."
-                  : "O Hermes está trabalhando. Esta página atualiza sozinha."}
-              </p>
+            {WORKING.includes(job.status) && (
+              <p className="text-xs text-muted-foreground">{WORKING_HINT[job.status]}</p>
             )}
           </CardContent>
         </Card>
@@ -226,13 +232,25 @@ function RegisterCard({ job, companySlug }: { job: ProductJob; companySlug: stri
   const [urlError, setUrlError] = useState("");
   const mark = useServerFn(markProductJobRegistered);
   const qc = useQueryClient();
+  const approve = useServerFn(approveProductJob);
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ["product-job", companySlug, job.id] });
+    qc.invalidateQueries({ queryKey: ["product-jobs", companySlug] });
+    qc.invalidateQueries({ queryKey: ["products", companySlug] });
+  };
   const mut = useMutation({
     mutationFn: () => mark({ data: { company_slug: companySlug, id: job.id, checkout_url: url.trim() } }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["product-job", companySlug, job.id] });
-      qc.invalidateQueries({ queryKey: ["product-jobs", companySlug] });
-      qc.invalidateQueries({ queryKey: ["products", companySlug] });
+      refresh();
       toast.success("Produto marcado como cadastrado");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const approveMut = useMutation({
+    mutationFn: () => approve({ data: { company_slug: companySlug, id: job.id } }),
+    onSuccess: () => {
+      refresh();
+      toast.success("Aprovado. O Claude vai cadastrar pelo seu Chrome.");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -243,10 +261,21 @@ function RegisterCard({ job, companySlug }: { job: ProductJob; companySlug: stri
         <div>
           <h2 className="text-sm font-semibold">Cadastrar na Celetus</h2>
           <p className="text-sm text-muted-foreground">
-            Copie o prompt, cole no Claude (Chrome) para ele cadastrar o produto com o SRC{" "}
-            <code>{job.src}</code>. Depois cole aqui o link do checkout.
+            Confira o produto abaixo. Ao aprovar, o Claude cadastra na Celetus pelo seu Chrome com o SRC{" "}
+            <code>{job.src}</code> e devolve o link do checkout. Se preferir, copie o prompt e faça à mão.
           </p>
         </div>
+        {job.error_message && (
+          <p className="rounded-md border border-red-500/40 bg-red-500/5 p-2 text-sm whitespace-pre-wrap">
+            <span className="font-medium">Última tentativa automática falhou:</span> {job.error_message}
+          </p>
+        )}
+        {job.celetus_prompt && (
+          <Button disabled={approveMut.isPending} onClick={() => approveMut.mutate()}>
+            <Check className="h-4 w-4 mr-1" />
+            {job.error_message ? "Tentar cadastrar de novo" : "Aprovar e cadastrar"}
+          </Button>
+        )}
         {job.celetus_prompt ? (
           <div className="space-y-2">
             <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-md border bg-muted p-3 text-xs">

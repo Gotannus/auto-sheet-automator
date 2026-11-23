@@ -1,0 +1,9 @@
+{
+  "api_base": "https://auto-sheet-automator.lovable.app/api/public/hermes",
+  "hermes_secret": "COLE_AQUI_O_SEGREDO_DO_HERMES_DA_PAGINA_WEBHOOK",
+  "hermes_skills": "tannus-orquestrador",
+  "hermes_timeout_min": 180,
+  "claude_timeout_min": 30,
+  "celetus_auto": true,
+  "poll_seconds": 30
+}

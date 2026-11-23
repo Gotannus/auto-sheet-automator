@@ -12,6 +12,9 @@ import { computeDailySummary } from "@/lib/celetus/dashboard.functions";
 //   POST /api/public/hermes/jobs/:id/progress   { message }
 //   POST /api/public/hermes/jobs/:id/result     { result, celetus_prompt }
 //   POST /api/public/hermes/jobs/:id/error      { message }
+//   GET  /api/public/hermes/jobs/approved/next  próximo pedido aprovado para cadastrar (204 se nenhum)
+//   POST /api/public/hermes/jobs/:id/registered      { checkout_url }  -> cadastrado
+//   POST /api/public/hermes/jobs/:id/register-failed { message }       -> volta a aguardando_cadastro
 //   GET  /api/public/hermes/metrics?days=14
 //   POST /api/public/hermes/reports             { title, body_markdown, product_id? }
 
@@ -91,6 +94,9 @@ const ResultBody = z.object({
   celetus_prompt: z.string().max(20000).optional().nullable(),
 });
 const ErrorBody = z.object({ message: z.string().trim().min(1).max(2000) });
+const RegisteredBody = z.object({
+  checkout_url: z.string().trim().url().max(500).refine((v) => /^https?:\/\//i.test(v)),
+});
 const ReportBody = z.object({
   title: z.string().trim().min(1).max(200),
   body_markdown: z.string().max(50000),
@@ -119,6 +125,30 @@ async function handle(request: Request, splat: string): Promise<Response> {
       const job = Array.isArray(data) ? data[0] : null;
       if (!job) return new Response(null, { status: 204 });
       return json({ id: job.id, src: job.src, briefing: job.briefing, product_id: job.product_id });
+    }
+
+    // jobs/approved/next: próximo pedido aprovado para cadastrar na Celetus
+    if (
+      method === "GET" &&
+      parts[0] === "jobs" &&
+      parts[1] === "approved" &&
+      parts[2] === "next" &&
+      parts.length === 3
+    ) {
+      const { data, error } = await admin.rpc("claim_next_approved_job", {
+        _company_id: company.id,
+      });
+      if (error) throw new Error(error.message);
+      const job = Array.isArray(data) ? data[0] : null;
+      if (!job) return new Response(null, { status: 204 });
+      return json({
+        id: job.id,
+        src: job.src,
+        briefing: job.briefing,
+        result: job.result,
+        celetus_prompt: job.celetus_prompt,
+        product_id: job.product_id,
+      });
     }
 
     // jobs/:id[/action]
@@ -182,6 +212,53 @@ async function handle(request: Request, splat: string): Promise<Response> {
           .eq("user_id", company.id);
         if (error) throw new Error(error.message);
         return json({ ok: true, status: "erro" });
+      }
+
+      if (action === "registered") {
+        const p = RegisteredBody.safeParse(body);
+        if (!p.success) return json({ error: "invalid body", details: p.error.flatten() }, 400);
+        if (job.status !== "cadastrando" && job.status !== "aprovado") {
+          return json({ error: `job is ${job.status}, not being registered` }, 409);
+        }
+        const { error } = await admin
+          .from("product_jobs")
+          .update({
+            status: "cadastrado",
+            checkout_url: p.data.checkout_url,
+            error_message: null,
+            progress: appendProgress(job.progress, "Cadastrado na Celetus pelo Claude"),
+            updated_at: now,
+          } as never)
+          .eq("id", id)
+          .eq("user_id", company.id);
+        if (error) throw new Error(error.message);
+        const result = job.result as Record<string, unknown> | null;
+        const nome = typeof result?.nome === "string" ? result.nome.trim() : "";
+        if (job.product_id && nome) {
+          await admin
+            .from("products")
+            .update({ display_name: nome.slice(0, 120) } as never)
+            .eq("id", String(job.product_id))
+            .eq("user_id", company.id);
+        }
+        return json({ ok: true, status: "cadastrado" });
+      }
+
+      if (action === "register-failed") {
+        const p = ErrorBody.safeParse(body);
+        if (!p.success) return json({ error: "invalid body", details: p.error.flatten() }, 400);
+        const { error } = await admin
+          .from("product_jobs")
+          .update({
+            status: "aguardando_cadastro",
+            error_message: p.data.message,
+            progress: appendProgress(job.progress, "O cadastro automático falhou"),
+            updated_at: now,
+          } as never)
+          .eq("id", id)
+          .eq("user_id", company.id);
+        if (error) throw new Error(error.message);
+        return json({ ok: true, status: "aguardando_cadastro" });
       }
 
       return json({ error: "unknown action" }, 404);

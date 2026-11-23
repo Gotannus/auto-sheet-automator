@@ -34,6 +34,8 @@ export const STATUS_LABEL: Record<ProductJobStatus, string> = {
   na_fila: "Na fila",
   criando: "Hermes criando",
   aguardando_cadastro: "Aguardando cadastro",
+  aprovado: "Aprovado, na fila do Claude",
+  cadastrando: "Claude cadastrando",
   cadastrado: "Cadastrado",
   erro: "Erro",
 };
@@ -42,6 +44,8 @@ const STATUS_CLASS: Record<ProductJobStatus, string> = {
   na_fila: "bg-muted text-muted-foreground border-border",
   criando: "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30",
   aguardando_cadastro: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30",
+  aprovado: "bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/30",
+  cadastrando: "bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/30",
   cadastrado: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
   erro: "bg-red-500/10 text-red-700 dark:text-red-300 border-red-500/30",
 };

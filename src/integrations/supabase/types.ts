@@ -634,6 +634,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_next_approved_job: {
+        Args: { _company_id: string }
+        Returns: Database["public"]["Tables"]["product_jobs"]["Row"][]
+      }
       claim_next_product_job: {
         Args: { _company_id: string }
         Returns: Database["public"]["Tables"]["product_jobs"]["Row"][]

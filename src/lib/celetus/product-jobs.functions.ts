@@ -8,6 +8,8 @@ export type ProductJobStatus =
   | "na_fila"
   | "criando"
   | "aguardando_cadastro"
+  | "aprovado"
+  | "cadastrando"
   | "cadastrado"
   | "erro";
 
@@ -237,6 +239,49 @@ export const markProductJobRegistered = createServerFn({ method: "POST" })
         .eq("id", j.product_id)
         .eq("user_id", companyId);
     }
+    return { ok: true };
+  });
+
+// Usuário aprova: a ponte no PC pega o pedido e chama o Claude para cadastrar na Celetus.
+export const approveProductJob = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => CompanyInput.extend({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const companyId = await resolveCompanyId(supabase, data.company_slug);
+    const { data: job, error } = await supabase
+      .from("product_jobs")
+      .select("status, progress, celetus_prompt")
+      .eq("id", data.id)
+      .eq("user_id", companyId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!job) throw new Error("Pedido não encontrado");
+    const j = job as unknown as {
+      status: ProductJobStatus;
+      progress: ProductJobProgress[] | null;
+      celetus_prompt: string | null;
+    };
+    if (j.status !== "aguardando_cadastro") {
+      throw new Error("Este pedido não está esperando cadastro.");
+    }
+    if (!j.celetus_prompt) throw new Error("O Hermes não mandou o prompt de cadastro.");
+    const progress = [
+      ...(Array.isArray(j.progress) ? j.progress : []),
+      { at: new Date().toISOString(), message: "Cadastro aprovado. Esperando a ponte chamar o Claude." },
+    ];
+    const { error: updError } = await supabase
+      .from("product_jobs")
+      .update({
+        status: "aprovado",
+        error_message: null,
+        progress,
+        updated_at: new Date().toISOString(),
+      } as never)
+      .eq("id", data.id)
+      .eq("user_id", companyId)
+      .eq("status", "aguardando_cadastro");
+    if (updError) throw new Error(updError.message);
     return { ok: true };
   });
 

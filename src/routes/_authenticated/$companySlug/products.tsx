@@ -309,7 +309,7 @@ function ProductJobsInProgress({ companySlug }: { companySlug: string }) {
     queryKey: ["product-jobs", companySlug],
     queryFn: () => listProductJobs({ data: { company_slug: companySlug } }),
     refetchInterval: (q) =>
-      (q.state.data ?? []).some((j) => j.status === "na_fila" || j.status === "criando")
+      (q.state.data ?? []).some((j) => ["na_fila", "criando", "aprovado", "cadastrando"].includes(j.status))
         ? 15000
         : false,
   });
