@@ -31,7 +31,7 @@ Para o cadastro automático: Chrome aberto, extensão Claude in Chrome conectada
 | `claude_timeout_min` | 30 | tempo máximo do cadastro |
 | `celetus_auto` | true | `false` desliga o cadastro automático |
 | `imagens_auto` | true | gerar as imagens dos criativos pelo Chrome |
-| `imagens_site` | `gemini` | `gemini` ou `chatgpt` |
+| `imagens_site` | `gemini` | `gemini`, `chatgpt` ou `ambos` (cada criativo sai nos dois, com sufixo `-gemini` / `-chatgpt`). Cada criativo também pode pedir o seu com `"site"` no `prompts_imagens.json` |
 | `imagem_timeout_min` | 10 | tempo máximo por imagem |
 | `downloads_dir` | `%USERPROFILE%\Downloads` | onde o Chrome salva os downloads |
 | `referencias_dir` | `Documents\OperacaoIA\knowledge\criativos-validados` | criativos vencedores, uma subpasta por `modelo_id` |

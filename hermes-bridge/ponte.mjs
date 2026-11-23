@@ -45,7 +45,7 @@ function loadConfig() {
     claude_timeout_min: 30,
     celetus_auto: true,
     imagens_auto: true,
-    imagens_site: "gemini", // "gemini" ou "chatgpt" (pelo Chrome, sem API)
+    imagens_site: "gemini", // "gemini", "chatgpt" ou "ambos" (pelo Chrome, sem API)
     imagem_timeout_min: 10,
     downloads_dir: path.join(home, "Downloads"),
     referencias_dir: path.join(home, "Documents", "OperacaoIA", "knowledge", "criativos-validados"),
@@ -270,19 +270,43 @@ function findImagePrompts(dir) {
   return [];
 }
 
+function sitesFor(item) {
+  const pick = String(item.site || cfg.imagens_site || "gemini").toLowerCase();
+  if (pick === "ambos") return ["gemini", "chatgpt"];
+  return [SITES[pick] ? pick : "gemini"];
+}
+
+function siteLabel() {
+  const pick = String(cfg.imagens_site || "gemini").toLowerCase();
+  return pick === "ambos" ? "Gemini e ChatGPT" : (SITES[pick] || SITES.gemini).nome;
+}
+
 async function generateImages(dir, jobId) {
   const items = findImagePrompts(dir);
   if (!items.length) return { gerados: [], falhas: [], total: 0 };
   const outDir = path.join(dir, "criativos");
   fs.mkdirSync(outDir, { recursive: true });
-  const site = SITES[cfg.imagens_site] ? cfg.imagens_site : "gemini";
+
+  // uma tarefa por imagem e site; em "ambos" cada criativo sai nos dois, com sufixo -gemini / -chatgpt
+  const tasks = [];
+  items.forEach((item, i) => {
+    const base = safeName(String(item.arquivo || `criativo-${String(i + 1).padStart(2, "0")}`).replace(IMAGE_EXT, ""));
+    const sites = sitesFor(item);
+    for (const site of sites) tasks.push({ item, site, base: sites.length > 1 ? `${base}-${site}` : base });
+  });
+
   const gerados = [];
   const falhas = [];
+  const semLogin = new Set();
 
-  for (let i = 0; i < items.length; i++) {
-    const item = items[i];
-    const base = safeName(String(item.arquivo || `criativo-${String(i + 1).padStart(2, "0")}`).replace(IMAGE_EXT, ""));
-    const exists = fs.readdirSync(outDir).find((f) => f.replace(IMAGE_EXT, "") === base && IMAGE_EXT.test(f));
+  for (let i = 0; i < tasks.length; i++) {
+    const { item, site, base } = tasks[i];
+    const nome = SITES[site].nome;
+    if (semLogin.has(site)) {
+      falhas.push({ arquivo: base, site, motivo: `sem login no ${nome}` });
+      continue;
+    }
+    const exists = fs.readdirSync(outDir).find((f) => IMAGE_EXT.test(f) && f.replace(IMAGE_EXT, "") === base);
     if (exists) {
       gerados.push(path.join(outDir, exists));
       continue;
@@ -291,8 +315,8 @@ async function generateImages(dir, jobId) {
       .map(String)
       .filter((r) => fs.existsSync(r))
       .slice(0, 3);
-    if (jobId) await progress(jobId, `Gerando imagem ${i + 1}/${items.length} no ${SITES[site].nome}: ${base}`);
-    log(`Imagem ${i + 1}/${items.length}: ${base}`);
+    if (jobId) await progress(jobId, `Gerando imagem ${i + 1}/${tasks.length} no ${nome}: ${base}`);
+    log(`Imagem ${i + 1}/${tasks.length} (${nome}): ${base}`);
 
     const r = await withChrome(async () => {
       const before = listDownloads();
@@ -336,7 +360,10 @@ async function generateImages(dir, jobId) {
       if (typeof j.result === "string") text = j.result;
     } catch {}
     try {
-      fs.writeFileSync(path.join(outDir, `_saida_${base}.txt`), `${text}\n\n--- stderr ---\n${r.err}`);
+      fs.writeFileSync(path.join(outDir, `_saida_${base}.txt`), `${text}
+
+--- stderr ---
+${r.err}`);
     } catch {}
 
     if (r.file) {
@@ -347,13 +374,13 @@ async function generateImages(dir, jobId) {
       gerados.push(dest);
       log(`  salva: ${dest}`);
     } else {
-      const motivo = text.match(/FALHOU:\s*(.+)/i)?.[1]?.trim() || `nenhum download apareceu (${tail(r.err || text, 300)})`;
-      falhas.push({ arquivo: base, motivo });
+      const motivo = text.match(/FALHOU:s*(.+)/i)?.[1]?.trim() || `nenhum download apareceu (${tail(r.err || text, 300)})`;
+      falhas.push({ arquivo: base, site, motivo });
       log(`  falhou: ${motivo}`);
-      if (/login/i.test(motivo)) break; // sem login não adianta tentar as outras
+      if (/login/i.test(motivo)) semLogin.add(site); // sem login nesse site, pula as próximas dele
     }
   }
-  return { gerados, falhas, total: items.length };
+  return { gerados, falhas, total: tasks.length };
 }
 
 // ---------- Hermes: criar o produto ----------
@@ -376,13 +403,14 @@ REGRAS DESTA EXECUÇÃO
 - NÃO publique nada, NÃO cadastre na Celetus, NÃO gaste dinheiro. O cadastro é feito depois, com aprovação do usuário.
 
 CRIATIVOS (IMPORTANTE)
-- NÃO desenhe as artes dos anúncios em HTML/CSS/código nem tire print. As imagens finais serão geradas depois no ${(SITES[cfg.imagens_site] || SITES.gemini).nome}, a partir dos prompts que você escrever.
+- NÃO desenhe as artes dos anúncios em HTML/CSS/código nem tire print. As imagens finais serão geradas depois no ${siteLabel()}, a partir dos prompts que você escrever.
 - O agente de criativos escreve, para cada criativo, um prompt de imagem completo e visual: cena, enquadramento, pessoas/objetos, luz, estilo (foto real, UGC de celular, flat lay etc.), cores, e o texto exato que deve aparecer na arte (headline, preço, CTA). Siga os modelos validados de knowledge/registro_modelos.json e cite o modelo_id.
 - Referências visuais: se existir a pasta ${cfg.referencias_dir}\\<modelo_id>\\, escolha até 3 imagens de lá para cada criativo e coloque os caminhos completos em "referencias".
 - Salve a lista em criativos/prompts_imagens.json nesta pasta, neste formato:
 [
   { "arquivo": "c01-gancho-dor-4x5", "formato": "4:5", "modelo_id": "...", "angulo": "...",
-    "prompt": "prompt completo da imagem", "referencias": ["C:\\\\...\\\\ref1.png"] }
+    "prompt": "prompt completo da imagem", "referencias": ["C:\\\\...\\\\ref1.png"],
+    "site": "opcional: gemini (foto realista, UGC, cena) | chatgpt (layout com muito texto, oferta, comparativo) | ambos" }
 ]
 - Faça de 3 a 6 criativos, cada um com ângulo diferente. Prévias do produto (capas, páginas do PDF) podem ser feitas por código, porque são o próprio produto.
 
@@ -643,7 +671,7 @@ async function check() {
   log(`Pasta dos pedidos: ${cfg.work_dir}`);
   log(`Cadastro automático na Celetus: ${cfg.celetus_auto ? "ligado" : "desligado"}`);
   log(
-    `Imagens pelo Chrome: ${cfg.imagens_auto ? `ligado (${(SITES[cfg.imagens_site] || SITES.gemini).nome})` : "desligado"}; downloads em ${cfg.downloads_dir}`,
+    `Imagens pelo Chrome: ${cfg.imagens_auto ? `ligado (${siteLabel()})` : "desligado"}; downloads em ${cfg.downloads_dir}`,
   );
   if (!fs.existsSync(cfg.downloads_dir)) {
     ok = false;
@@ -660,7 +688,7 @@ if (ARGS.has("--check")) {
 if (ARGS.has("--imagens")) {
   const argv = process.argv.slice(2);
   const dir = path.resolve(argv[argv.indexOf("--imagens") + 1] || ".");
-  log(`Gerando imagens de ${dir} no ${(SITES[cfg.imagens_site] || SITES.gemini).nome}`);
+  log(`Gerando imagens de ${dir} no ${siteLabel()}`);
   const r = await generateImages(dir, null);
   log(`Pronto: ${r.gerados.length} de ${r.total} geradas.`);
   r.falhas.forEach((f) => log(`  falhou ${f.arquivo}: ${f.motivo}`));
