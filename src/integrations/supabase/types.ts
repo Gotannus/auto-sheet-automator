@@ -145,6 +145,7 @@ export type Database = {
       companies: {
         Row: {
           created_at: string
+          hermes_secret: string
           hotmart_hottok: string | null
           id: string
           name: string
@@ -156,6 +157,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          hermes_secret?: string
           hotmart_hottok?: string | null
           id?: string
           name: string
@@ -167,6 +169,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          hermes_secret?: string
           hotmart_hottok?: string | null
           id?: string
           name?: string
@@ -297,6 +300,41 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "daily_manual_inputs_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hermes_reports: {
+        Row: {
+          body_markdown: string
+          created_at: string
+          id: string
+          product_id: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          body_markdown?: string
+          created_at?: string
+          id?: string
+          product_id?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          body_markdown?: string
+          created_at?: string
+          id?: string
+          product_id?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hermes_reports_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
@@ -596,6 +634,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_next_product_job: {
+        Args: { _company_id: string }
+        Returns: Database["public"]["Tables"]["product_jobs"]["Row"][]
+      }
       has_company_access: {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean

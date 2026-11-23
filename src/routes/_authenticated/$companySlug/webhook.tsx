@@ -10,6 +10,8 @@ import {
   rotateHotmartHottok,
   updateHotmartHottok,
   clearHotmartHottok,
+  getHermesConfig,
+  rotateHermesSecret,
 } from "@/lib/celetus/settings.functions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -205,7 +207,91 @@ function WebhookPage() {
       </Card>
 
       <HotmartSection companySlug={company.slug} origin={origin} />
+      <HermesSection companySlug={company.slug} origin={origin} />
     </div>
+  );
+}
+
+function HermesSection({ companySlug, origin }: { companySlug: string; origin: string }) {
+  const { data } = useSuspenseQuery(
+    queryOptions({
+      queryKey: ["hermes-config", companySlug],
+      queryFn: () => getHermesConfig({ data: { company_slug: companySlug } }),
+    }),
+  );
+  const qc = useQueryClient();
+  const rot = useServerFn(rotateHermesSecret);
+  const [show, setShow] = useState(false);
+  const rotMut = useMutation({
+    mutationFn: () => rot({ data: { company_slug: companySlug } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["hermes-config", companySlug] });
+      toast.success("Novo segredo do Hermes gerado");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const baseUrl = `${origin}/api/public/hermes`;
+  const secret = data.hermes_secret;
+  const copy = (s: string) => {
+    navigator.clipboard.writeText(s);
+    toast.success("Copiado");
+  };
+
+  return (
+    <>
+      <header className="pt-6">
+        <h2 className="text-2xl font-bold">Hermes</h2>
+        <p className="text-sm text-muted-foreground">
+          Endereço e segredo que a ponte do Hermes (no seu PC) usa para pegar pedidos de produto,
+          devolver o resultado, ler as métricas e enviar relatórios. Não compartilhe o segredo.
+        </p>
+      </header>
+      <Card>
+        <CardHeader>
+          <CardTitle>Conexão do Hermes</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>Endereço da API</Label>
+            <div className="flex gap-2">
+              <Input value={baseUrl} readOnly className="font-mono text-xs" />
+              <Button variant="outline" size="icon" onClick={() => copy(baseUrl)}>
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Segredo do Hermes</Label>
+            <div className="flex gap-2">
+              <Input
+                value={show ? secret : "•".repeat(Math.min(secret.length, 32))}
+                readOnly
+                className="font-mono text-xs"
+              />
+              <Button variant="outline" onClick={() => setShow((s) => !s)}>
+                {show ? "Ocultar" : "Mostrar"}
+              </Button>
+              <Button variant="outline" size="icon" onClick={() => copy(secret)}>
+                <Copy className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (confirm("Gerar novo segredo? A ponte do Hermes para de funcionar até você trocar lá também."))
+                    rotMut.mutate();
+                }}
+                disabled={rotMut.isPending}
+              >
+                <RefreshCw className="h-4 w-4 mr-1" /> Rotacionar
+              </Button>
+            </div>
+          </div>
+          <div className="rounded-md bg-muted p-3 text-xs font-mono whitespace-pre-wrap break-all">
+            {`curl "${baseUrl}/ping" -H "x-hermes-secret: SEU_SEGREDO"`}
+          </div>
+        </CardContent>
+      </Card>
+    </>
   );
 }
 

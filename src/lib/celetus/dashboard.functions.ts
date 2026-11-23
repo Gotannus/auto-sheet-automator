@@ -639,9 +639,18 @@ export const getDailySummary = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }): Promise<DailySummaryResult> => {
-    const { supabase } = context;
     const userId = await resolveCompanyId(context.supabase, data.company_slug);
+    return computeDailySummary(context.supabase, userId, data);
+  });
 
+// Núcleo do resumo diário, compartilhado entre a tela (usuário logado) e a
+// API do Hermes (cliente admin), para os números baterem exatamente.
+export async function computeDailySummary(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  userId: string,
+  data: { product_id?: string; from: string; to: string },
+): Promise<DailySummaryResult> {
     // Use os tax rates do mês de `to` (referência mais recente do período).
     const [refY, refM] = data.to.split("-").map(Number);
     const { data: settings } = await fromUntyped(supabase, "monthly_tax_settings")
@@ -882,7 +891,7 @@ export const getDailySummary = createServerFn({ method: "POST" })
       },
       by_product: byProduct,
     };
-  });
+}
 
 
 function nullableSum(current: number | null, value: unknown) {

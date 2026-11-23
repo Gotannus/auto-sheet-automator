@@ -206,6 +206,36 @@ export const rotateWebhookSecret = createServerFn({ method: "POST" })
     return { webhook_secret: secret };
   });
 
+export const getHermesConfig = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => CompanyInput.parse(input ?? {}))
+  .handler(async ({ data, context }) => {
+    const companyId = await resolveCompanyId(context.supabase, data.company_slug);
+    const { data: row, error } = await fromUntyped(context.supabase, "companies")
+      .select("hermes_secret")
+      .eq("id", companyId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    return { hermes_secret: (row?.hermes_secret as string) ?? "" };
+  });
+
+export const rotateHermesSecret = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => CompanyInput.parse(input ?? {}))
+  .handler(async ({ data, context }) => {
+    const companyId = await resolveCompanyId(context.supabase, data.company_slug);
+    const bytes = new Uint8Array(24);
+    crypto.getRandomValues(bytes);
+    const secret = Array.from(bytes)
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    const { error } = await fromUntyped(context.supabase, "companies")
+      .update({ hermes_secret: secret })
+      .eq("id", companyId);
+    if (error) throw new Error(error.message);
+    return { hermes_secret: secret };
+  });
+
 export const getHotmartConfig = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => CompanyInput.parse(input ?? {}))

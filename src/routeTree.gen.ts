@@ -28,6 +28,7 @@ import { Route as ApiPublicCeletusWebhookRouteImport } from './routes/api/public
 import { Route as ApiPublicHotmartWebhookRouteImport } from './routes/api/public/hotmart-webhook'
 import { Route as AuthenticatedCompanySlugPedidoJobIdRouteImport } from './routes/_authenticated/$companySlug/pedido.$jobId'
 import { Route as AuthenticatedCompanySlugProdutoProductIdRouteImport } from './routes/_authenticated/$companySlug/produto.$productId'
+import { Route as ApiPublicHermesSplatRouteImport } from './routes/api/public/hermes/$'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -136,6 +137,11 @@ const AuthenticatedCompanySlugProdutoProductIdRoute =
     path: '/$companySlug/produto/$productId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiPublicHermesSplatRoute = ApiPublicHermesSplatRouteImport.update({
+  id: '/api/public/hermes/$',
+  path: '/api/public/hermes/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -156,6 +162,7 @@ export interface FileRoutesByFullPath {
   '/$companySlug/': typeof AuthenticatedCompanySlugIndexRoute
   '/$companySlug/pedido/$jobId': typeof AuthenticatedCompanySlugPedidoJobIdRoute
   '/$companySlug/produto/$productId': typeof AuthenticatedCompanySlugProdutoProductIdRoute
+  '/api/public/hermes/$': typeof ApiPublicHermesSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -176,6 +183,7 @@ export interface FileRoutesByTo {
   '/$companySlug': typeof AuthenticatedCompanySlugIndexRoute
   '/$companySlug/pedido/$jobId': typeof AuthenticatedCompanySlugPedidoJobIdRoute
   '/$companySlug/produto/$productId': typeof AuthenticatedCompanySlugProdutoProductIdRoute
+  '/api/public/hermes/$': typeof ApiPublicHermesSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -198,6 +206,7 @@ export interface FileRoutesById {
   '/_authenticated/$companySlug/': typeof AuthenticatedCompanySlugIndexRoute
   '/_authenticated/$companySlug/pedido/$jobId': typeof AuthenticatedCompanySlugPedidoJobIdRoute
   '/_authenticated/$companySlug/produto/$productId': typeof AuthenticatedCompanySlugProdutoProductIdRoute
+  '/api/public/hermes/$': typeof ApiPublicHermesSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -220,6 +229,7 @@ export interface FileRouteTypes {
     | '/$companySlug/'
     | '/$companySlug/pedido/$jobId'
     | '/$companySlug/produto/$productId'
+    | '/api/public/hermes/$'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -240,6 +250,7 @@ export interface FileRouteTypes {
     | '/$companySlug'
     | '/$companySlug/pedido/$jobId'
     | '/$companySlug/produto/$productId'
+    | '/api/public/hermes/$'
   id:
     | '__root__'
     | '/'
@@ -261,6 +272,7 @@ export interface FileRouteTypes {
     | '/_authenticated/$companySlug/'
     | '/_authenticated/$companySlug/pedido/$jobId'
     | '/_authenticated/$companySlug/produto/$productId'
+    | '/api/public/hermes/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -270,6 +282,7 @@ export interface RootRouteChildren {
   TannusRoute: typeof TannusRoute
   ApiPublicCeletusWebhookRoute: typeof ApiPublicCeletusWebhookRoute
   ApiPublicHotmartWebhookRoute: typeof ApiPublicHotmartWebhookRoute
+  ApiPublicHermesSplatRoute: typeof ApiPublicHermesSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -407,6 +420,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCompanySlugProdutoProductIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/hermes/$': {
+      id: '/api/public/hermes/$'
+      path: '/api/public/hermes/$'
+      fullPath: '/api/public/hermes/$'
+      preLoaderRoute: typeof ApiPublicHermesSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -457,6 +477,7 @@ const rootRouteChildren: RootRouteChildren = {
   TannusRoute: TannusRoute,
   ApiPublicCeletusWebhookRoute: ApiPublicCeletusWebhookRoute,
   ApiPublicHotmartWebhookRoute: ApiPublicHotmartWebhookRoute,
+  ApiPublicHermesSplatRoute: ApiPublicHermesSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
