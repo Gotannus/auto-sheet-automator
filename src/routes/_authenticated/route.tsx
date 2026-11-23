@@ -12,13 +12,10 @@ import {
   Eye,
   Wallet,
   TrendingUp,
+  ShieldCheck,
 } from "lucide-react";
 
-
-import {
-  companyPath,
-  getCompanySlugFromPath,
-} from "@/lib/celetus/workspaces";
+import { companyPath, getCompanySlugFromPath } from "@/lib/celetus/workspaces";
 import { getCompanyBySlug } from "@/lib/celetus/companies.functions";
 
 export const Route = createFileRoute("/_authenticated")({
@@ -55,7 +52,10 @@ function AuthedLayout() {
                 Visão Geral
               </NavItem>
             )}
-            <NavItem to={companyPath(slug, "dashboard")} icon={<LayoutDashboard className="h-4 w-4" />}>
+            <NavItem
+              to={companyPath(slug, "dashboard")}
+              icon={<LayoutDashboard className="h-4 w-4" />}
+            >
               Dashboard
             </NavItem>
             <NavItem to={companyPath(slug, "projecao")} icon={<TrendingUp className="h-4 w-4" />}>
@@ -67,6 +67,9 @@ function AuthedLayout() {
             </NavItem>
             <NavItem to={companyPath(slug, "products")} icon={<Package className="h-4 w-4" />}>
               Produtos
+            </NavItem>
+            <NavItem to={companyPath(slug, "validacao")} icon={<ShieldCheck className="h-4 w-4" />}>
+              Validação
             </NavItem>
             <NavItem to={companyPath(slug, "expenses")} icon={<Wallet className="h-4 w-4" />}>
               Despesas

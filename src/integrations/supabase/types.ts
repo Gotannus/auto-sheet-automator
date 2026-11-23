@@ -554,6 +554,30 @@ export type Database = {
         }
         Relationships: []
       }
+      validation_settings: {
+        Row: {
+          cpa_max: number
+          min_invest: number
+          roas_target: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cpa_max?: number
+          min_invest?: number
+          roas_target?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cpa_max?: number
+          min_invest?: number
+          roas_target?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       webhook_config: {
         Row: {
           created_at: string

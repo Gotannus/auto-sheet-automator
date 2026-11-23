@@ -619,11 +619,20 @@ export type DailySummaryTotals = {
   ticket: number;
 };
 
+export type DailySummaryProductDayRow = {
+  product_id: string;
+  date: string; // YYYY-MM-DD
+  sales: number;
+  revenue: number;
+  invest_final: number;
+};
+
 export type DailySummaryResult = {
   from: string;
   to: string;
   totals: DailySummaryTotals;
   by_product: DailySummaryProductRow[];
+  by_product_day: DailySummaryProductDayRow[];
 };
 
 export const getDailySummary = createServerFn({ method: "POST" })
@@ -872,6 +881,22 @@ export async function computeDailySummary(
     const revenueTax = t.revenue * revenueTaxRate;
     const profit = t.revenue - revenueTax - t.invest_final;
 
+    // Série diária por produto (para gráficos), com as mesmas regras acima.
+    const dayKeys = new Set<string>([...aggByPD.keys(), ...investByPD.keys()]);
+    const byProductDay: DailySummaryProductDayRow[] = [];
+    for (const k of dayKeys) {
+      const [pid, date] = k.split("::");
+      const a = aggByPD.get(k);
+      byProductDay.push({
+        product_id: pid,
+        date,
+        sales: a?.sales ?? 0,
+        revenue: a?.revenue ?? 0,
+        invest_final: (investByPD.get(k) ?? 0) * (1 + investmentTaxRate),
+      });
+    }
+    byProductDay.sort((x, y) => x.date.localeCompare(y.date));
+
     return {
       from: data.from,
       to: data.to,
@@ -890,6 +915,7 @@ export async function computeDailySummary(
         ticket: t.sales > 0 ? t.revenue / t.sales : 0,
       },
       by_product: byProduct,
+      by_product_day: byProductDay,
     };
 }
 

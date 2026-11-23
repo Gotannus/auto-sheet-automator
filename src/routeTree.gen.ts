@@ -21,6 +21,7 @@ import { Route as AuthenticatedCompanySlugProductsRouteImport } from './routes/_
 import { Route as AuthenticatedCompanySlugProjecaoRouteImport } from './routes/_authenticated/$companySlug/projecao'
 import { Route as AuthenticatedCompanySlugSalesRouteImport } from './routes/_authenticated/$companySlug/sales'
 import { Route as AuthenticatedCompanySlugSettingsRouteImport } from './routes/_authenticated/$companySlug/settings'
+import { Route as AuthenticatedCompanySlugValidacaoRouteImport } from './routes/_authenticated/$companySlug/validacao'
 import { Route as AuthenticatedCompanySlugVisaoGeralRouteImport } from './routes/_authenticated/$companySlug/visao-geral'
 import { Route as AuthenticatedCompanySlugWebhookRouteImport } from './routes/_authenticated/$companySlug/webhook'
 import { Route as AuthenticatedCompanySlugWebhookLogsRouteImport } from './routes/_authenticated/$companySlug/webhook-logs'
@@ -97,6 +98,12 @@ const AuthenticatedCompanySlugSettingsRoute =
     path: '/$companySlug/settings',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedCompanySlugValidacaoRoute =
+  AuthenticatedCompanySlugValidacaoRouteImport.update({
+    id: '/$companySlug/validacao',
+    path: '/$companySlug/validacao',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedCompanySlugVisaoGeralRoute =
   AuthenticatedCompanySlugVisaoGeralRouteImport.update({
     id: '/$companySlug/visao-geral',
@@ -154,6 +161,7 @@ export interface FileRoutesByFullPath {
   '/$companySlug/projecao': typeof AuthenticatedCompanySlugProjecaoRoute
   '/$companySlug/sales': typeof AuthenticatedCompanySlugSalesRoute
   '/$companySlug/settings': typeof AuthenticatedCompanySlugSettingsRoute
+  '/$companySlug/validacao': typeof AuthenticatedCompanySlugValidacaoRoute
   '/$companySlug/visao-geral': typeof AuthenticatedCompanySlugVisaoGeralRoute
   '/$companySlug/webhook': typeof AuthenticatedCompanySlugWebhookRoute
   '/$companySlug/webhook-logs': typeof AuthenticatedCompanySlugWebhookLogsRoute
@@ -175,6 +183,7 @@ export interface FileRoutesByTo {
   '/$companySlug/projecao': typeof AuthenticatedCompanySlugProjecaoRoute
   '/$companySlug/sales': typeof AuthenticatedCompanySlugSalesRoute
   '/$companySlug/settings': typeof AuthenticatedCompanySlugSettingsRoute
+  '/$companySlug/validacao': typeof AuthenticatedCompanySlugValidacaoRoute
   '/$companySlug/visao-geral': typeof AuthenticatedCompanySlugVisaoGeralRoute
   '/$companySlug/webhook': typeof AuthenticatedCompanySlugWebhookRoute
   '/$companySlug/webhook-logs': typeof AuthenticatedCompanySlugWebhookLogsRoute
@@ -198,6 +207,7 @@ export interface FileRoutesById {
   '/_authenticated/$companySlug/projecao': typeof AuthenticatedCompanySlugProjecaoRoute
   '/_authenticated/$companySlug/sales': typeof AuthenticatedCompanySlugSalesRoute
   '/_authenticated/$companySlug/settings': typeof AuthenticatedCompanySlugSettingsRoute
+  '/_authenticated/$companySlug/validacao': typeof AuthenticatedCompanySlugValidacaoRoute
   '/_authenticated/$companySlug/visao-geral': typeof AuthenticatedCompanySlugVisaoGeralRoute
   '/_authenticated/$companySlug/webhook': typeof AuthenticatedCompanySlugWebhookRoute
   '/_authenticated/$companySlug/webhook-logs': typeof AuthenticatedCompanySlugWebhookLogsRoute
@@ -221,6 +231,7 @@ export interface FileRouteTypes {
     | '/$companySlug/projecao'
     | '/$companySlug/sales'
     | '/$companySlug/settings'
+    | '/$companySlug/validacao'
     | '/$companySlug/visao-geral'
     | '/$companySlug/webhook'
     | '/$companySlug/webhook-logs'
@@ -242,6 +253,7 @@ export interface FileRouteTypes {
     | '/$companySlug/projecao'
     | '/$companySlug/sales'
     | '/$companySlug/settings'
+    | '/$companySlug/validacao'
     | '/$companySlug/visao-geral'
     | '/$companySlug/webhook'
     | '/$companySlug/webhook-logs'
@@ -264,6 +276,7 @@ export interface FileRouteTypes {
     | '/_authenticated/$companySlug/projecao'
     | '/_authenticated/$companySlug/sales'
     | '/_authenticated/$companySlug/settings'
+    | '/_authenticated/$companySlug/validacao'
     | '/_authenticated/$companySlug/visao-geral'
     | '/_authenticated/$companySlug/webhook'
     | '/_authenticated/$companySlug/webhook-logs'
@@ -371,6 +384,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCompanySlugSettingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/$companySlug/validacao': {
+      id: '/_authenticated/$companySlug/validacao'
+      path: '/$companySlug/validacao'
+      fullPath: '/$companySlug/validacao'
+      preLoaderRoute: typeof AuthenticatedCompanySlugValidacaoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/$companySlug/visao-geral': {
       id: '/_authenticated/$companySlug/visao-geral'
       path: '/$companySlug/visao-geral'
@@ -438,6 +458,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCompanySlugProjecaoRoute: typeof AuthenticatedCompanySlugProjecaoRoute
   AuthenticatedCompanySlugSalesRoute: typeof AuthenticatedCompanySlugSalesRoute
   AuthenticatedCompanySlugSettingsRoute: typeof AuthenticatedCompanySlugSettingsRoute
+  AuthenticatedCompanySlugValidacaoRoute: typeof AuthenticatedCompanySlugValidacaoRoute
   AuthenticatedCompanySlugVisaoGeralRoute: typeof AuthenticatedCompanySlugVisaoGeralRoute
   AuthenticatedCompanySlugWebhookRoute: typeof AuthenticatedCompanySlugWebhookRoute
   AuthenticatedCompanySlugWebhookLogsRoute: typeof AuthenticatedCompanySlugWebhookLogsRoute
@@ -455,6 +476,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCompanySlugProjecaoRoute: AuthenticatedCompanySlugProjecaoRoute,
   AuthenticatedCompanySlugSalesRoute: AuthenticatedCompanySlugSalesRoute,
   AuthenticatedCompanySlugSettingsRoute: AuthenticatedCompanySlugSettingsRoute,
+  AuthenticatedCompanySlugValidacaoRoute:
+    AuthenticatedCompanySlugValidacaoRoute,
   AuthenticatedCompanySlugVisaoGeralRoute:
     AuthenticatedCompanySlugVisaoGeralRoute,
   AuthenticatedCompanySlugWebhookRoute: AuthenticatedCompanySlugWebhookRoute,
