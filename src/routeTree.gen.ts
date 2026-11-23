@@ -9,28 +9,33 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as TannusRouteImport } from './routes/tannus'
-import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as TannusRouteImport } from './routes/tannus'
 import { Route as AuthenticatedCompanySlugIndexRouteImport } from './routes/_authenticated/$companySlug/index'
-import { Route as ApiPublicHotmartWebhookRouteImport } from './routes/api/public/hotmart-webhook'
-import { Route as ApiPublicCeletusWebhookRouteImport } from './routes/api/public/celetus-webhook'
-import { Route as AuthenticatedCompanySlugWebhookLogsRouteImport } from './routes/_authenticated/$companySlug/webhook-logs'
-import { Route as AuthenticatedCompanySlugWebhookRouteImport } from './routes/_authenticated/$companySlug/webhook'
-import { Route as AuthenticatedCompanySlugVisaoGeralRouteImport } from './routes/_authenticated/$companySlug/visao-geral'
-import { Route as AuthenticatedCompanySlugSettingsRouteImport } from './routes/_authenticated/$companySlug/settings'
-import { Route as AuthenticatedCompanySlugSalesRouteImport } from './routes/_authenticated/$companySlug/sales'
-import { Route as AuthenticatedCompanySlugProjecaoRouteImport } from './routes/_authenticated/$companySlug/projecao'
-import { Route as AuthenticatedCompanySlugProductsRouteImport } from './routes/_authenticated/$companySlug/products'
-import { Route as AuthenticatedCompanySlugImportRouteImport } from './routes/_authenticated/$companySlug/import'
-import { Route as AuthenticatedCompanySlugExpensesRouteImport } from './routes/_authenticated/$companySlug/expenses'
 import { Route as AuthenticatedCompanySlugDashboardRouteImport } from './routes/_authenticated/$companySlug/dashboard'
+import { Route as AuthenticatedCompanySlugExpensesRouteImport } from './routes/_authenticated/$companySlug/expenses'
+import { Route as AuthenticatedCompanySlugImportRouteImport } from './routes/_authenticated/$companySlug/import'
+import { Route as AuthenticatedCompanySlugProductsRouteImport } from './routes/_authenticated/$companySlug/products'
+import { Route as AuthenticatedCompanySlugProjecaoRouteImport } from './routes/_authenticated/$companySlug/projecao'
+import { Route as AuthenticatedCompanySlugSalesRouteImport } from './routes/_authenticated/$companySlug/sales'
+import { Route as AuthenticatedCompanySlugSettingsRouteImport } from './routes/_authenticated/$companySlug/settings'
+import { Route as AuthenticatedCompanySlugVisaoGeralRouteImport } from './routes/_authenticated/$companySlug/visao-geral'
+import { Route as AuthenticatedCompanySlugWebhookRouteImport } from './routes/_authenticated/$companySlug/webhook'
+import { Route as AuthenticatedCompanySlugWebhookLogsRouteImport } from './routes/_authenticated/$companySlug/webhook-logs'
+import { Route as ApiPublicCeletusWebhookRouteImport } from './routes/api/public/celetus-webhook'
+import { Route as ApiPublicHotmartWebhookRouteImport } from './routes/api/public/hotmart-webhook'
+import { Route as AuthenticatedCompanySlugPedidoJobIdRouteImport } from './routes/_authenticated/$companySlug/pedido.$jobId'
 import { Route as AuthenticatedCompanySlugProdutoProductIdRouteImport } from './routes/_authenticated/$companySlug/produto.$productId'
 
-const TannusRoute = TannusRouteImport.update({
-  id: '/tannus',
-  path: '/tannus',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -38,13 +43,9 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
-  id: '/_authenticated',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const TannusRoute = TannusRouteImport.update({
+  id: '/tannus',
+  path: '/tannus',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedCompanySlugIndexRoute =
@@ -53,62 +54,10 @@ const AuthenticatedCompanySlugIndexRoute =
     path: '/$companySlug/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const ApiPublicHotmartWebhookRoute = ApiPublicHotmartWebhookRouteImport.update({
-  id: '/api/public/hotmart-webhook',
-  path: '/api/public/hotmart-webhook',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicCeletusWebhookRoute = ApiPublicCeletusWebhookRouteImport.update({
-  id: '/api/public/celetus-webhook',
-  path: '/api/public/celetus-webhook',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedCompanySlugWebhookLogsRoute =
-  AuthenticatedCompanySlugWebhookLogsRouteImport.update({
-    id: '/$companySlug/webhook-logs',
-    path: '/$companySlug/webhook-logs',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedCompanySlugWebhookRoute =
-  AuthenticatedCompanySlugWebhookRouteImport.update({
-    id: '/$companySlug/webhook',
-    path: '/$companySlug/webhook',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedCompanySlugVisaoGeralRoute =
-  AuthenticatedCompanySlugVisaoGeralRouteImport.update({
-    id: '/$companySlug/visao-geral',
-    path: '/$companySlug/visao-geral',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedCompanySlugSettingsRoute =
-  AuthenticatedCompanySlugSettingsRouteImport.update({
-    id: '/$companySlug/settings',
-    path: '/$companySlug/settings',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedCompanySlugSalesRoute =
-  AuthenticatedCompanySlugSalesRouteImport.update({
-    id: '/$companySlug/sales',
-    path: '/$companySlug/sales',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedCompanySlugProjecaoRoute =
-  AuthenticatedCompanySlugProjecaoRouteImport.update({
-    id: '/$companySlug/projecao',
-    path: '/$companySlug/projecao',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedCompanySlugProductsRoute =
-  AuthenticatedCompanySlugProductsRouteImport.update({
-    id: '/$companySlug/products',
-    path: '/$companySlug/products',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedCompanySlugImportRoute =
-  AuthenticatedCompanySlugImportRouteImport.update({
-    id: '/$companySlug/import',
-    path: '/$companySlug/import',
+const AuthenticatedCompanySlugDashboardRoute =
+  AuthenticatedCompanySlugDashboardRouteImport.update({
+    id: '/$companySlug/dashboard',
+    path: '/$companySlug/dashboard',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedCompanySlugExpensesRoute =
@@ -117,10 +66,68 @@ const AuthenticatedCompanySlugExpensesRoute =
     path: '/$companySlug/expenses',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedCompanySlugDashboardRoute =
-  AuthenticatedCompanySlugDashboardRouteImport.update({
-    id: '/$companySlug/dashboard',
-    path: '/$companySlug/dashboard',
+const AuthenticatedCompanySlugImportRoute =
+  AuthenticatedCompanySlugImportRouteImport.update({
+    id: '/$companySlug/import',
+    path: '/$companySlug/import',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedCompanySlugProductsRoute =
+  AuthenticatedCompanySlugProductsRouteImport.update({
+    id: '/$companySlug/products',
+    path: '/$companySlug/products',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedCompanySlugProjecaoRoute =
+  AuthenticatedCompanySlugProjecaoRouteImport.update({
+    id: '/$companySlug/projecao',
+    path: '/$companySlug/projecao',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedCompanySlugSalesRoute =
+  AuthenticatedCompanySlugSalesRouteImport.update({
+    id: '/$companySlug/sales',
+    path: '/$companySlug/sales',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedCompanySlugSettingsRoute =
+  AuthenticatedCompanySlugSettingsRouteImport.update({
+    id: '/$companySlug/settings',
+    path: '/$companySlug/settings',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedCompanySlugVisaoGeralRoute =
+  AuthenticatedCompanySlugVisaoGeralRouteImport.update({
+    id: '/$companySlug/visao-geral',
+    path: '/$companySlug/visao-geral',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedCompanySlugWebhookRoute =
+  AuthenticatedCompanySlugWebhookRouteImport.update({
+    id: '/$companySlug/webhook',
+    path: '/$companySlug/webhook',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedCompanySlugWebhookLogsRoute =
+  AuthenticatedCompanySlugWebhookLogsRouteImport.update({
+    id: '/$companySlug/webhook-logs',
+    path: '/$companySlug/webhook-logs',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const ApiPublicCeletusWebhookRoute = ApiPublicCeletusWebhookRouteImport.update({
+  id: '/api/public/celetus-webhook',
+  path: '/api/public/celetus-webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicHotmartWebhookRoute = ApiPublicHotmartWebhookRouteImport.update({
+  id: '/api/public/hotmart-webhook',
+  path: '/api/public/hotmart-webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedCompanySlugPedidoJobIdRoute =
+  AuthenticatedCompanySlugPedidoJobIdRouteImport.update({
+    id: '/$companySlug/pedido/$jobId',
+    path: '/$companySlug/pedido/$jobId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedCompanySlugProdutoProductIdRoute =
@@ -147,6 +154,7 @@ export interface FileRoutesByFullPath {
   '/api/public/celetus-webhook': typeof ApiPublicCeletusWebhookRoute
   '/api/public/hotmart-webhook': typeof ApiPublicHotmartWebhookRoute
   '/$companySlug/': typeof AuthenticatedCompanySlugIndexRoute
+  '/$companySlug/pedido/$jobId': typeof AuthenticatedCompanySlugPedidoJobIdRoute
   '/$companySlug/produto/$productId': typeof AuthenticatedCompanySlugProdutoProductIdRoute
 }
 export interface FileRoutesByTo {
@@ -166,6 +174,7 @@ export interface FileRoutesByTo {
   '/api/public/celetus-webhook': typeof ApiPublicCeletusWebhookRoute
   '/api/public/hotmart-webhook': typeof ApiPublicHotmartWebhookRoute
   '/$companySlug': typeof AuthenticatedCompanySlugIndexRoute
+  '/$companySlug/pedido/$jobId': typeof AuthenticatedCompanySlugPedidoJobIdRoute
   '/$companySlug/produto/$productId': typeof AuthenticatedCompanySlugProdutoProductIdRoute
 }
 export interface FileRoutesById {
@@ -187,6 +196,7 @@ export interface FileRoutesById {
   '/api/public/celetus-webhook': typeof ApiPublicCeletusWebhookRoute
   '/api/public/hotmart-webhook': typeof ApiPublicHotmartWebhookRoute
   '/_authenticated/$companySlug/': typeof AuthenticatedCompanySlugIndexRoute
+  '/_authenticated/$companySlug/pedido/$jobId': typeof AuthenticatedCompanySlugPedidoJobIdRoute
   '/_authenticated/$companySlug/produto/$productId': typeof AuthenticatedCompanySlugProdutoProductIdRoute
 }
 export interface FileRouteTypes {
@@ -208,6 +218,7 @@ export interface FileRouteTypes {
     | '/api/public/celetus-webhook'
     | '/api/public/hotmart-webhook'
     | '/$companySlug/'
+    | '/$companySlug/pedido/$jobId'
     | '/$companySlug/produto/$productId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -227,6 +238,7 @@ export interface FileRouteTypes {
     | '/api/public/celetus-webhook'
     | '/api/public/hotmart-webhook'
     | '/$companySlug'
+    | '/$companySlug/pedido/$jobId'
     | '/$companySlug/produto/$productId'
   id:
     | '__root__'
@@ -247,6 +259,7 @@ export interface FileRouteTypes {
     | '/api/public/celetus-webhook'
     | '/api/public/hotmart-webhook'
     | '/_authenticated/$companySlug/'
+    | '/_authenticated/$companySlug/pedido/$jobId'
     | '/_authenticated/$companySlug/produto/$productId'
   fileRoutesById: FileRoutesById
 }
@@ -261,18 +274,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/tannus': {
-      id: '/tannus'
-      path: '/tannus'
-      fullPath: '/tannus'
-      preLoaderRoute: typeof TannusRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -282,11 +288,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tannus': {
+      id: '/tannus'
+      path: '/tannus'
+      fullPath: '/tannus'
+      preLoaderRoute: typeof TannusRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/$companySlug/': {
@@ -296,74 +309,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCompanySlugIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/api/public/hotmart-webhook': {
-      id: '/api/public/hotmart-webhook'
-      path: '/api/public/hotmart-webhook'
-      fullPath: '/api/public/hotmart-webhook'
-      preLoaderRoute: typeof ApiPublicHotmartWebhookRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/celetus-webhook': {
-      id: '/api/public/celetus-webhook'
-      path: '/api/public/celetus-webhook'
-      fullPath: '/api/public/celetus-webhook'
-      preLoaderRoute: typeof ApiPublicCeletusWebhookRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/$companySlug/webhook-logs': {
-      id: '/_authenticated/$companySlug/webhook-logs'
-      path: '/$companySlug/webhook-logs'
-      fullPath: '/$companySlug/webhook-logs'
-      preLoaderRoute: typeof AuthenticatedCompanySlugWebhookLogsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/$companySlug/webhook': {
-      id: '/_authenticated/$companySlug/webhook'
-      path: '/$companySlug/webhook'
-      fullPath: '/$companySlug/webhook'
-      preLoaderRoute: typeof AuthenticatedCompanySlugWebhookRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/$companySlug/visao-geral': {
-      id: '/_authenticated/$companySlug/visao-geral'
-      path: '/$companySlug/visao-geral'
-      fullPath: '/$companySlug/visao-geral'
-      preLoaderRoute: typeof AuthenticatedCompanySlugVisaoGeralRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/$companySlug/settings': {
-      id: '/_authenticated/$companySlug/settings'
-      path: '/$companySlug/settings'
-      fullPath: '/$companySlug/settings'
-      preLoaderRoute: typeof AuthenticatedCompanySlugSettingsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/$companySlug/sales': {
-      id: '/_authenticated/$companySlug/sales'
-      path: '/$companySlug/sales'
-      fullPath: '/$companySlug/sales'
-      preLoaderRoute: typeof AuthenticatedCompanySlugSalesRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/$companySlug/projecao': {
-      id: '/_authenticated/$companySlug/projecao'
-      path: '/$companySlug/projecao'
-      fullPath: '/$companySlug/projecao'
-      preLoaderRoute: typeof AuthenticatedCompanySlugProjecaoRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/$companySlug/products': {
-      id: '/_authenticated/$companySlug/products'
-      path: '/$companySlug/products'
-      fullPath: '/$companySlug/products'
-      preLoaderRoute: typeof AuthenticatedCompanySlugProductsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/$companySlug/import': {
-      id: '/_authenticated/$companySlug/import'
-      path: '/$companySlug/import'
-      fullPath: '/$companySlug/import'
-      preLoaderRoute: typeof AuthenticatedCompanySlugImportRouteImport
+    '/_authenticated/$companySlug/dashboard': {
+      id: '/_authenticated/$companySlug/dashboard'
+      path: '/$companySlug/dashboard'
+      fullPath: '/$companySlug/dashboard'
+      preLoaderRoute: typeof AuthenticatedCompanySlugDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/$companySlug/expenses': {
@@ -373,11 +323,81 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCompanySlugExpensesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/$companySlug/dashboard': {
-      id: '/_authenticated/$companySlug/dashboard'
-      path: '/$companySlug/dashboard'
-      fullPath: '/$companySlug/dashboard'
-      preLoaderRoute: typeof AuthenticatedCompanySlugDashboardRouteImport
+    '/_authenticated/$companySlug/import': {
+      id: '/_authenticated/$companySlug/import'
+      path: '/$companySlug/import'
+      fullPath: '/$companySlug/import'
+      preLoaderRoute: typeof AuthenticatedCompanySlugImportRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/$companySlug/products': {
+      id: '/_authenticated/$companySlug/products'
+      path: '/$companySlug/products'
+      fullPath: '/$companySlug/products'
+      preLoaderRoute: typeof AuthenticatedCompanySlugProductsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/$companySlug/projecao': {
+      id: '/_authenticated/$companySlug/projecao'
+      path: '/$companySlug/projecao'
+      fullPath: '/$companySlug/projecao'
+      preLoaderRoute: typeof AuthenticatedCompanySlugProjecaoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/$companySlug/sales': {
+      id: '/_authenticated/$companySlug/sales'
+      path: '/$companySlug/sales'
+      fullPath: '/$companySlug/sales'
+      preLoaderRoute: typeof AuthenticatedCompanySlugSalesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/$companySlug/settings': {
+      id: '/_authenticated/$companySlug/settings'
+      path: '/$companySlug/settings'
+      fullPath: '/$companySlug/settings'
+      preLoaderRoute: typeof AuthenticatedCompanySlugSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/$companySlug/visao-geral': {
+      id: '/_authenticated/$companySlug/visao-geral'
+      path: '/$companySlug/visao-geral'
+      fullPath: '/$companySlug/visao-geral'
+      preLoaderRoute: typeof AuthenticatedCompanySlugVisaoGeralRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/$companySlug/webhook': {
+      id: '/_authenticated/$companySlug/webhook'
+      path: '/$companySlug/webhook'
+      fullPath: '/$companySlug/webhook'
+      preLoaderRoute: typeof AuthenticatedCompanySlugWebhookRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/$companySlug/webhook-logs': {
+      id: '/_authenticated/$companySlug/webhook-logs'
+      path: '/$companySlug/webhook-logs'
+      fullPath: '/$companySlug/webhook-logs'
+      preLoaderRoute: typeof AuthenticatedCompanySlugWebhookLogsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/api/public/celetus-webhook': {
+      id: '/api/public/celetus-webhook'
+      path: '/api/public/celetus-webhook'
+      fullPath: '/api/public/celetus-webhook'
+      preLoaderRoute: typeof ApiPublicCeletusWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hotmart-webhook': {
+      id: '/api/public/hotmart-webhook'
+      path: '/api/public/hotmart-webhook'
+      fullPath: '/api/public/hotmart-webhook'
+      preLoaderRoute: typeof ApiPublicHotmartWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/$companySlug/pedido/$jobId': {
+      id: '/_authenticated/$companySlug/pedido/$jobId'
+      path: '/$companySlug/pedido/$jobId'
+      fullPath: '/$companySlug/pedido/$jobId'
+      preLoaderRoute: typeof AuthenticatedCompanySlugPedidoJobIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/$companySlug/produto/$productId': {
@@ -402,6 +422,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCompanySlugWebhookRoute: typeof AuthenticatedCompanySlugWebhookRoute
   AuthenticatedCompanySlugWebhookLogsRoute: typeof AuthenticatedCompanySlugWebhookLogsRoute
   AuthenticatedCompanySlugIndexRoute: typeof AuthenticatedCompanySlugIndexRoute
+  AuthenticatedCompanySlugPedidoJobIdRoute: typeof AuthenticatedCompanySlugPedidoJobIdRoute
   AuthenticatedCompanySlugProdutoProductIdRoute: typeof AuthenticatedCompanySlugProdutoProductIdRoute
 }
 
@@ -420,6 +441,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCompanySlugWebhookLogsRoute:
     AuthenticatedCompanySlugWebhookLogsRoute,
   AuthenticatedCompanySlugIndexRoute: AuthenticatedCompanySlugIndexRoute,
+  AuthenticatedCompanySlugPedidoJobIdRoute:
+    AuthenticatedCompanySlugPedidoJobIdRoute,
   AuthenticatedCompanySlugProdutoProductIdRoute:
     AuthenticatedCompanySlugProdutoProductIdRoute,
 }

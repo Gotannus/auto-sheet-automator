@@ -1,5 +1,11 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
-import { queryOptions, useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import {
+  queryOptions,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import {
@@ -36,6 +42,11 @@ import {
 import { Plus, Trash2, Pencil, ArrowRight, Pin } from "lucide-react";
 import { toast } from "sonner";
 import { isValidSlug } from "@/lib/celetus/workspaces";
+import { listProductJobs } from "@/lib/celetus/product-jobs.functions";
+import {
+  CreateProductJobDialog,
+  JobStatusBadge,
+} from "@/components/product-jobs/ProductJobParts";
 
 const productsQO = (companySlug: string) =>
   queryOptions({
@@ -162,16 +173,21 @@ function ProductsPage() {
             aparecem na Projeção e no menu.
           </p>
         </div>
-        <ProductDialog
-          trigger={
-            <Button>
-              <Plus className="h-4 w-4 mr-1" /> Novo produto
-            </Button>
-          }
-          title="Novo produto"
-          onSubmit={(v) => createMut.mutateAsync(v)}
-        />
+        <div className="flex items-center gap-2">
+          <CreateProductJobDialog companySlug={companySlug} />
+          <ProductDialog
+            trigger={
+              <Button>
+                <Plus className="h-4 w-4 mr-1" /> Novo produto
+              </Button>
+            }
+            title="Novo produto"
+            onSubmit={(v) => createMut.mutateAsync(v)}
+          />
+        </div>
       </header>
+
+      <ProductJobsInProgress companySlug={companySlug} />
 
       <div className="flex items-center gap-1 text-sm">
         {(["active", "inactive", "all"] as Filter[]).map((f) => (
@@ -285,6 +301,44 @@ function ProductsPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function ProductJobsInProgress({ companySlug }: { companySlug: string }) {
+  const { data: jobs } = useQuery({
+    queryKey: ["product-jobs", companySlug],
+    queryFn: () => listProductJobs({ data: { company_slug: companySlug } }),
+    refetchInterval: (q) =>
+      (q.state.data ?? []).some((j) => j.status === "na_fila" || j.status === "criando")
+        ? 15000
+        : false,
+  });
+  if (!jobs || jobs.length === 0) return null;
+  return (
+    <Card>
+      <CardContent className="p-4 space-y-2">
+        <h2 className="text-sm font-semibold">Em criação</h2>
+        <ul className="divide-y">
+          {jobs.map((j) => (
+            <li key={j.id}>
+              <Link
+                to="/$companySlug/pedido/$jobId"
+                params={{ companySlug, jobId: j.id }}
+                className="flex items-center gap-3 py-2 hover:text-primary transition"
+              >
+                <JobStatusBadge status={j.status} />
+                <span className="font-medium truncate">{j.briefing?.tema ?? "Produto"}</span>
+                <span className="text-xs text-muted-foreground hidden sm:inline">
+                  {j.briefing?.tipo}
+                </span>
+                <span className="ml-auto font-mono text-xs text-muted-foreground">{j.src}</span>
+                <ArrowRight className="h-3.5 w-3.5 opacity-60" />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
   );
 }
 

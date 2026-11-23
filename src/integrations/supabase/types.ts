@@ -424,6 +424,62 @@ export type Database = {
         }
         Relationships: []
       }
+      product_jobs: {
+        Row: {
+          briefing: Json
+          celetus_prompt: string | null
+          checkout_url: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          product_id: string | null
+          progress: Json
+          result: Json | null
+          src: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          briefing?: Json
+          celetus_prompt?: string | null
+          checkout_url?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          product_id?: string | null
+          progress?: Json
+          result?: Json | null
+          src: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          briefing?: Json
+          celetus_prompt?: string | null
+          checkout_url?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          product_id?: string | null
+          progress?: Json
+          result?: Json | null
+          src?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_jobs_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           created_at: string
